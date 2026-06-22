@@ -190,12 +190,15 @@ export default function HomePage() {
     }
     setAiGenerating(true);
     setAiPreview("");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120_000); // 2 min timeout
     try {
       // Create project first
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: aiTopic.trim(), projectFormat: format }),
+        signal: controller.signal,
       });
       if (!res.ok) throw new Error("创建项目失败");
       const project = await res.json();
@@ -205,6 +208,7 @@ export default function HomePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic: aiTopic.trim() }),
+        signal: controller.signal,
       });
       if (!genRes.ok || !genRes.body) throw new Error("生成请求失败");
 
@@ -220,7 +224,9 @@ export default function HomePage() {
       }
 
       if (!totalText.trim() || totalText.startsWith("[错误]")) {
-        setAiPreview(totalText || "生成失败，请重试");
+        const errMsg = totalText.replace("[错误]", "").trim() || "生成失败，请重试";
+        setActionError(`❌ ${errMsg}`);
+        setAiPreview("");
         setAiGenerating(false);
         return;
       }
@@ -228,8 +234,14 @@ export default function HomePage() {
       await uploadRefImages(project.id);
       router.push(`/projects/${project.id}?autostart=1`);
     } catch (err) {
-      setActionError(`生成失败：${err instanceof Error ? err.message : "网络错误，请重试"}`);
+      if ((err as Error).name === "AbortError") {
+        setActionError("⏱ 生成超时（2分钟），请缩短主题或检查网络后重试");
+      } else {
+        setActionError(`❌ 生成失败：${err instanceof Error ? err.message : "网络错误，请重试"}`);
+      }
       setAiGenerating(false);
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
