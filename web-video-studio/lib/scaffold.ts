@@ -334,13 +334,21 @@ export function startScaffold(
       fs.rmSync(exampleDir, { recursive: true });
     }
 
-    // Reset chapters.ts to an empty registry
+    // Only reset chapters.ts to empty if it currently only has the example chapter
+    // (i.e., no real chapters have been built by the AI pipeline yet).
+    // This prevents scaffold restarts from wiping out existing chapter code.
     const chaptersTs = path.join(presDir, "src/registry/chapters.ts");
     if (fs.existsSync(chaptersTs)) {
-      fs.writeFileSync(
-        chaptersTs,
-        `import type { ChapterDef } from "./types";\n\nexport const CHAPTERS: ChapterDef[] = [];\n`
-      );
+      const currentChapters = fs.readFileSync(chaptersTs, "utf-8");
+      // Check if chapters.ts has any real chapter imports (non-empty entries)
+      const hasChapters = /\{[^}]*id:\s*"[^"]+"/.test(currentChapters);
+      if (!hasChapters) {
+        fs.writeFileSync(
+          chaptersTs,
+          `import type { ChapterDef } from "./types";\n\nexport const CHAPTERS: ChapterDef[] = [];\n`
+        );
+      }
+      // else: keep existing chapters — they were built by the AI pipeline
     }
 
     // ── Brand shell: compile intro/outro if brand config exists ──────

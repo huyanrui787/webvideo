@@ -686,9 +686,9 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           }
 
           // summary: read existing plan from disk
-          const planPath = require("path").join(require("@/lib/projects").projectDir(projectId), ".material-plan.json");
-          if (require("fs").existsSync(planPath)) {
-            const plan = JSON.parse(require("fs").readFileSync(planPath, "utf-8"));
+          const planPath = path.join(projectDir(projectId), ".material-plan.json");
+          if (fs.existsSync(planPath)) {
+            const plan = JSON.parse(fs.readFileSync(planPath, "utf-8"));
             const summary = generateMaterialGapSummary(plan);
             return { success: true, action: "summary", summary, plan };
           }

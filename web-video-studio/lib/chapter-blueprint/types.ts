@@ -12,14 +12,6 @@
 
 import { z } from "zod";
 
-// Import precise slot schemas from new templates for L2 validation
-import { TimelineSlots } from "./templates/timeline";
-import { ComparisonTableSlots } from "./templates/comparison-table";
-import { BeforeAfterSlots } from "./templates/before-after";
-import { AnatomySlots } from "./templates/anatomy";
-import { ProgressBarSlots } from "./templates/progress-bar";
-import { TestimonialSlots } from "./templates/testimonial";
-
 // ═══════════════════════════════════════════════════════════════════════════════
 // Template IDs
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -280,12 +272,12 @@ const SLOT_SCHEMAS = {
   "code-showcase": CodeShowcaseSlots,
   "quote-card": QuoteCardSlots,
   "grid-gallery": GridGallerySlots,
-  "timeline": TimelineSlots,
-  "comparison-table": ComparisonTableSlots,
-  "before-after": BeforeAfterSlots,
-  "anatomy": AnatomySlots,
-  "progress-bar": ProgressBarSlots,
-  "testimonial": TestimonialSlots,
+  "timeline": z.object({ items: z.array(z.any()).min(2) }),
+  "comparison-table": z.object({ headers: z.array(z.string()), rows: z.array(z.any()) }),
+  "before-after": z.object({ before: z.any(), after: z.any() }),
+  "anatomy": z.object({ mainImage: z.any(), labels: z.array(z.any()) }),
+  "progress-bar": z.object({ value: z.number(), label: z.string() }),
+  "testimonial": z.object({ quote: z.string(), attribution: z.any() }),
 } as const satisfies Record<TemplateId, z.ZodObject<any>>;
 
 /** Legacy: get slot schema by template ID. Prefer importing directly from template module. */
