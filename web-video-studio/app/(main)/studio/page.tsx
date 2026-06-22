@@ -312,6 +312,26 @@ export default function HomePage() {
             {/* Left: mode selector */}
             <div className="w-44 shrink-0 min-h-0 border-r border-bd p-3 flex flex-col gap-1.5 overflow-y-auto">
               <button
+                onClick={() => setMode("ai")}
+                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-colors ${
+                  mode === "ai"
+                    ? "bg-surface2 text-t1"
+                    : "text-t3 hover:text-t2 hover:bg-surface"
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${mode === "ai" ? "bg-violet-500/20 text-violet-400" : "bg-surface2 text-t3"}`}>
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 1l1.5 3.5L13 6l-3.5 1.5L8 11l-1.5-3.5L3 6l3.5-1.5z"/>
+                    <path d="M13 10l.8 1.8 1.8.8-1.8.8-.8 1.8-.8-1.8-1.8-.8 1.8-.8z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs font-medium leading-tight">AI 生成</p>
+                  <p className="text-[10px] text-t4 mt-0.5 leading-snug">输入主题即可</p>
+                </div>
+              </button>
+
+              <button
                 onClick={() => setMode("file")}
                 className={`flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-colors ${
                   mode === "file"
@@ -391,26 +411,6 @@ export default function HomePage() {
                 <div>
                   <p className="text-xs font-medium leading-tight">产品讲解</p>
                   <p className="text-[10px] text-t4 mt-0.5 leading-snug">网站 · 演示</p>
-                </div>
-              </button>
-
-              <button
-                onClick={() => setMode("ai")}
-                className={`flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-colors ${
-                  mode === "ai"
-                    ? "bg-surface2 text-t1"
-                    : "text-t3 hover:text-t2 hover:bg-surface"
-                }`}
-              >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${mode === "ai" ? "bg-violet-500/20 text-violet-400" : "bg-surface2 text-t3"}`}>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M8 1l1.5 3.5L13 6l-3.5 1.5L8 11l-1.5-3.5L3 6l3.5-1.5z"/>
-                    <path d="M13 10l.8 1.8 1.8.8-1.8.8-.8 1.8-.8-1.8-1.8-.8 1.8-.8z"/>
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-xs font-medium leading-tight">AI 生成</p>
-                  <p className="text-[10px] text-t4 mt-0.5 leading-snug">输入主题即可</p>
                 </div>
               </button>
 
