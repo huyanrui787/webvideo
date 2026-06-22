@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import type { ScaffoldError } from "@/stores/project-store";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -9,21 +10,28 @@ export type ButtonMode =
   | "ready-to-build"
   | "scaffolding"
   | "scaffold-error"
+  | "scaffold-degraded"   // scaffold partial failure but may still work
   | "dev-needed"
   | "dev-starting"
   | "dev-error"
-  | "preview-active"
-  | "preview-active-building"
-  | "preview-active-ai"
+  | "dev-crashed"
+  | "preview-ok"          // fully working
+  | "preview-degraded"    // working but some chapters have errors
+  | "preview-bare"        // dev server running but no chapters compile
+  | "preview-building"
+  | "preview-ai"
   | "build-error"
-  | "project-done"
-  | "dev-crashed";
+  | "project-done";
 
 export interface PreviewLifecycleButtonProps {
   scaffold: "idle" | "running" | "done" | "error";
+  scaffoldProgress?: { stage: string; pct: number } | null;
+  scaffoldError?: ScaffoldError | null;
+  scaffoldRetries?: number;
   devPort: number | null;
   devStarting: boolean;
   devError: string | null;
+  devDegraded?: boolean;
   buildStatus: "idle" | "running" | "done" | "error";
   buildDoneChapters: number;
   buildTotalChapters: number;
@@ -39,36 +47,51 @@ export interface PreviewLifecycleButtonProps {
   onRefreshPreview: () => void;
   onRebuild: () => void;
   onFullscreen: () => void;
-  onTakeManualControl: () => void;
+  onTryDegradedStart?: () => void;
+  onViewScaffoldLogs?: () => void;
   variant: "titlebar" | "placeholder";
 }
 
-// ─── Mode derivation ─────────────────────────────────────────────────────────
+// ─── Mode derivation (fixed priority) ────────────────────────────────────────
 
 export function deriveButtonMode(props: PreviewLifecycleButtonProps): ButtonMode {
-  if (props.scaffold === "error") return "scaffold-error";
+  // Tier 1: scaffold is actively running
   if (props.scaffold === "running") return "scaffolding";
+
+  // Tier 2: dev port exists — preview is active at some level
+  if (props.devPort !== null) {
+    if ((props.devDegraded ?? false) && props.buildErrorCount >= Math.max(props.buildTotalChapters, 1)) return "preview-bare";
+    if (props.devDegraded ?? false) return "preview-degraded";
+    if (props.buildErrorCount > 0 && (props.buildStatus === "error" || props.buildStatus === "idle")) return "build-error";
+    if (props.buildStatus === "running") return "preview-building";
+    if (props.isStreaming) return "preview-ai";
+    if (props.projectStatus === "done") return "project-done";
+    return "preview-ok";
+  }
+
+  // Tier 3: dev-related error states (only when no port)
+  if (props.devCrashed) return "dev-crashed";
   if (props.devError) return "dev-error";
   if (props.devStarting) return "dev-starting";
 
-  if (props.devPort !== null) {
-    if (props.buildErrorCount > 0 && (props.buildStatus === "error" || props.buildStatus === "idle"))
-      return "build-error";
-    if (props.buildStatus === "running") return "preview-active-building";
-    if (props.isStreaming) return "preview-active-ai";
-    if (props.projectStatus === "done") return "project-done";
-    return "preview-active";
+  // Tier 4: scaffold states (no dev port yet)
+  if (props.scaffold === "error") {
+    // After 2+ retries, suggest degraded start
+    if ((props.scaffoldRetries ?? 0) >= 2) return "scaffold-degraded";
+    return "scaffold-error";
   }
 
-  if (props.scaffold === "done") {
-    if (props.devCrashed) return "dev-crashed";
-    return "dev-needed";
-  }
+  // Tier 5: scaffold done — ready for dev
+  if (props.scaffold === "done") return "dev-needed";
+
+  // Tier 6: ready to scaffold
   if (props.projectStatus === "building" || props.scaffoldStale) return "ready-to-build";
+
+  // Tier 7: waiting
   return "idle-writing";
 }
 
-// ─── Mode → composed class resolver ──────────────────────────────────────────
+// ─── Mode → visual resolver ──────────────────────────────────────────────────
 
 interface ModeVisual {
   label: string;
@@ -90,11 +113,20 @@ function resolveMode(mode: ButtonMode, props: PreviewLifecycleButtonProps): Mode
         icon: "▶", cssClass: "plb--call", disabled: false, showChevron: false, showProgress: false,
       };
 
-    case "scaffolding":
-      return { label: "环境初始化中…", icon: "", cssClass: "plb--working", disabled: true, showChevron: false, showProgress: false };
+    case "scaffolding": {
+      const p = props.scaffoldProgress;
+      const label = p ? `${stageLabel(p.stage)} ${p.pct}%` : "环境初始化中…";
+      return { label, icon: "", cssClass: "plb--working", disabled: true, showChevron: false, showProgress: true };
+    }
 
-    case "scaffold-error":
-      return { label: "重试初始化", icon: "↻", cssClass: "plb--danger", disabled: false, showChevron: false, showProgress: false };
+    case "scaffold-error": {
+      const e = props.scaffoldError;
+      const label = e?.type ? `初始化失败 · ${errorTypeLabel(e.type)}` : "重试初始化";
+      return { label, icon: "↻", cssClass: "plb--danger", disabled: false, showChevron: false, showProgress: false };
+    }
+
+    case "scaffold-degraded":
+      return { label: "跳过初始化 · 尝试启动", icon: "⚠", cssClass: "plb--warning", disabled: false, showChevron: false, showProgress: false };
 
     case "dev-needed":
       return {
@@ -108,16 +140,28 @@ function resolveMode(mode: ButtonMode, props: PreviewLifecycleButtonProps): Mode
     case "dev-error":
       return { label: "重试启动", icon: "↻", cssClass: "plb--warning", disabled: false, showChevron: false, showProgress: false };
 
-    case "preview-active":
-      return { label: "刷新", icon: "↻", cssClass: "plb--neutral", disabled: false, showChevron: true, showProgress: false };
+    case "dev-crashed":
+      return { label: "重新连接", icon: "↻", cssClass: "plb--warn", disabled: false, showChevron: false, showProgress: false };
 
-    case "preview-active-building": {
+    case "preview-ok":
+      return { label: "预览中", icon: "✓", cssClass: "plb--ok", disabled: false, showChevron: true, showProgress: false };
+
+    case "preview-degraded":
+      return {
+        label: `预览 · ${props.buildDoneChapters}/${props.buildTotalChapters || 1} 章`,
+        icon: "⚠", cssClass: "plb--warn-ok", disabled: false, showChevron: true, showProgress: false,
+      };
+
+    case "preview-bare":
+      return { label: "框架运行 · 无章节", icon: "△", cssClass: "plb--bare", disabled: false, showChevron: true, showProgress: false };
+
+    case "preview-building": {
       const d = props.buildDoneChapters;
       const t = props.buildTotalChapters || 1;
       return { label: `构建中 ${d}/${t}`, icon: "⚡", cssClass: "plb--neutral", disabled: false, showChevron: true, showProgress: true };
     }
 
-    case "preview-active-ai":
+    case "preview-ai":
       return { label: "AI 工作中…", icon: "↻", cssClass: "plb--neutral", disabled: false, showChevron: true, showProgress: false };
 
     case "build-error":
@@ -126,11 +170,50 @@ function resolveMode(mode: ButtonMode, props: PreviewLifecycleButtonProps): Mode
     case "project-done":
       return { label: "项目已完成", icon: "✓", cssClass: "plb--done", disabled: false, showChevron: true, showProgress: false };
 
-    case "dev-crashed":
-      return { label: "重新连接", icon: "↻", cssClass: "plb--warn", disabled: false, showChevron: false, showProgress: false };
-
     default:
       return { label: "预览", icon: "🎬", cssClass: "plb--neutral", disabled: false, showChevron: false, showProgress: false };
+  }
+}
+
+function stageLabel(stage: string): string {
+  const map: Record<string, string> = {
+    "npm-install": "安装依赖", "vite-create": "创建项目", "theme-copy": "复制主题",
+    "cleanup": "清理", "done": "完成",
+  };
+  return map[stage] ?? stage;
+}
+
+function errorTypeLabel(type: string): string {
+  const map: Record<string, string> = {
+    network: "网络问题", npm: "依赖安装", vite: "Vite 错误",
+    disk: "磁盘空间", timeout: "超时", unknown: "未知错误",
+  };
+  return map[type] ?? type;
+}
+
+// ─── Tooltip builder ──────────────────────────────────────────────────────────
+
+function buildTooltip(mode: ButtonMode, props: PreviewLifecycleButtonProps): string {
+  switch (mode) {
+    case "scaffolding": {
+      const p = props.scaffoldProgress;
+      return p ? `脚手架运行中：${stageLabel(p.stage)} (${p.pct}%)` : "脚手架正在初始化，请等待完成";
+    }
+    case "scaffold-error": {
+      const e = props.scaffoldError;
+      const retries = props.scaffoldRetries ?? 0;
+      return e
+        ? `${e.message}\n建议：${e.suggestion}\n已重试 ${retries} 次`
+        : `脚手架初始化失败，已重试 ${retries} 次，点击重试`;
+    }
+    case "scaffold-degraded":
+      return "脚手架部分失败，但核心文件可能仍可用。尝试跳过错误启动开发服务器（可能不可用）";
+    case "preview-degraded":
+      return `${props.buildDoneChapters}/${props.buildTotalChapters} 章编译通过，${props.buildErrorCount} 章有错误。预览可正常播放通过的章节`;
+    case "preview-bare":
+      return "开发服务器运行中，但无成功编译的章节。请在编辑器中修复章节代码";
+    default:
+      return "";
   }
 }
 
@@ -140,15 +223,17 @@ export function PreviewLifecycleButton(props: PreviewLifecycleButtonProps) {
   const mode = deriveButtonMode(props);
   const vis = resolveMode(mode, props);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [errorExpanded, setErrorExpanded] = useState(false);
 
   const handleClick = useCallback(() => {
     if (vis.disabled) return;
-    props.onTakeManualControl();
-
     switch (mode) {
       case "ready-to-build":
       case "scaffold-error":
         props.onStartScaffold();
+        break;
+      case "scaffold-degraded":
+        props.onTryDegradedStart?.();
         break;
       case "dev-needed":
         props.onStartDevServer();
@@ -157,9 +242,11 @@ export function PreviewLifecycleButton(props: PreviewLifecycleButtonProps) {
       case "dev-crashed":
         props.onStartDevServer();
         break;
-      case "preview-active":
-      case "preview-active-building":
-      case "preview-active-ai":
+      case "preview-ok":
+      case "preview-degraded":
+      case "preview-bare":
+      case "preview-building":
+      case "preview-ai":
       case "build-error":
       case "project-done":
         props.onRefreshPreview();
@@ -174,10 +261,10 @@ export function PreviewLifecycleButton(props: PreviewLifecycleButtonProps) {
     if (vis.showChevron) setDropdownOpen((v) => !v);
   }, [vis.showChevron]);
 
-  // Dropdown items
   const hasDropdown =
-    mode === "preview-active" || mode === "preview-active-building" ||
-    mode === "preview-active-ai" || mode === "build-error" || mode === "project-done";
+    mode === "preview-ok" || mode === "preview-degraded" || mode === "preview-bare" ||
+    mode === "preview-building" || mode === "preview-ai" ||
+    mode === "build-error" || mode === "project-done";
 
   const dropdownItems = hasDropdown
     ? [
@@ -190,14 +277,18 @@ export function PreviewLifecycleButton(props: PreviewLifecycleButtonProps) {
     : [];
 
   const showSpinner = mode === "dev-starting" || mode === "scaffolding";
-  const showPulseDot = mode === "preview-active-ai";
+  const showPulseDot = mode === "preview-ai";
+  const showErrorDetail = (mode === "scaffold-error" || mode === "scaffold-degraded") && (props.scaffoldError ?? null);
 
   const progressPct =
-    props.buildTotalChapters > 0
-      ? Math.round((props.buildDoneChapters / props.buildTotalChapters) * 100)
-      : 0;
+    mode === "scaffolding" && (props.scaffoldProgress ?? null)
+      ? (props.scaffoldProgress ?? { pct: 0 }).pct
+      : props.buildTotalChapters > 0
+        ? Math.round((props.buildDoneChapters / props.buildTotalChapters) * 100)
+        : 0;
 
   const sizeClass = props.variant === "titlebar" ? "plb--sm" : "plb--lg";
+  const tooltip = buildTooltip(mode, props);
 
   return (
     <div className="relative shrink-0">
@@ -205,36 +296,12 @@ export function PreviewLifecycleButton(props: PreviewLifecycleButtonProps) {
         onClick={handleClick}
         disabled={vis.disabled}
         className={`plb ${sizeClass} ${vis.cssClass}`}
-        title={
-          mode === "idle-writing" ? "AI 正在分析内容，完成后方可构建"
-          : mode === "ready-to-build" ? "初始化项目开发环境（运行 scaffold.sh）"
-          : mode === "scaffolding" ? "脚手架正在初始化，请等待完成"
-          : mode === "scaffold-error" ? "脚手架初始化失败，点击重试"
-          : mode === "dev-needed" ? "启动 Vite 开发服务器进行预览"
-          : mode === "dev-starting" ? "开发服务器启动中…"
-          : mode === "dev-error" ? (props.devError ?? "启动失败，点击重试")
-          : mode === "dev-crashed" ? "开发服务器已断开，点击重连"
-          : mode === "preview-active" ? "刷新预览"
-          : mode === "preview-active-building" ? `构建进度 ${props.buildDoneChapters}/${props.buildTotalChapters} 章节`
-          : mode === "preview-active-ai" ? "AI 正在生成内容，可刷新查看"
-          : mode === "build-error" ? `${props.buildErrorCount} 个章节构建失败`
-          : mode === "project-done" ? "项目已完成"
-          : ""
-        }
+        title={tooltip || undefined}
       >
-        {/* Spinner */}
         {showSpinner && <span className="plb-spinner" />}
-
-        {/* Icon */}
         {!showSpinner && <span className="plb-icon">{vis.icon}</span>}
-
-        {/* Label */}
         <span className="plb-label">{vis.label}</span>
-
-        {/* Pulse dot for AI streaming */}
         {showPulseDot && <span className="plb-dot" />}
-
-        {/* Chevron */}
         {vis.showChevron && (
           <span onClick={handleChevronClick} className={`plb-chevron ${dropdownOpen ? "plb-chevron--open" : ""}`}>
             ▾
@@ -246,6 +313,26 @@ export function PreviewLifecycleButton(props: PreviewLifecycleButtonProps) {
       {vis.showProgress && (
         <div className="plb-progress">
           <div className="plb-progress-bar" style={{ width: `${progressPct}%` }} />
+        </div>
+      )}
+
+      {/* Error detail expander */}
+      {showErrorDetail && (
+        <div className="plb-error-detail">
+          <button
+            className="plb-error-toggle"
+            onClick={() => setErrorExpanded((v) => !v)}
+          >
+            {errorExpanded ? "收起" : "查看详情"}
+          </button>
+          {errorExpanded && props.scaffoldError && (
+            <div className="plb-error-body">
+              <div className="plb-error-type">{errorTypeLabel(props.scaffoldError.type)}</div>
+              <div className="plb-error-msg">{props.scaffoldError.message}</div>
+              <div className="plb-error-suggestion">{props.scaffoldError.suggestion}</div>
+              <div className="plb-error-retries">已重试 {props.scaffoldRetries ?? 0} 次</div>
+            </div>
+          )}
         </div>
       )}
 
@@ -268,6 +355,9 @@ export function PreviewLifecycleButton(props: PreviewLifecycleButtonProps) {
               <>
                 <div className="plb-dropdown-sep" />
                 <div className="plb-dropdown-info">端口 :{props.devPort}</div>
+                {props.devDegraded && (
+                  <div className="plb-dropdown-info plb-dropdown-info--warn">部分章节有编译错误</div>
+                )}
               </>
             )}
           </div>

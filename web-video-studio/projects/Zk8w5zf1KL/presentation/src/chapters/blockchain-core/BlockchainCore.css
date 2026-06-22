@@ -1,0 +1,8 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * 人人都有一本公开账本
+ * Auto-generated from chapter blueprint. Edit the blueprint, not this file.
+ * ───────────────────────────────────────────────────────────────────── */
+
+.ch-blockchain-core { color: var(--text); }
+
+.ch-flow { flex: 1; display: flex; align-items: center; justify-content: center; padding: var(--stage-pad-y) var(--stage-pad-x); }

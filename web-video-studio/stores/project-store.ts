@@ -10,22 +10,37 @@ import type { Project } from "@/lib/db/schema";
 type WS = "idle" | "running" | "done" | "error";
 type WB = "audio" | "bgm" | "avatar" | "illust-timeline" | "article-layout" | null;
 
+/** Structured scaffold error for transparent user feedback */
+export interface ScaffoldError {
+  type: "network" | "npm" | "vite" | "disk" | "timeout" | "unknown";
+  message: string;
+  suggestion: string;
+}
+
 interface DevSlice {
   devPort: number | null;
   devStarting: boolean;
   devError: string | null;
   devCrashed: boolean;
+  devDegraded: boolean;
   setDevPort: (port: number | null) => void;
   setDevStarting: (v: boolean) => void;
   setDevError: (e: string | null) => void;
   setDevCrashed: (v: boolean) => void;
+  setDevDegraded: (v: boolean) => void;
 }
 
 interface ScaffoldSlice {
   scaffold: WS;
   scaffoldStale: boolean;
+  scaffoldProgress: { stage: string; pct: number } | null;
+  scaffoldError: ScaffoldError | null;
+  scaffoldRetries: number;
   setScaffold: (s: WS) => void;
   setScaffoldStale: (v: boolean) => void;
+  setScaffoldProgress: (p: { stage: string; pct: number } | null) => void;
+  setScaffoldError: (e: ScaffoldError | null) => void;
+  incScaffoldRetries: () => void;
 }
 
 interface BuildSlice {
@@ -74,16 +89,20 @@ export type ProjectStore = DevSlice & ScaffoldSlice & BuildSlice & PlaybackSlice
 
 export const useProjectStore = create<ProjectStore>((set) => ({
   // ── Dev ──
-  devPort: null, devStarting: false, devError: null, devCrashed: false,
+  devPort: null, devStarting: false, devError: null, devCrashed: false, devDegraded: false,
   setDevPort: (port) => set({ devPort: port }),
   setDevStarting: (v) => set({ devStarting: v }),
   setDevError: (e) => set({ devError: e }),
   setDevCrashed: (v) => set({ devCrashed: v }),
+  setDevDegraded: (v) => set({ devDegraded: v }),
 
   // ── Scaffold ──
-  scaffold: "idle", scaffoldStale: false,
+  scaffold: "idle", scaffoldStale: false, scaffoldProgress: null, scaffoldError: null, scaffoldRetries: 0,
   setScaffold: (s) => set({ scaffold: s }),
   setScaffoldStale: (v) => set({ scaffoldStale: v }),
+  setScaffoldProgress: (p) => set({ scaffoldProgress: p }),
+  setScaffoldError: (e) => set({ scaffoldError: e }),
+  incScaffoldRetries: () => set((s) => ({ scaffoldRetries: s.scaffoldRetries + 1 })),
 
   // ── Build ──
   buildJob: null, chapters: [], chStepCounts: {},

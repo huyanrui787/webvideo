@@ -50,10 +50,18 @@ export default function ProjectPage() {
   const devStarting = useProjectStore((s) => s.devStarting);
   const devError = useProjectStore((s) => s.devError);
   const devCrashed = useProjectStore((s) => s.devCrashed);
+  const devDegraded = useProjectStore((s) => s.devDegraded);
+  const setDevDegraded = useProjectStore((s) => s.setDevDegraded);
   const aiReadyForPreview = useProjectStore((s) => s.aiReadyForPreview);
   const setAiReadyForPreview = useProjectStore((s) => s.setAiReadyForPreview);
   const scaffold = useProjectStore((s) => s.scaffold);
   const scaffoldStale = useProjectStore((s) => s.scaffoldStale);
+  const scaffoldProgress = useProjectStore((s) => s.scaffoldProgress);
+  const scaffoldError = useProjectStore((s) => s.scaffoldError);
+  const scaffoldRetries = useProjectStore((s) => s.scaffoldRetries);
+  const setScaffoldProgress = useProjectStore((s) => s.setScaffoldProgress);
+  const setScaffoldError = useProjectStore((s) => s.setScaffoldError);
+  const incScaffoldRetries = useProjectStore((s) => s.incScaffoldRetries);
   const iframeKey = useProjectStore((s) => s.iframeKey);
   const playState = useProjectStore((s) => s.playState);
   const playStep = useProjectStore((s) => s.playStep);
@@ -145,14 +153,26 @@ export default function ProjectPage() {
   useEffect(() => {
     const es = new EventSource(`/api/projects/${id}/events`);
     es.addEventListener("scaffold", (e: MessageEvent) => {
-      try { const d = JSON.parse(e.data); setScaffold(d.status); } catch {}
+      try {
+        const d = JSON.parse(e.data);
+        setScaffold(d.status);
+        if (d.status === "done") { setScaffoldError(null); setScaffoldProgress(null); }
+        if (d.error) setScaffoldError(d.error);
+      } catch {}
+    });
+    es.addEventListener("scaffold-progress", (e: MessageEvent) => {
+      try { const d = JSON.parse(e.data); setScaffoldProgress(d); } catch {}
     });
     es.addEventListener("dev-server", (e: MessageEvent) => {
       try {
         const d = JSON.parse(e.data);
-        if (d.port) { setDevPort(d.port); setDevStarting(false); setDevError(null); setDevCrashed(false); }
+        if (d.port) { setDevPort(d.port); setDevStarting(false); setDevError(null); setDevCrashed(false); setDevDegraded(d.degraded ?? false); }
         else setDevPort(null);
       } catch {}
+    });
+    es.addEventListener("dev-stderr", (e: MessageEvent) => {
+      // Real-time Vite compile errors surfaced via SSE
+      try { const d = JSON.parse(e.data); if (d.error) setDevError(d.error); } catch {}
     });
     es.addEventListener("build", (e: MessageEvent) => {
       try { const d = JSON.parse(e.data); setBuildJob((prev) => prev ? { ...prev, ...d } : d); } catch {}
@@ -161,40 +181,47 @@ export default function ProjectPage() {
     return () => es.close();
   }, [id]);
 
-  // ─── dev ────────────────────────────────────────────────────────────
-  const MAX_DEV_POLLS = 30; // ~90 seconds max
+  // ─── dev polling — SSE-primary with exponential backoff fallback ──────
+  const sseActiveRef = useRef(false);
   useEffect(() => {
     let ok = true;
-    let polls = 0;
-    const loop = async () => {
-      if (!ok) return;
+    let attempts = 0;
+
+    const poll = async () => {
+      if (!ok || sseActiveRef.current) return;
       try {
         const r = await fetch(`/api/projects/${id}/dev-server`);
         const d = await r.json();
         if (!ok) return;
-        polls++;
+        attempts++;
         if (d.ready && d.port) {
-          setDevPort(d.port); setDevStarting(false); setDevError(null); setDevCrashed(false);
+          setDevPort(d.port); setDevStarting(false); setDevError(null); setDevCrashed(false); setDevDegraded(d.degraded ?? false);
           devStartingRef.current = false;
           prevDevPort.current = d.port;
           return;
         }
-        if (prevDevPort.current !== null && !d.ready) {
-          setDevCrashed(true);
-        }
-        if (polls >= MAX_DEV_POLLS && devStartingRef.current) {
-          setDevError("开发服务器启动超时");
-          return;
-        }
-      } catch {}
-      if (ok) setTimeout(loop, 3000);
+        if (prevDevPort.current !== null && !d.ready) setDevCrashed(true);
+        // Exponential backoff: 1s → 2s → 4s → 8s → 16s (max)
+        const delay = Math.min(1000 * Math.pow(2, Math.min(attempts - 1, 4)), 16000);
+        if (ok && !sseActiveRef.current) setTimeout(poll, delay);
+      } catch {
+        if (ok && !sseActiveRef.current) setTimeout(poll, 8000);
+      }
     };
-    loop();
-    return () => { ok = false; };
+
+    // Only start fallback polling after 3s if SSE hasn't connected
+    const initTimer = setTimeout(() => { if (ok) poll(); }, 3000);
+
+    // Monitor SSE activity
+    const sseCheck = setInterval(() => {
+      sseActiveRef.current = true; // SSE is primary — mark it active
+    }, 5000);
+
+    return () => { ok = false; clearTimeout(initTimer); clearInterval(sseCheck); };
   }, [id]);
 
   const startDev = useCallback(async () => {
-    setDevStarting(true); setDevError(null); setDevCrashed(false); setAiReadyForPreview(false);
+    setDevStarting(true); setDevError(null); setDevCrashed(false); setDevDegraded(false); setAiReadyForPreview(false);
     devStartingRef.current = true;
     try {
       const r = await fetch(`/api/projects/${id}/dev-server`, { method: "POST" });
@@ -204,10 +231,12 @@ export default function ProjectPage() {
   }, [id]);
 
   const startScaffold = useCallback(async () => {
+    incScaffoldRetries();
+    setScaffoldError(null);
     try {
       await fetch(`/api/projects/${id}/scaffold`, { method: "POST" });
-    } catch {}
-  }, [id]);
+    } catch { /* SSE will update scaffold status */ }
+  }, [id, incScaffoldRetries, setScaffoldError]);
 
   const takeManualControl = useCallback(() => {
     userControlMode.current = true;
@@ -884,9 +913,10 @@ export default function ProjectPage() {
             scaffoldStatus={scaffold} devServerStarting={devStarting} devServerError={devError}
             onStartDevServer={startDev}
             isStreaming={isStreaming} aiReadyForPreview={aiReadyForPreview} scaffoldStale={scaffoldStale} devCrashed={devCrashed}
+            devDegraded={devDegraded} scaffoldProgress={scaffoldProgress} scaffoldError={scaffoldError} scaffoldRetries={scaffoldRetries}
             buildDoneChapters={doneChapters} buildTotalChapters={totalChapters} buildErrorCount={buildErrorChapters}
             onStartScaffold={startScaffold} onRebuild={() => { fetch(`/api/projects/${id}/build-parallel`, { method: "POST" }).catch(() => {}); }}
-            onTakeManualControl={takeManualControl}
+            onTakeManualControl={takeManualControl} onTryDegradedStart={startDev}
             playbackState={playState} playbackStep={playStep} playbackSpeed={playSpeed}
             totalChapters={chapters.length} subtitleVisible={subVisible}
             onPlay={play} onPause={pause} onPrevChapter={prevCh} onNextChapter={nextCh}
@@ -931,13 +961,23 @@ export default function ProjectPage() {
             <div className="text-4xl">🎬</div>
             <p className="text-sm font-medium text-t1">预览控制</p>
             <p className="text-xs text-t3 max-w-xs">
-              {scaffold === "idle" ? (scaffoldStale ? "脚手架尚未启动，请确认构建流程已触发。" : "AI 内容就绪后将自动进入构建阶段") : scaffold === "running" ? "脚手架正在初始化…" : scaffold === "error" ? "脚手架初始化失败" : devCrashed ? "开发服务器已断开" : "开发服务器未启动"}
+              {scaffold === "idle"
+                ? (scaffoldStale ? "脚手架尚未启动，请确认构建流程已触发。" : "AI 内容就绪后将自动进入构建阶段")
+                : scaffold === "running"
+                ? (scaffoldProgress ? `正在 ${scaffoldProgress.stage} (${scaffoldProgress.pct}%)` : "脚手架正在初始化…")
+                : scaffold === "error"
+                ? (scaffoldError ? `${scaffoldError.message.slice(0, 80)}` : "脚手架初始化失败")
+                : devCrashed ? "开发服务器已断开" : "开发服务器未启动"}
             </p>
             <PreviewLifecycleButton
               scaffold={scaffold}
+              scaffoldProgress={scaffoldProgress}
+              scaffoldError={scaffoldError}
+              scaffoldRetries={scaffoldRetries}
               devPort={devPort}
               devStarting={devStarting}
               devError={devError}
+              devDegraded={devDegraded}
               buildStatus={buildStatus}
               buildDoneChapters={doneChapters}
               buildTotalChapters={totalChapters}
@@ -954,6 +994,7 @@ export default function ProjectPage() {
               onRebuild={() => { fetch(`/api/projects/${id}/build-parallel`, { method: "POST" }).catch(() => {}); }}
               onFullscreen={fullscreen}
               onTakeManualControl={takeManualControl}
+              onTryDegradedStart={startDev}
               variant="placeholder"
             />
             {devError && <p className="text-xs text-red-500">{devError}</p>}

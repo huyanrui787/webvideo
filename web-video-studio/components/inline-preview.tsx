@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import type { ChapterProgress } from "./chapter-progress-panel";
 import type { PlaybackStep } from "./playback-bar";
 import { SubtitleOverlay } from "./subtitle-overlay";
-import { PreviewLifecycleButton } from "./preview-lifecycle-button";
+import { PreviewLifecycleButton, type PreviewLifecycleButtonProps } from "./preview-lifecycle-button";
 import type { Project } from "@/lib/db/schema";
 import type { ReactNode } from "react";
+import type { ScaffoldError } from "@/stores/project-store";
 
 interface Segment { chapter: string; step: number; text: string; audio: string; }
 
@@ -82,12 +83,18 @@ export interface InlinePreviewProps {
   aiReadyForPreview: boolean;
   scaffoldStale: boolean;
   devCrashed: boolean;
+  devDegraded?: boolean;
+  scaffoldProgress?: { stage: string; pct: number } | null;
+  scaffoldError?: ScaffoldError | null;
+  scaffoldRetries?: number;
   buildDoneChapters: number;
   buildTotalChapters: number;
   buildErrorCount: number;
   onStartScaffold: () => void;
   onRebuild: () => void;
   onTakeManualControl: () => void;
+  onTryDegradedStart?: () => void;
+  onViewScaffoldLogs?: () => void;
   // wysiwyg overlay (rendered inside iframe container)
   wysiwygOverlay?: ReactNode;
   iframeContainerRef?: React.RefObject<HTMLDivElement | null>;
@@ -153,12 +160,18 @@ export function InlinePreview({
   aiReadyForPreview,
   scaffoldStale,
   devCrashed,
+  devDegraded,
+  scaffoldProgress,
+  scaffoldError,
+  scaffoldRetries,
   buildDoneChapters,
   buildTotalChapters,
   buildErrorCount,
   onStartScaffold,
   onRebuild,
   onTakeManualControl,
+  onTryDegradedStart,
+  onViewScaffoldLogs,
   wysiwygOverlay,
   iframeContainerRef,
 }: InlinePreviewProps) {
@@ -297,26 +310,35 @@ export function InlinePreview({
         {/* Right: actions */}
         <div className="flex items-center gap-0.5 px-2 ml-auto">
           <PreviewLifecycleButton
-            scaffold={scaffoldStatus}
-            devPort={devPort}
-            devStarting={devServerStarting}
-            devError={devServerError ?? null}
-            buildStatus={buildStatus}
-            buildDoneChapters={buildDoneChapters}
-            buildTotalChapters={buildTotalChapters}
-            buildErrorCount={buildErrorCount}
-            projectStatus={project.status}
-            isStreaming={isStreaming}
-            aiReadyForPreview={aiReadyForPreview}
-            scaffoldStale={scaffoldStale}
-            onStartScaffold={onStartScaffold}
-            onStartDevServer={onStartDevServer}
-            onStopDevServer={onStopDevServer}
-            onRefreshPreview={onRefreshPreview}
-            onRebuild={onRebuild}
-            onFullscreen={onFullscreen}
-            onTakeManualControl={onTakeManualControl}
-            variant="titlebar"
+            {...({
+              scaffold: scaffoldStatus,
+              scaffoldProgress,
+              scaffoldError,
+              scaffoldRetries,
+              devPort,
+              devStarting: devServerStarting,
+              devError: devServerError ?? null,
+              devDegraded,
+              buildStatus,
+              buildDoneChapters,
+              buildTotalChapters,
+              buildErrorCount,
+              projectStatus: project.status,
+              isStreaming,
+              aiReadyForPreview,
+              scaffoldStale,
+              devCrashed,
+              onStartScaffold,
+              onStartDevServer,
+              onStopDevServer,
+              onRefreshPreview,
+              onRebuild,
+              onFullscreen,
+              onTakeManualControl,
+              onTryDegradedStart,
+              onViewScaffoldLogs,
+              variant: "titlebar" as const,
+            } as PreviewLifecycleButtonProps)}
           />
           {onOpenFloating && (
             <button onClick={onOpenFloating} className="flex items-center gap-1 text-xs text-t2 hover:text-t1 hover:bg-surface2 px-2 py-1 rounded-md transition-all shrink-0" title="悬浮窗口"><span className="text-[11px]">⊞</span><span className="hidden sm:inline">悬浮</span></button>

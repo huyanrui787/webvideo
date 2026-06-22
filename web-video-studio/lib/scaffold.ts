@@ -118,7 +118,27 @@ const SCAFFOLD_TIMEOUT_MS = 300_000;
 // write files and run tsc directly. The background build job (startParallelBuild)
 // is only used when blueprints are explicitly submitted via the API or UI.
 
-// ── Main ──────────────────────────────────────────────────────────────────────────
+// ── Error parsing ─────────────────────────────────────────────────────────────
+
+/** Parse scaffold output to produce structured error info */
+function parseScaffoldError(output: string, exitCode: number | null): {
+  type: "network" | "npm" | "vite" | "disk" | "timeout" | "unknown";
+  message: string;
+  suggestion: string;
+} {
+  const combined = output.toLowerCase();
+  if (combined.includes("econnreset") || combined.includes("enotfound") || combined.includes("etimedout"))
+    return { type: "network", message: "网络连接失败", suggestion: "检查网络连接，然后重试" };
+  if (combined.includes("enospc") || combined.includes("disk"))
+    return { type: "disk", message: "磁盘空间不足", suggestion: "清理磁盘空间后重试" };
+  if (combined.includes("npm err") || combined.includes("enoent") && combined.includes("node_modules"))
+    return { type: "npm", message: "npm 依赖安装失败", suggestion: "检查 package.json 和网络，然后重试" };
+  if (combined.includes("vite") && (combined.includes("error") || exitCode !== 0))
+    return { type: "vite", message: "Vite 项目创建失败", suggestion: "检查模板文件是否完整，然后重试" };
+  if (combined.includes("timeout") || combined.includes("killed"))
+    return { type: "timeout", message: "脚手架执行超时", suggestion: "项目较大时可增加超时上限，或检查网络" };
+  return { type: "unknown", message: output.slice(-200).trim() || `退出码 ${exitCode}`, suggestion: "查看完整日志排查，或跳过脚手架尝试直接启动" };
+}
 
 export function startScaffold(
   projectId: string,
@@ -247,13 +267,28 @@ export function startScaffold(
     } catch { /* ignore */ }
     job.status = "error";
     job.error = `脚手架超时（${SCAFFOLD_TIMEOUT_MS / 1000}s）`;
+    const timeoutErr = parseScaffoldError("timeout", null);
     job.finishedAt = Date.now();
     writeJobToDisk(projectId, job);
-    publishProjectEvent(projectId, "scaffold", { status: job.status, error: job.error });
+    publishProjectEvent(projectId, "scaffold", { status: job.status, error: timeoutErr });
   }, SCAFFOLD_TIMEOUT_MS);
 
-  proc.stdout.on("data", (d: Buffer) => { job.output += d.toString(); });
-  proc.stderr.on("data", (d: Buffer) => { job.output += d.toString(); });
+  proc.stdout.on("data", (d: Buffer) => {
+    const text = d.toString();
+    job.output += text;
+    // Parse structured progress: SCAFFOLD_PROGRESS:stage=npm-install:pct=45
+    const m = text.match(/SCAFFOLD_PROGRESS:stage=([^:]+):pct=(\d+)/);
+    if (m) {
+      const progress = { stage: m[1]!, pct: parseInt(m[2]!, 10) };
+      try { fs.writeFileSync(path.join(projectDir(projectId), ".scaffold-progress.json"), JSON.stringify(progress)); } catch {}
+      publishProjectEvent(projectId, "scaffold-progress" as any, progress);
+    }
+  });
+  proc.stderr.on("data", (d: Buffer) => {
+    const text = d.toString();
+    job.output += text;
+    publishProjectEvent(projectId, "dev-stderr" as any, { error: text.slice(0, 500) });
+  });
 
   proc.on("close", (code) => {
     clearTimeout(timer);
@@ -263,11 +298,12 @@ export function startScaffold(
     if (job.status === "error") return;
 
     if (code !== 0) {
+      const structuredErr = parseScaffoldError(job.output, code);
       job.status = "error";
-      job.error = `scaffold 退出码 ${code}`;
+      job.error = structuredErr.message;
       job.finishedAt = Date.now();
       writeJobToDisk(projectId, job);
-    publishProjectEvent(projectId, "scaffold", { status: job.status, error: job.error });
+    publishProjectEvent(projectId, "scaffold", { status: job.status, error: structuredErr });
 
       // Clean up incomplete dir so next attempt starts fresh
       const presDir = path.join(projectDir(projectId), "presentation");
@@ -316,11 +352,12 @@ export function startScaffold(
 
   proc.on("error", (err) => {
     clearTimeout(timer);
+    const structuredErr = parseScaffoldError(err.message, null);
     job.status = "error";
-    job.error = err.message;
+    job.error = structuredErr.message;
     job.finishedAt = Date.now();
     writeJobToDisk(projectId, job);
-    publishProjectEvent(projectId, "scaffold", { status: job.status, error: job.error });
+    publishProjectEvent(projectId, "scaffold", { status: job.status, error: structuredErr });
 
     // Clean up incomplete dir
     const presDir = path.join(projectDir(projectId), "presentation");
