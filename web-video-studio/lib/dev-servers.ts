@@ -166,14 +166,36 @@ export async function startDevServer(projectId: string): Promise<{ port: number 
   const found = findPortForProject(projectId);
   if (found && await isPortOpen(found.port)) {
     servers.set(projectId, { pid: found.pid, port: found.port });
+    publishProjectEvent(projectId, "dev-server", { port: found.port, ready: true });
     return { port: found.port };
+  }
+
+  // Scan busy ports for an orphaned Vite belonging to this project
+  // (PID file was deleted but the process is still running)
+  const presCwd = path.join(projectDir(projectId), "presentation");
+  const busy = getBusyPortsInRange();
+  for (const busyPort of busy) {
+    try {
+      const pid = parseInt(execSync(`lsof -ti :${busyPort} -sTCP:LISTEN 2>/dev/null`, { encoding: "utf-8" }).trim());
+      if (!pid) continue;
+      const procCwd = execSync(`lsof -p ${pid} -Fn 2>/dev/null | grep '^fcwd' | sed 's/^fcwd//'`, { encoding: "utf-8" }).trim();
+      if (procCwd === presCwd) {
+        // Found our orphan — rebuild PID file and track it
+        writePidFile(projectId, pid, busyPort);
+        servers.set(projectId, { pid, port: busyPort });
+        publishProjectEvent(projectId, "dev-server", { port: busyPort, ready: true });
+        return { port: busyPort };
+      }
+    } catch { /* keep scanning */ }
   }
 
   const port = await allocatePort();
   const cwd = path.join(projectDir(projectId), "presentation");
   const logFile = path.join(cwd, ".vite-dev.log");
 
-  const cmd = `nohup npm run dev -- --port ${port} --strictPort --host 127.0.0.1 > ${logFile} 2>&1 &`;
+  // Use full path to vite binary — `nohup npm run dev` may lose PATH
+  const viteBin = path.join(cwd, "node_modules", ".bin", "vite");
+  const cmd = `nohup "${viteBin}" --port ${port} --strictPort --host 127.0.0.1 > ${logFile} 2>&1 &`;
 
   await new Promise<void>((resolve, reject) => {
     execFile("sh", ["-c", cmd], { cwd }, (err) => {

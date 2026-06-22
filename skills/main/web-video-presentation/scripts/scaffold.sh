@@ -160,7 +160,7 @@ rmdir src/assets 2>/dev/null || true
 # 把脚手架文件拷到项目根
 mkdir -p \
   src/styles src/hooks src/components src/registry src/primitives \
-  src/chapters/01-example \
+  src/chapters \
   public scripts
 
 cp "$TEMPLATES/vite.config.ts" .
@@ -199,9 +199,7 @@ cp "$TEMPLATES/src/registry/chapters.ts" src/registry/chapters.ts
 cp -r "$TEMPLATES/src/primitives/"       src/primitives/
 mkdir -p src/primitives/code
 
-cp "$TEMPLATES/src/chapters/01-example/Example.tsx"     src/chapters/01-example/Example.tsx
-cp "$TEMPLATES/src/chapters/01-example/Example.css"     src/chapters/01-example/Example.css
-cp "$TEMPLATES/src/chapters/01-example/narrations.ts"   src/chapters/01-example/narrations.ts
+# Example chapter removed — projects start with clean src/chapters/ directory
 
 # Audio pipeline scripts (extract-narrations + synthesize-audio runner +
 # pluggable TTS providers under tts-providers/).
@@ -271,12 +269,12 @@ cat <<EOF
 
   • 点舞台任意位置推进全局 step 计数器。
   • 鼠标移到底部边缘可显出进度条；鼠标移到右上角可显出播放模式切换。
-  • 把 src/chapters/01-example/ 替换成你自己的章节
+  • 章节由 AI agent 通过 ProjectSetChapter 自动生成到 src/chapters/
     （流程见 SKILL.md "Phase 2.4 实现单章" —— 每章一次到位完整版本，
      不分骨架 / 精修两步；动画选型由 chapter agent 按 CHAPTER-CRAFT.md
      Part 0 原则 7 + Part 1 五问决定）。
   • 在 src/registry/chapters.ts 注册每个新章节。
-  • **每章必须有 narrations.ts**（与 Example.tsx 同目录），
+  • **每章必须有 narrations.ts**（由 ProjectSetChapter 自动生成），
     数组长度 = step 数，是音频合成 + Auto 模式的唯一真相源。
   • 章节改了就 bump src/hooks/useStepper.ts 的 STORAGE_KEY 末尾版本号。
 
