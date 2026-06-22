@@ -80,14 +80,37 @@ function getMp3Duration(filePath) {
 // ─── Timeline builder ─────────────────────────────────────────────────────────
 
 /**
- * Calculate silent-step fallback duration — mirrors App.tsx estimateMs():
- *   Math.max(1500, text.length * 250) ms → converted to seconds
+ * Calculate silent-step fallback duration with language-aware estimation.
  * MUST stay in sync with the presentation's own estimate so stepDurations
  * and the browser's internal clock agree.
+ *
+ * Reading speed model (calibrated for narration at ~160 chars/min Chinese, ~150 wpm English):
+ *   - Chinese chars: ~250ms each
+ *   - English words:  ~300ms each
+ *   - Numbers/digits: ~400ms each (slower to process)
+ *   - Punctuation pauses: ~200ms for natural breaks (，。！？、；：,.!?;:)
+ *   - Line breaks: ~500ms (paragraph pause)
+ *   - Floor: 1500ms minimum
  */
 function estimateSilentDuration(narrationText) {
-  const ms = Math.max(1500, (narrationText?.length ?? 0) * 250);
-  return ms / 1000;
+  if (!narrationText) return 1.5;
+  const text = String(narrationText);
+  const chineseChars = (text.match(/[一-鿿㐀-䶿]/g) || []).length;
+  const englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
+  const numbers = (text.match(/\d+/g) || []).length;
+  const pauses = (text.match(/[，。！？、；：,\\.!?;:]/g) || []).length;
+  const lineBreaks = (text.match(/\n/g) || []).length;
+  const otherChars = text.length - chineseChars - englishWords - numbers - pauses - lineBreaks;
+
+  const ms =
+    chineseChars * 250 +
+    englishWords * 300 +
+    numbers * 400 +
+    pauses * 200 +
+    lineBreaks * 500 +
+    Math.max(0, otherChars) * 100; // remaining characters at 100ms each
+
+  return Math.max(1500, ms) / 1000;
 }
 
 /**

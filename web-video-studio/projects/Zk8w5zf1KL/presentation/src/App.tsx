@@ -18,9 +18,28 @@ import { useCssSeek } from "./hooks/useCssSeek";
 import { useBgm } from "./hooks/useBgm";
 import { CHAPTERS } from "./registry/chapters";
 
+/**
+ * Language-aware reading duration estimator.
+ * Sync with render-worker.js:estimateSilentDuration.
+ */
 function estimateMs(text: string): number {
   if (!text) return 1500;
-  return Math.max(1500, text.length * 250);
+  const chineseChars = (text.match(/[一-鿿㐀-䶿]/g) || []).length;
+  const englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
+  const numbers = (text.match(/\d+/g) || []).length;
+  const pauses = (text.match(/[，。！？、；：,\\.!?;:]/g) || []).length;
+  const lineBreaks = (text.match(/\n/g) || []).length;
+  const otherChars = text.length - chineseChars - englishWords - numbers - pauses - lineBreaks;
+
+  const ms =
+    chineseChars * 250 +
+    englishWords * 300 +
+    numbers * 400 +
+    pauses * 200 +
+    lineBreaks * 500 +
+    Math.max(0, otherChars) * 100;
+
+  return Math.max(1500, ms);
 }
 
 /** Read `?t=<seconds>` from the URL. Returns null if not in seek mode. */

@@ -262,57 +262,95 @@ export function startParallelBuild(
 
   // Run async without blocking caller
   (async () => {
-    try {
-      for (let i = 0; i < todo.length; i++) {
-        const bp = todo[i];
-        const statusRef = chapterStatuses[i];
+    const os = await import("os");
+    const BATCH_SIZE = Math.max(2, os.cpus().length - 1); // leave one core for the server
+    const compiledResults: Array<{
+      index: number;
+      generated: GeneratedChapter;
+      bp: (typeof todo)[number];
+    } | null> = [];
 
-        statusRef.status = "building";
-        statusRef.startedAt = Date.now();
+    try {
+      // ── Phase 1: Validate & Compile in parallel batches ────────────────
+      for (let batchStart = 0; batchStart < todo.length; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, todo.length);
+        const batch = todo.slice(batchStart, batchEnd);
+
+        // Mark batch as building
+        for (let j = batchStart; j < batchEnd; j++) {
+          chapterStatuses[j].status = "building";
+          chapterStatuses[j].startedAt = Date.now();
+        }
         saveJobToDisk(projectId, job);
 
-        // ── Validate blueprint ──────────────────────────────────────────
-        const { validated, result } = validateBlueprint(bp);
-        if (!validated) {
-          statusRef.status = "error";
-          statusRef.error = formatValidationResult(result);
-          statusRef.finishedAt = Date.now();
-          saveJobToDisk(projectId, job);
-          continue;
-        }
+        // Parallel compile within batch
+        const batchResults = await Promise.all(
+          batch.map(async (bp, batchIdx) => {
+            const globalIdx = batchStart + batchIdx;
 
-        // ── Compile blueprint → TSX/CSS/narrations ──────────────────────
-        let generated: GeneratedChapter;
-        try {
-          generated = compileChapter(validated);
-        } catch (err) {
-          statusRef.status = "error";
-          statusRef.error = `编译失败: ${err instanceof Error ? err.message : String(err)}`;
-          statusRef.finishedAt = Date.now();
-          saveJobToDisk(projectId, job);
-          continue;
-        }
+            // Validate
+            const { validated, result } = validateBlueprint(bp);
+            if (!validated) {
+              chapterStatuses[globalIdx].status = "error";
+              chapterStatuses[globalIdx].error = formatValidationResult(result);
+              chapterStatuses[globalIdx].finishedAt = Date.now();
+              return null;
+            }
 
-        // ── Write files to disk ─────────────────────────────────────────
+            // Compile
+            let generated: GeneratedChapter;
+            try {
+              generated = compileChapter(validated);
+            } catch (err) {
+              chapterStatuses[globalIdx].status = "error";
+              chapterStatuses[globalIdx].error = `编译失败: ${err instanceof Error ? err.message : String(err)}`;
+              chapterStatuses[globalIdx].finishedAt = Date.now();
+              return null;
+            }
+
+            return { index: globalIdx, generated, bp };
+          })
+        );
+
+        // Save batch results
+        for (const r of batchResults) {
+          compiledResults.push(r);
+          if (!r) {
+            saveJobToDisk(projectId, job);
+            continue;
+          }
+        }
+      }
+
+      // ── Phase 2: Write all files (sequential — filesystem is the bottleneck) ──
+      const successful = compiledResults.filter((r): r is NonNullable<typeof r> => r !== null);
+      const allChapterDefs: Array<{ id: string; dirName: string; title: string }> = [];
+
+      for (const r of successful) {
+        const { generated, bp } = r;
         const chaptersDir = `presentation/src/chapters/${generated.chapterId}`;
         writeProjectFile(projectId, `${chaptersDir}/${generated.componentName}.tsx`, generated.tsx);
         writeProjectFile(projectId, `${chaptersDir}/${generated.componentName}.css`, generated.css);
         writeProjectFile(projectId, `${chaptersDir}/narrations.ts`, generated.narrations);
-
-        // ── Register in chapters.ts ─────────────────────────────────────
-        incrementalAssemble(projectId, {
+        allChapterDefs.push({
           id: generated.chapterId,
           dirName: generated.chapterId,
           title: bp.title,
-          componentName: generated.componentName,
         });
 
-        statusRef.status = "done";
-        statusRef.finishedAt = Date.now();
+        chapterStatuses[r.index].status = "done";
+        chapterStatuses[r.index].finishedAt = Date.now();
         saveJobToDisk(projectId, job);
       }
 
-      // ── Final tsc verification ────────────────────────────────────────
+      // ── Phase 3: One-shot registry assembly ────────────────────────────
+      if (allChapterDefs.length > 0) {
+        const chaptersTs = assembleFromDisk(projectId, allChapterDefs);
+        const chaptersFile = `presentation/src/registry/chapters.ts`;
+        writeProjectFile(projectId, chaptersFile, chaptersTs);
+      }
+
+      // ── Phase 4: Final tsc verification ────────────────────────────────
       job.assemblyStatus = "running";
       const tscResult = await runTsc(projectId);
       const MAX_TSC_OUTPUT = 15_000;
@@ -321,7 +359,6 @@ export function startParallelBuild(
         : tscResult.output;
 
       const allDone = chapterStatuses.every((c) => c.status === "done" || c.status === "skipped");
-      const hasErrors = chapterStatuses.some((c) => c.status === "error");
 
       if (allDone && tscResult.ok) {
         job.status = "done";

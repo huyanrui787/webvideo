@@ -7,10 +7,25 @@ export interface WysiwygEdit {
   step: number;
   selector: string;
   selectorIndex: number;
+  // Layout
   translate: string | null;
   width: string | null;
   height: string | null;
+  // Visibility & layering
   hidden: boolean;
+  opacity: number | null;       // 0-1
+  zIndex: number | null;
+  // Transform
+  scale: number | null;         // 0.5-3.0
+  // Typography
+  fontSize: string | null;      // e.g. "var(--t-h2)" or "24px"
+  color: string | null;         // only token values accepted: var(--token)
+  // Decoration
+  borderRadius: string | null;  // e.g. "8px" or "var(--radius-md)"
+  // Image
+  objectFit: "contain" | "cover" | null;
+  // Custom CSS override (for advanced users)
+  extraCSS: string | null;      // injected as inline style properties
 }
 
 export interface WysiwygManifest {

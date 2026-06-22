@@ -132,13 +132,55 @@ const DEPRECATED_TOKENS_RE = /var\(--color-|var\(--bg-|var\(--border-/;
 const HARDCODED_RADIUS_RE = /border-radius\s*:\s*(?!var\(--r|var\(--radius)/;
 const HARDCODED_SHADOW_RE = /box-shadow\s*:\s*(?!var\(--s|var\(--shadow|none)/;
 const HARDCODED_MOTION_RE = /cubic-bezier\([^)]+\)(?!\s*;)/;
+const FONT_SIZE_RE = /font-size\s*:\s*(\d+)(px|pt)/g;
+const LOW_CONTRAST_PAIRS = [
+  [/#[fF]{3,6}/g, /#[fF]{3,6}/g],          // white on white
+  [/#[eE]{2,6}/g, /#[fF]{3,6}/g],          // near-white on white
+  [/#999|#aaa|#bbb|#ccc|#ddd/, /#[fF]{3,6}/g], // grey on white
+] as const;
+const WHITESPACE_ZERO_RE = /padding\s*:\s*0[^.]|margin\s*:\s*0[^.]/;
+const NARRATION_MAX_CHARS = 500;
+const STEPS_MAX = 12;
+
+function validateContrast(cssText: string): string | null {
+  // Check for known low-contrast patterns (heuristic)
+  if (/color\s*:\s*(#[fF]{3,6}|white|#eee|#fafafa)/.test(cssText) &&
+      /background\s*:\s*(#[fF]{3,6}|white|transparent|none)\b/.test(cssText)) {
+    return "Text color may have insufficient contrast against background (WCAG AA requires 4.5:1 for body text). Use darker text on light backgrounds, or check contrast ratio.";
+  }
+  if (/font-size\s*:\s*(?:1[0-2]|\d)px/.test(cssText)) {
+    return "Font size below 14px may be unreadable at 1080p on standard displays. Consider using at least var(--t-small) or 14px+.";
+  }
+  return null;
+}
 
 function validateL3(bp: ChapterBlueprintType): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
+  // ── Chapter-level checks ──────────────────────────────────────────────
+  if (bp.steps.length > STEPS_MAX) {
+    issues.push({
+      level: "warning",
+      step: null,
+      field: "steps",
+      message: `Chapter has ${bp.steps.length} steps (recommended max: ${STEPS_MAX}). Consider splitting into multiple shorter chapters for better viewer retention.`,
+    });
+  }
+
   for (let i = 0; i < bp.steps.length; i++) {
     const step = bp.steps[i]!;
     const layout = step.layout;
+
+    // ── Narration length check ───────────────────────────────────────────
+    const narrationLen = (step.narration || "").length;
+    if (narrationLen > NARRATION_MAX_CHARS) {
+      issues.push({
+        level: "warning",
+        step: i,
+        field: `steps[${i}].narration`,
+        message: `Narration is ${narrationLen} chars (recommended max: ${NARRATION_MAX_CHARS}). Screen may not display all text. Either shorten narration or split into multiple steps.`,
+      });
+    }
 
     // Check for hardcoded colors in custom CSS/JSX
     if (layout.mode === "custom") {
@@ -191,6 +233,43 @@ function validateL3(bp: ChapterBlueprintType): ValidationIssue[] {
             message: `CSS contains hardcoded cubic-bezier(). Use var(--motion-snappy), var(--motion-smooth), var(--motion-gentle), var(--motion-spring), or var(--motion-linear).`,
           });
         }
+
+        // ── New: contrast check ──────────────────────────────────────────
+        const contrastMsg = validateContrast(layout.css);
+        if (contrastMsg) {
+          issues.push({
+            level: "warning",
+            step: i,
+            field: `steps[${i}].layout.css`,
+            message: contrastMsg,
+          });
+        }
+
+        // ── New: font size floor ─────────────────────────────────────────
+        let fsMatch: RegExpExecArray | null;
+        while ((fsMatch = FONT_SIZE_RE.exec(layout.css)) !== null) {
+          const px = parseInt(fsMatch[1], 10);
+          if (px < 14) {
+            issues.push({
+              level: "warning",
+              step: i,
+              field: `steps[${i}].layout.css`,
+              message: `Font size ${px}px may be too small for 1920×1080 video. Minimum recommended: 14px for body, 16px for headings.`,
+            });
+            break; // one warning per css block is enough
+          }
+        }
+
+        // ── New: whitespace check ────────────────────────────────────────
+        if (WHITESPACE_ZERO_RE.test(layout.css) &&
+            !/padding\s*:\s*0\s+\d|margin\s*:\s*0\s+\d/.test(layout.css)) {
+          issues.push({
+            level: "warning",
+            step: i,
+            field: `steps[${i}].layout.css`,
+            message: `Padding and margin appear to be zero — visual may feel cramped. Consider using theme spacing tokens (var(--space-3) etc.) for breathing room.`,
+          });
+        }
       }
 
       if (HARDCODED_COLORS_RE.test(layout.jsx)) {
@@ -199,6 +278,27 @@ function validateL3(bp: ChapterBlueprintType): ValidationIssue[] {
           step: i,
           field: `steps[${i}].layout.jsx`,
           message: `JSX contains hardcoded hex colors. Use var(--token) instead.`,
+        });
+      }
+    }
+
+    // ── New: composed mode — check for orphaned primitives ───────────────
+    if (layout.mode === "composed" && layout.regions) {
+      const regionCount = Object.keys(layout.regions).length;
+      if (regionCount === 0) {
+        issues.push({
+          level: "warning",
+          step: i,
+          field: `steps[${i}].layout.regions`,
+          message: `Composed layout has no regions defined — screen will be empty.`,
+        });
+      }
+      if (regionCount > 8) {
+        issues.push({
+          level: "warning",
+          step: i,
+          field: `steps[${i}].layout.regions`,
+          message: `Composed layout has ${regionCount} regions — may feel cluttered. Consider 3-6 regions for optimal clarity.`,
         });
       }
     }

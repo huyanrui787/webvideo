@@ -21,6 +21,13 @@ import {
   formatValidationResult,
 } from "@/lib/chapter-blueprint";
 import type { GeneratedChapter } from "@/lib/chapter-blueprint";
+import {
+  recordValidationFailure,
+  recordCompilationFailure,
+  recordTscFailure,
+  markResolved,
+  hashBlueprint,
+} from "@/lib/build-telemetry";
 
 const ALLOWED_PREFIXES = ["npm ", "npx ", "tsc ", "python3 ", "manim "];
 
@@ -286,7 +293,7 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
       description:
         "提交一个章节 Blueprint JSON，系统自动编译为 TSX/CSS/narrations 代码，写入文件，注册章节，并运行 tsc 验证。" +
         "Blueprint 是结构化数据，不是代码。LLM 填模板槽位即可，编译器保证代码正确性。" +
-        "支持 8 个模板：hero-title, step-reveal, data-spotlight, side-by-side, flow-diagram, code-showcase, quote-card, grid-gallery。" +
+        "支持 14 个模板：hero-title, step-reveal, data-spotlight, side-by-side, flow-diagram, code-showcase, quote-card, grid-gallery, timeline, comparison-table, before-after, anatomy, progress-bar, testimonial。" +
         "每章只需调用一次此工具，不要手工写 TSX/CSS/narrations！",
       inputSchema: z.object({
         chapterId: z.string().min(2).describe("章节 slug，如 'why-matter'"),
@@ -295,7 +302,7 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           narration: z.string().default("").describe("该步口播文本"),
           layout: z.object({
             mode: z.enum(["template","composed","custom"]),
-            template: z.enum(["hero-title","step-reveal","data-spotlight","side-by-side","flow-diagram","code-showcase","quote-card","grid-gallery"]).optional(),
+            template: z.enum(["hero-title","step-reveal","data-spotlight","side-by-side","flow-diagram","code-showcase","quote-card","grid-gallery","timeline","comparison-table","before-after","anatomy","progress-bar","testimonial"]).optional(),
             variant: z.string().optional(),
             slots: z.record(z.string(), z.any()).optional(),
             overrides: z.object({ backgroundStyle: z.enum(["solid","gradient-subtle","gradient-bold","noise"]).optional(), extraClasses: z.string().optional() }).optional(),
@@ -319,10 +326,16 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           orderHint: input.orderHint ?? 0,
         };
         const { validated, result } = validateBlueprint(bp);
-        if (!validated) return { success: false, error: formatValidationResult(result), issues: result.issues };
+        if (!validated) {
+          recordValidationFailure(projectId, bp.chapterId, bp, bp.steps[0]?.layout?.template, result.issues);
+          return { success: false, error: formatValidationResult(result), issues: result.issues };
+        }
         let generated: GeneratedChapter;
         try { generated = compileChapter(validated!); }
-        catch (err: any) { return { success: false, error: `Compile: ${err.message}` }; }
+        catch (err: any) {
+          recordCompilationFailure(projectId, bp.chapterId, bp, bp.steps[0]?.layout?.template, err.message);
+          return { success: false, error: `Compile: ${err.message}` };
+        }
         const chaptersDir = `presentation/src/chapters/${bp.chapterId}`;
         writeProjectFile(projectId, `${chaptersDir}/${generated.componentName}.tsx`, generated.tsx);
         writeProjectFile(projectId, `${chaptersDir}/${generated.componentName}.css`, generated.css);
@@ -363,10 +376,15 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
             }
             if (chapterErrors.length > 0) {
               tscWarning = `本章 tsc 错误:\n${chapterErrors.join("\n").slice(-800)}`;
+              recordTscFailure(projectId, bp.chapterId, bp, bp.steps[0]?.layout?.template, chapterErrors.join("\n"));
             }
           }
         } catch (tscErr: any) {
           tscWarning = `tsc 执行异常: ${tscErr.message}`;
+        }
+
+        if (!tscWarning) {
+          markResolved(bp.chapterId, hashBlueprint(bp), tscWarning ? `tsc warning fixed: ${tscWarning}` : undefined);
         }
 
         const baseMsg = `✅ ${bp.title} — 文件已生成，注册表已更新`;
@@ -393,7 +411,7 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
             narration: z.string().default("").describe("该步口播文本"),
             layout: z.object({
               mode: z.enum(["template","composed","custom"]),
-              template: z.enum(["hero-title","step-reveal","data-spotlight","side-by-side","flow-diagram","code-showcase","quote-card","grid-gallery"]).optional(),
+              template: z.enum(["hero-title","step-reveal","data-spotlight","side-by-side","flow-diagram","code-showcase","quote-card","grid-gallery","timeline","comparison-table","before-after","anatomy","progress-bar","testimonial"]).optional(),
               variant: z.string().optional(),
               slots: z.record(z.string(), z.any()).optional(),
               overrides: z.object({ backgroundStyle: z.enum(["solid","gradient-subtle","gradient-bold","noise"]).optional(), extraClasses: z.string().optional() }).optional(),
@@ -428,6 +446,7 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           };
           const { validated, result } = validateBlueprint(bp);
           if (!validated) {
+            recordValidationFailure(projectId, bp.chapterId, bp, bp.steps[0]?.layout?.template, result.issues);
             results.push({ chapterId: input.chapterId, title: input.title, success: false, error: formatValidationResult(result) });
           } else {
             results.push({ chapterId: input.chapterId, title: input.title, success: true, compiled: validated });
@@ -443,6 +462,7 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
             r.stepCount = generated.stepCount;
             (r as any).generated = generated;
           } catch (err: any) {
+            recordCompilationFailure(projectId, r.chapterId, r.compiled, (r as any).compiled?.steps?.[0]?.layout?.template, err.message);
             r.success = false;
             r.error = `Compile: ${err.message}`;
           }
@@ -498,6 +518,73 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           built: built.map(r => ({ chapterId: r.chapterId, title: r.title, steps: r.stepCount })),
           failed: failed.map(r => ({ chapterId: r.chapterId, title: r.title, error: r.error })),
           ...(tscWarning ? { tscWarning } : {}),
+        };
+      },
+    }),
+
+    ProjectRecommendTemplates: tool({
+      description:
+        "根据章节内容特征和语调，推荐最适合的模板组合。在编写 Blueprint 之前调用此工具，获取模板建议。" +
+        "适用于：不确定该用什么模板、内容类型超出常规范围、需要混合使用多个模板。",
+      inputSchema: z.object({
+        chapterContent: z.string().describe("章节内容摘要或要点（200字以内）"),
+        tone: z.enum(["technical", "story", "data-driven", "persuasive", "tutorial"]).describe("内容语调"),
+        hasUserAssets: z.boolean().default(false).describe("是否有用户上传的图片/视频素材"),
+        highlightType: z.enum(["comparison", "process", "statistic", "concept", "code", "showcase"]).describe("核心表达需求"),
+      }),
+      execute: async ({ chapterContent, tone, hasUserAssets, highlightType }) => {
+        // ── Template recommendation rules ──────────────────────────────
+        const rules: Record<string, { templates: string[]; reason: string }> = {
+          "technical:comparison": { templates: ["side-by-side", "data-spotlight"], reason: "技术对比适合左右对照 + 核心数据强调" },
+          "technical:process": { templates: ["flow-diagram", "step-reveal"], reason: "技术流程适合流程节点图 + 分步揭示" },
+          "technical:code": { templates: ["code-showcase", "side-by-side"], reason: "代码展示为主，可配合对照面板" },
+          "technical:concept": { templates: ["hero-title", "flow-diagram", "step-reveal"], reason: "概念讲解：标题定调 + 流程图/分步展开" },
+          "story:process": { templates: ["step-reveal", "quote-card", "hero-title"], reason: "故事叙述适合分步展开 + 引用点睛 + 标题开场" },
+          "story:concept": { templates: ["hero-title", "quote-card", "grid-gallery"], reason: "感性概念：标题渲染情绪 + 引用 + 图片叙事" },
+          "data-driven:statistic": { templates: ["data-spotlight", "comparison-table", "progress-bar"], reason: "数据驱动适合核心数字 + 对比表格 + 进度条" },
+          "data-driven:comparison": { templates: ["side-by-side", "data-spotlight", "comparison-table"], reason: "数据对比：左右对照 + 数据高亮 + 对比表" },
+          "persuasive:comparison": { templates: ["side-by-side", "before-after", "quote-card"], reason: "说服型对比：前后对比 + 引用背书" },
+          "persuasive:concept": { templates: ["hero-title", "data-spotlight", "testimonial"], reason: "说服概念：强势标题 + 关键数字 + 客户证言" },
+          "tutorial:process": { templates: ["step-reveal", "code-showcase", "anatomy"], reason: "教程流程：分步 + 代码展示 + 界面标注" },
+          "tutorial:code": { templates: ["code-showcase", "step-reveal", "side-by-side"], reason: "代码教程：代码主视觉 + 分步讲解" },
+        };
+
+        const key = `${tone}:${highlightType}`;
+        const match = rules[key] ?? { templates: ["step-reveal", "hero-title", "data-spotlight"], reason: "通用推荐：分步展开 + 标题 + 数据支撑" };
+
+        // Adjust if user has assets
+        let bonusTemplates: string[] = [];
+        if (hasUserAssets) {
+          bonusTemplates = ["grid-gallery", "anatomy"];
+        }
+
+        const recommendations = [...new Set([...match.templates, ...bonusTemplates])];
+
+        // ── Detailed guidance per template ──────────────────────────────
+        const guidance: Record<string, string> = {
+          "hero-title": "用于章节开场或核心理念陈述。只需 kicker + title + subtitle 三个槽位。",
+          "step-reveal": "用于分点论述、操作步骤、要点总结。每步 = heading + body + 可选 media。",
+          "data-spotlight": "用于放大核心数字。primaryValue + primaryLabel + context。适合 1-2 个关键指标。",
+          "side-by-side": "用于对比、选择决策。left + right 各一个 panel，divider 用 vs/arrow/none。",
+          "flow-diagram": "用于流程、链路、架构。nodes 2-10 个，edges 可选（默认串联）。",
+          "code-showcase": "用于展示代码。code + language + 可选 highlights + annotations。",
+          "quote-card": "用于引用、客户评价、金句。quote + attribution。",
+          "grid-gallery": "用于多张图片/视频展示。items 2-12 个，columns 2-4。",
+          "comparison-table": "用于功能对比、方案选型。rows × cols 结构化数据。",
+          "before-after": "用于优化前后对比。左右或上下分屏，适合视觉效果对比。",
+          "timeline": "用于时间线、里程碑、路线图。按时间点排列的事件序列。",
+          "anatomy": "用于产品/界面标注。在图片上放置引导线和标签。",
+          "progress-bar": "用于完成度、目标达成率。单一进度指标 + 标签。",
+          "testimonial": "用于客户案例、用户评价。大引号 + 头像 + 署名。",
+        };
+
+        return {
+          recommendations,
+          primaryReason: match.reason,
+          guidance: Object.fromEntries(
+            recommendations.map((t) => [t, guidance[t] ?? "通用模板，按槽位文档填写"])
+          ),
+          tip: "每章混合 2-3 种模板效果最佳。开场用 hero-title，主体用 step-reveal/flow-diagram，对比用 side-by-side，收尾用 quote-card。",
         };
       },
     }),

@@ -13,6 +13,12 @@ import { flowDiagramTemplate } from "./flow-diagram";
 import { codeShowcaseTemplate } from "./code-showcase";
 import { quoteCardTemplate } from "./quote-card";
 import { gridGalleryTemplate } from "./grid-gallery";
+import { timelineTemplate } from "./timeline";
+import { comparisonTableTemplate } from "./comparison-table";
+import { beforeAfterTemplate } from "./before-after";
+import { anatomyTemplate } from "./anatomy";
+import { progressBarTemplate } from "./progress-bar";
+import { testimonialTemplate } from "./testimonial";
 
 /** Map of template ID → definition */
 const registry = new Map<string, TemplateDefinition>();
@@ -27,6 +33,12 @@ const BUILTIN_TEMPLATES: TemplateDefinition[] = [
   codeShowcaseTemplate,
   quoteCardTemplate,
   gridGalleryTemplate,
+  timelineTemplate,
+  comparisonTableTemplate,
+  beforeAfterTemplate,
+  anatomyTemplate,
+  progressBarTemplate,
+  testimonialTemplate,
 ];
 
 for (const tpl of BUILTIN_TEMPLATES) {

@@ -25,6 +25,12 @@ export const TEMPLATE_IDS = [
   "code-showcase",
   "quote-card",
   "grid-gallery",
+  "timeline",
+  "comparison-table",
+  "before-after",
+  "anatomy",
+  "progress-bar",
+  "testimonial",
 ] as const;
 
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
@@ -266,6 +272,12 @@ const SLOT_SCHEMAS = {
   "code-showcase": CodeShowcaseSlots,
   "quote-card": QuoteCardSlots,
   "grid-gallery": GridGallerySlots,
+  "timeline": z.object({ items: z.array(z.any()).min(2) }),
+  "comparison-table": z.object({ headers: z.array(z.string()), rows: z.array(z.any()) }),
+  "before-after": z.object({ before: z.any(), after: z.any() }),
+  "anatomy": z.object({ mainImage: z.any(), labels: z.array(z.any()) }),
+  "progress-bar": z.object({ value: z.number(), label: z.string() }),
+  "testimonial": z.object({ quote: z.string(), attribution: z.any() }),
 } as const satisfies Record<TemplateId, z.ZodObject<any>>;
 
 /** Legacy: get slot schema by template ID. Prefer importing directly from template module. */
@@ -361,6 +373,40 @@ export const ChapterStepDef = z.object({
   layout: LayoutDef,
   /** Optional override: display duration in seconds */
   durationSec: z.number().positive().optional(),
+
+  // ── 节奏控制 (pacing) ─────────────────────────────────────────────────
+  pacing: z.object({
+    /** 入场方式 */
+    entry: z.enum(["reveal", "cut", "dissolve", "wipe", "push"]).default("cut"),
+    /** 入场动画时长 ms */
+    entryDurationMs: z.number().min(0).max(3000).default(400),
+    /** 退场方式 */
+    exit: z.enum(["hold", "dissolve", "cut", "slide-out"]).default("cut"),
+    /** 退场动画时长 ms */
+    exitDurationMs: z.number().min(0).max(3000).default(300),
+    /** 切入后静默停顿 ms */
+    preHoldMs: z.number().min(0).max(5000).default(0),
+    /** 旁白结束后的停留 ms */
+    postHoldMs: z.number().min(0).max(5000).default(500),
+    /** 旁白与视觉的时序关系 */
+    narrationTiming: z.enum(["sync", "visual-first", "audio-first"]).default("sync"),
+    /** 能量级别 (影响 BGM 匹配和动画幅度) */
+    energy: z.enum(["calm", "moderate", "high", "peak"]).optional(),
+  }).optional(),
+
+  /** 蒙太奇模式：多步快速切换，无旁白 */
+  microSteps: z.array(z.object({
+    layout: LayoutDef,
+    holdMs: z.number().min(300).max(3000),
+    transition: z.enum(["cut", "dissolve"]).default("cut"),
+  })).max(8).optional().describe("蒙太奇连续切换，无旁白"),
+
+  /** 素材绑定提示 */
+  assetHint: z.object({
+    assetName: z.string(),
+    placement: z.enum(["fill", "overlay", "inset"]),
+    prominence: z.enum(["primary", "secondary", "ambient"]),
+  }).optional(),
 });
 export type ChapterStepDef = z.infer<typeof ChapterStepDef>;
 
@@ -381,6 +427,23 @@ export const ChapterBlueprint = z.object({
   steps: z.array(ChapterStepDef).min(1).max(20),
   /** Optional: order hint for generated file naming */
   orderHint: z.number().int().min(0).optional(),
+
+  // ── 章节转场 ───────────────────────────────────────────────────────────
+  transition: z.object({
+    into: z.enum(["fade-black", "dissolve", "slide", "zoom", "none"]).default("fade-black"),
+    intoDurationMs: z.number().min(0).max(3000).default(600),
+    outOf: z.enum(["fade-black", "dissolve", "slide", "zoom", "none"]).default("fade-black"),
+    outOfDurationMs: z.number().min(0).max(3000).default(400),
+    showTitleCard: z.boolean().default(true),
+    titleCardDurationMs: z.number().min(500).max(5000).default(2000),
+  }).optional(),
+
+  // ── BGM 节拍同步 ───────────────────────────────────────────────────────
+  bgmSync: z.object({
+    bpm: z.number().positive().optional().describe("BGM beats per minute"),
+    beatAlign: z.enum(["off", "chapter", "step"]).default("off").describe("对齐精度"),
+    offsetBeats: z.number().int().min(0).default(0).describe("从第几拍开始"),
+  }).optional(),
 });
 export type ChapterBlueprint = z.infer<typeof ChapterBlueprint>;
 

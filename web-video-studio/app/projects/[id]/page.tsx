@@ -41,6 +41,7 @@ export default function ProjectPage() {
   const userControlMode = useRef(false);        // user took manual control → suppress auto-triggers
   const prevDevPort = useRef<number | null>(null); // track devPort for crash detection
   const devStartingRef = useRef(false);          // track if user explicitly requested dev server
+  const sseGotDevPort = useRef(false);           // SSE has delivered dev port → suppress polling
 
   const [pageState, setPageState] = useState<"loading" | "ready" | "error" | "notfound">("loading");
   const [errMsg, setErrMsg] = useState("");
@@ -166,7 +167,7 @@ export default function ProjectPage() {
     es.addEventListener("dev-server", (e: MessageEvent) => {
       try {
         const d = JSON.parse(e.data);
-        if (d.port) { setDevPort(d.port); setDevStarting(false); setDevError(null); setDevCrashed(false); setDevDegraded(d.degraded ?? false); }
+        if (d.port) { sseGotDevPort.current = true; setDevPort(d.port); setDevStarting(false); setDevError(null); setDevCrashed(false); setDevDegraded(d.degraded ?? false); }
         else setDevPort(null);
       } catch {}
     });
@@ -181,48 +182,45 @@ export default function ProjectPage() {
     return () => es.close();
   }, [id]);
 
-  // ─── dev polling — SSE-primary with exponential backoff fallback ──────
-  const sseActiveRef = useRef(false);
+  // ─── dev polling — immediate fetch + exponential backoff fallback ──────
   useEffect(() => {
     let ok = true;
     let attempts = 0;
 
     const poll = async () => {
-      if (!ok || sseActiveRef.current) return;
+      if (!ok || sseGotDevPort.current) return;
       try {
         const r = await fetch(`/api/projects/${id}/dev-server`);
         const d = await r.json();
-        if (!ok) return;
+        if (!ok || sseGotDevPort.current) return;
         attempts++;
         if (d.ready && d.port) {
           setDevPort(d.port); setDevStarting(false); setDevError(null); setDevCrashed(false); setDevDegraded(d.degraded ?? false);
           devStartingRef.current = false;
           prevDevPort.current = d.port;
+          sseGotDevPort.current = true;
           return;
         }
         if (prevDevPort.current !== null && !d.ready) setDevCrashed(true);
-        // Exponential backoff: 1s → 2s → 4s → 8s → 16s (max)
+        // Only retry if port not yet known and not too many attempts
+        if (attempts >= 15) { setDevError("开发服务器启动超时"); return; }
         const delay = Math.min(1000 * Math.pow(2, Math.min(attempts - 1, 4)), 16000);
-        if (ok && !sseActiveRef.current) setTimeout(poll, delay);
+        if (ok && !sseGotDevPort.current) setTimeout(poll, delay);
       } catch {
-        if (ok && !sseActiveRef.current) setTimeout(poll, 8000);
+        if (ok && !sseGotDevPort.current) setTimeout(poll, 8000);
       }
     };
 
-    // Only start fallback polling after 3s if SSE hasn't connected
-    const initTimer = setTimeout(() => { if (ok) poll(); }, 3000);
+    // Immediate fetch on mount
+    poll();
 
-    // Monitor SSE activity
-    const sseCheck = setInterval(() => {
-      sseActiveRef.current = true; // SSE is primary — mark it active
-    }, 5000);
-
-    return () => { ok = false; clearTimeout(initTimer); clearInterval(sseCheck); };
+    return () => { ok = false; };
   }, [id]);
 
   const startDev = useCallback(async () => {
     setDevStarting(true); setDevError(null); setDevCrashed(false); setDevDegraded(false); setAiReadyForPreview(false);
     devStartingRef.current = true;
+    sseGotDevPort.current = false; // allow polling to find the new port
     try {
       const r = await fetch(`/api/projects/${id}/dev-server`, { method: "POST" });
       if (!r.ok && r.status !== 409) { const d = await r.json().catch(() => ({})); setDevError(d.error ?? "fail"); }
