@@ -22,7 +22,7 @@ export default function HomePage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
-  const [mode, setMode] = useState<InputMode>("file");
+  const [mode, setMode] = useState<InputMode>("ai");
   const [format, setFormat] = useState<Format>("video");
   const [dragging, setDragging] = useState(false);
   const [content, setContent] = useState("");
