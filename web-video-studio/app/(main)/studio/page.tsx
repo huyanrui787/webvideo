@@ -40,6 +40,7 @@ export default function HomePage() {
   const [refImages, setRefImages] = useState<File[]>([]);
   const [refExpanded, setRefExpanded] = useState(true);
   const [refReminded, setRefReminded] = useState(false);
+  const [actionError, setActionError] = useState("");
   const refImageInputRef = useRef<HTMLInputElement>(null);
 
   // Redirect to login if unauthorized
@@ -70,7 +71,10 @@ export default function HomePage() {
 
   async function handleFetchUrl() {
     if (!urlValue.trim()) return;
-    if (needsRefReminder()) return;
+    if (needsRefReminder()) {
+      setActionError("💡 提示：你可以先上传参考图片，让内容提取更精准。也可以直接再次点击「抓取」跳过。");
+      return;
+    }
     setUrlError("");
     setFetchingUrl(true);
 
@@ -178,8 +182,12 @@ export default function HomePage() {
   }
 
   async function handleAiGenerate() {
+    setActionError("");
     if (!aiTopic.trim()) return;
-    if (needsRefReminder()) return;
+    if (needsRefReminder()) {
+      setActionError("💡 提示：你可以先上传参考图片（支持文章截图、风格参考），让生成更贴合你的需求。也可以直接再次点击「AI 写文章」跳过。");
+      return;
+    }
     setAiGenerating(true);
     setAiPreview("");
     try {
@@ -189,7 +197,7 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: aiTopic.trim(), projectFormat: format }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error("创建项目失败");
       const project = await res.json();
 
       // Stream article generation
@@ -198,7 +206,7 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic: aiTopic.trim() }),
       });
-      if (!genRes.ok || !genRes.body) throw new Error();
+      if (!genRes.ok || !genRes.body) throw new Error("生成请求失败");
 
       const reader = genRes.body.getReader();
       const decoder = new TextDecoder();
@@ -219,7 +227,8 @@ export default function HomePage() {
 
       await uploadRefImages(project.id);
       router.push(`/projects/${project.id}?autostart=1`);
-    } catch {
+    } catch (err) {
+      setActionError(`生成失败：${err instanceof Error ? err.message : "网络错误，请重试"}`);
       setAiGenerating(false);
     }
   }
@@ -254,13 +263,16 @@ export default function HomePage() {
     if (refImages.length > 0 || refReminded) return false;
     setRefReminded(true);
     setRefExpanded(true);
-    return true;
+    return true; // Still returns true, but callers should show a toast instead of silently blocking
   }
 
   async function handleCreate() {
     const articleContent = content.trim();
     if (!articleContent) return;
-    if (needsRefReminder()) return;
+    if (needsRefReminder()) {
+      setActionError("💡 提示：你可以先上传参考图片，让视频风格更精准。也可以直接再次点击「开始创作」跳过。");
+      return;
+    }
     setCreating(true);
     try {
       const res = await fetch("/api/projects", {
@@ -268,11 +280,13 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: fileName || undefined, projectFormat: format, articleContent }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) throw new Error("创建项目失败");
       const project = await res.json();
       await uploadRefImages(project.id);
       router.push(`/projects/${project.id}?autostart=1`);
-    } catch {
+    } catch (err) {
+      setActionError(`创建失败：${err instanceof Error ? err.message : "网络错误，请重试"}`);
+      setCreating(false);
       setCreating(false);
     }
   }
@@ -766,10 +780,16 @@ export default function HomePage() {
                     ) : "解析并生成"}
                   </button>
                 ) : mode === "ai" ? (
-                  <button
-                    onClick={handleAiGenerate}
-                    disabled={!aiTopic.trim() || aiGenerating}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-500 hover:bg-violet-400 text-sm font-medium text-white disabled:opacity-40 transition-colors"
+                  <>
+                    {actionError && (
+                      <div className="mb-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed">
+                        {actionError}
+                      </div>
+                    )}
+                    <button
+                      onClick={handleAiGenerate}
+                      disabled={!aiTopic.trim() || aiGenerating}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-500 hover:bg-violet-400 text-sm font-medium text-white disabled:opacity-40 transition-colors"
                   >
                     {aiGenerating ? (
                       <>
@@ -785,6 +805,7 @@ export default function HomePage() {
                       </>
                     )}
                   </button>
+                  </>
                 ) : mode === "draw" ? (
                   <button
                     onClick={handleDrawGenerate}
@@ -806,10 +827,16 @@ export default function HomePage() {
                     )}
                   </button>
                 ) : (
-                  <button
-                    onClick={handleCreate}
-                    disabled={!canSubmit || creating}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-sm font-medium text-white disabled:opacity-40 transition-colors"
+                  <>
+                    {actionError && (
+                      <div className="mb-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs leading-relaxed">
+                        {actionError}
+                      </div>
+                    )}
+                    <button
+                      onClick={handleCreate}
+                      disabled={!canSubmit || creating}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-sm font-medium text-white disabled:opacity-40 transition-colors"
                   >
                     {creating ? (
                       <>
@@ -825,6 +852,7 @@ export default function HomePage() {
                       </>
                     )}
                   </button>
+                  </>
                 )}
               </div>
             </div>
