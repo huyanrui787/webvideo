@@ -103,6 +103,14 @@ export function isScaffolded(projectId: string): boolean {
   if (fs.existsSync(path.join(presDir, ".scaffold-done"))) {
     return true;
   }
+  // If chapters exist beyond the example, it was scaffolded and built upon
+  const chaptersDir = path.join(presDir, "src/chapters");
+  if (fs.existsSync(chaptersDir)) {
+    const dirs = fs.readdirSync(chaptersDir).filter(d =>
+      fs.statSync(path.join(chaptersDir, d)).isDirectory() && d !== "01-example"
+    );
+    if (dirs.length > 0) return true;
+  }
   return SCAFFOLD_SENTINEL_FILES.every((f) => fs.existsSync(path.join(presDir, f)));
 }
 
@@ -149,8 +157,12 @@ export function startScaffold(
   projectFormat: string = "video",
   mainSkillId: string = MAIN_SKILL_ID
 ): void {
-  // If already done, skip
-  if (isScaffolded(projectId)) return;
+  // If already done, skip entirely — never re-scaffold a working presentation
+  if (isScaffolded(projectId)) {
+    // Publish "done" status so frontend syncs immediately
+    publishProjectEvent(projectId, "scaffold", { status: "done" });
+    return;
+  }
 
   // If a job is actively running, don't start another
   const existing = jobs.get(projectId);

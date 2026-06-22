@@ -338,11 +338,19 @@ export default function ProjectPage() {
   const scaffoldTriggered = useRef(false);
   useEffect(() => {
     if (scaffoldTriggered.current) return;
-    if (userControlMode.current) return;       // user took manual control
+    if (userControlMode.current) return;
     if (scaffold !== "idle") return;
     if (project?.status !== "building") return;
-    scaffoldTriggered.current = true;
-    fetch(`/api/projects/${id}/scaffold`, { method: "POST" }).catch(() => {});
+
+    // Check if already scaffolded before triggering
+    fetch(`/api/projects/${id}/scaffold`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.status === "done" || d.status === "running") return;
+        scaffoldTriggered.current = true;
+        fetch(`/api/projects/${id}/scaffold`, { method: "POST" }).catch(() => {});
+      })
+      .catch(() => {});
   }, [scaffold, project?.status, id]);
 
   // ─── scaffold stale detection ────────────────────────────────────────
