@@ -73,5 +73,5 @@ export const codeShowcaseTemplate: TemplateDefinition = {
 .ch-code-annotations { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-4); }
 .ch-code-annotation { display: flex; gap: var(--space-3); align-items: baseline; }
 .ch-code-output { margin-top: var(--space-5); }
-.ch-code-output img { max-width: 100%; border-radius: 8px; }`,
+.ch-code-output img { max-width: 100%; border-radius: var(--radius-md); }`,
 };

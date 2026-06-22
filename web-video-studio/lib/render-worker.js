@@ -351,8 +351,20 @@ async function recordPresentation(totalDuration) {
       } catch {}
     });
 
+    // Health check: verify dev server is reachable before starting 2hr render
+    const pageUrl = `http://localhost:${port}/?render=1&auto=1`;
+    let serverOk = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const res = await fetch(pageUrl, { method: "HEAD" });
+        if (res.ok) { serverOk = true; break; }
+      } catch {}
+      await new Promise(r => setTimeout(r, 3000));
+    }
+    if (!serverOk) throw new Error(`Dev server not reachable at http://localhost:${port} after 3 retries`);
+
     // Load with render+auto mode: bypasses AutoStartGate, auto-advances each step
-    await page.goto(`http://localhost:${port}/?render=1&auto=1`, {
+    await page.goto(pageUrl, {
       waitUntil: "networkidle",
       timeout: 60000,
     });
@@ -376,12 +388,33 @@ async function recordPresentation(totalDuration) {
 
     writeStatus({ status: "running", progress: "录制中…", totalDuration });
 
+    // ── Progress watchdog: fail fast if presentation gets stuck ──────
+    let lastStep = -1;
+    let stuckChecks = 0;
+    const STUCK_THRESHOLD = 6; // 3 minutes without progress = stuck
+    const watchdog = setInterval(async () => {
+      try {
+        const currentStep = await page.evaluate(() => (window).__currentStep ?? -1);
+        if (currentStep === lastStep) {
+          stuckChecks++;
+          if (stuckChecks >= STUCK_THRESHOLD) {
+            console.error(`[render-worker] Presentation stuck at step ${currentStep} for ${STUCK_THRESHOLD * 30}s — aborting`);
+            await page.evaluate(() => { (window).__presentationDone = true; });
+          }
+        } else {
+          lastStep = currentStep;
+          stuckChecks = 0;
+        }
+      } catch { /* page may close */ }
+    }, 30000);
+
     // Wait for presentation to finish
     const timeoutMs = Math.ceil(totalDuration * 2000) + 120000;
     await page.waitForFunction(
       () => (window).__presentationDone === true,
       { timeout: timeoutMs, polling: 1000 }
     );
+    clearInterval(watchdog);
 
     // Small buffer to let the last frame render fully
     await new Promise((r) => setTimeout(r, 1500));
@@ -528,7 +561,32 @@ async function run() {
   const totalDuration = timeline.reduce((s, t) => s + t.duration, 0);
   writeStatus({ status: "running", progress: `时间轴就绪，共 ${timeline.length} 步，总时长 ${totalDuration.toFixed(1)}s`, totalDuration });
 
-  // 2. Patch stepDurations in chapters.ts so the presentation clock matches audio
+  // 2. BGM beat sync: snap step boundaries to musical beats if BPM is configured
+  const bgmConfigPath = path.join(presDir, "bgm-config.json");
+  if (fs.existsSync(bgmConfigPath)) {
+    try {
+      const bgmConfig = JSON.parse(fs.readFileSync(bgmConfigPath, "utf-8"));
+      if (bgmConfig.bpm && bgmConfig.beatAlign !== "off") {
+        writeStatus({ status: "running", progress: `BGM 节拍对齐: ${bgmConfig.bpm} BPM…`, totalDuration });
+        const beatSec = 60 / bgmConfig.bpm;
+        let cursor = 0;
+        for (const seg of timeline) {
+          if (bgmConfig.beatAlign === "step" || bgmConfig.beatAlign === "chapter") {
+            const snapped = Math.round(cursor / beatSec) * beatSec;
+            if (Math.abs(snapped - cursor) < beatSec * 1.5) {
+              cursor = snapped;
+            }
+          }
+          seg._snappedStart = cursor;
+          cursor += seg.duration;
+        }
+      }
+    } catch (err) {
+      console.warn("[render-worker] BGM sync failed (continuing):", err.message);
+    }
+  }
+
+  // 3. Patch stepDurations in chapters.ts so the presentation clock matches audio
   const chaptersFile = path.join(presDir, "src/registry/chapters.ts");
   writeStatus({ status: "running", progress: "同步时间轴到 chapters.ts…", totalDuration });
   patchStepDurations(chaptersFile, timeline);

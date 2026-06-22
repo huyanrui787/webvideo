@@ -122,7 +122,7 @@ function generateIntroTSX(config: BrandShellConfig): string {
 
   switch (i.template) {
     case "logo-reveal":
-      return `export default function BrandIntro({ step }: { step: number }) {
+      return `import { Reveal } from "../../primitives";\n\nexport default function BrandIntro({ step }: { step: number }) {
   return (
     <div className="brand-intro brand-intro--logo-reveal" style={{ background: "${i.background === 'transparent' ? 'transparent' : 'var(--bg)'}" }}>
       <Reveal from="up" delay={0.2} stepTime={1.0}>
@@ -138,7 +138,7 @@ function generateIntroTSX(config: BrandShellConfig): string {
 }`;
 
     case "slide-in":
-      return `export default function BrandIntro({ step }: { step: number }) {
+      return `import { Reveal } from "../../primitives";\n\nexport default function BrandIntro({ step }: { step: number }) {
   return (
     <div className="brand-intro brand-intro--slide-in" style={{ background: "${i.background === 'transparent' ? 'transparent' : 'var(--bg)'}" }}>
       <Reveal from="left" delay={0.1} stepTime={0.8}>
@@ -156,7 +156,7 @@ function generateIntroTSX(config: BrandShellConfig): string {
 
     // fade-in (default)
     default:
-      return `export default function BrandIntro({ step }: { step: number }) {
+      return `import { Reveal } from "../../primitives";\n\nexport default function BrandIntro({ step }: { step: number }) {
   return (
     <div className="brand-intro brand-intro--fade-in" style={{ background: "${i.background === 'transparent' ? 'transparent' : 'var(--bg)'}" }}>
       <Reveal from="up" delay={0.3} stepTime={1.2}>
@@ -177,7 +177,7 @@ function generateOutroTSX(config: BrandShellConfig): string {
 
   switch (o.template) {
     case "qr-code":
-      return `export default function BrandOutro({ step }: { step: number }) {
+      return `import { Reveal } from "../../primitives";\n\nexport default function BrandOutro({ step }: { step: number }) {
   return (
     <div className="brand-outro brand-outro--qr" style={{ background: "var(--bg)" }}>
       <Reveal from="up" delay={0.3} stepTime={0.8}>
@@ -199,7 +199,7 @@ function generateOutroTSX(config: BrandShellConfig): string {
     case "credits":
       const creditsList = (o.credits || ["制作: " + config.name])
         .map((c) => `<span>${c}</span>`).join("\n          ");
-      return `export default function BrandOutro({ step }: { step: number }) {
+      return `import { Reveal } from "../../primitives";\n\nexport default function BrandOutro({ step }: { step: number }) {
   return (
     <div className="brand-outro brand-outro--credits" style={{ background: "var(--bg)" }}>
       <Reveal from="up" delay={0.3} stepTime={1.0}>
@@ -213,7 +213,7 @@ function generateOutroTSX(config: BrandShellConfig): string {
 
     // cta (default)
     default:
-      return `export default function BrandOutro({ step }: { step: number }) {
+      return `import { Reveal } from "../../primitives";\n\nexport default function BrandOutro({ step }: { step: number }) {
   return (
     <div className="brand-outro brand-outro--cta" style={{ background: "var(--bg)" }}>
       <Reveal from="up" delay={0.3} stepTime={0.8}>

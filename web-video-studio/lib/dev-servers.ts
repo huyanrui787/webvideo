@@ -221,7 +221,7 @@ export function stopDevServer(projectId: string): void {
     pid = meta?.pid ?? 0;
   }
   if (pid) {
-    try { execSync(`kill ${pid} 2>/dev/null || true`); } catch { /* ignore */ }
+    try { process.kill(pid, "SIGTERM"); } catch { /* process already dead */ }
   }
   servers.delete(projectId);
   crashCount.delete(projectId);

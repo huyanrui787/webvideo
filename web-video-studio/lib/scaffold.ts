@@ -1,7 +1,8 @@
 import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";
-import { projectDir } from "@/lib/projects";
+import { projectDir, writeProjectFile } from "@/lib/projects";
+import { loadBrandConfig, compileBrandIntro, compileBrandOutro, isBrandShellEnabled } from "@/lib/brand-shell";
 import { getSkill, MAIN_SKILL_ID } from "@/lib/skills";
 import { getMainSkillScriptsDir } from "@/lib/env";
 import { publishProjectEvent } from "@/lib/events";
@@ -30,7 +31,8 @@ function readJobFromDisk(projectId: string): ScaffoldJob | null {
     if (!fs.existsSync(filePath)) return null;
     const raw = fs.readFileSync(filePath, "utf-8");
     return JSON.parse(raw) as ScaffoldJob;
-  } catch {
+  } catch (err: any) {
+    console.warn("[scaffold] readJobFromDisk failed:", err?.message ?? err);
     return null;
   }
 }
@@ -40,7 +42,7 @@ function writeJobToDisk(projectId: string, job: ScaffoldJob): void {
     const filePath = path.join(projectDir(projectId), JOB_FILE);
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(filePath, JSON.stringify(job));
-  } catch { /* best-effort */ }
+  } catch (err: any) { console.warn("[scaffold] writeJobToDisk failed:", err?.message ?? err); }
 }
 
 function removeJobFile(projectId: string): void {
@@ -95,7 +97,7 @@ export function isScaffolded(projectId: string): boolean {
       if (fmt === "draw") {
         return fs.existsSync(path.join(projectDir(projectId), "diagrams"));
       }
-    } catch { /* fall through to sentinel check */ }
+    } catch (err: any) { console.warn("[scaffold] isScaffolded: failed to read .format file:", err?.message ?? err); }
   }
   // Also check the explicit completion marker (written by scaffold.sh on success)
   if (fs.existsSync(path.join(presDir, ".scaffold-done"))) {
@@ -340,6 +342,33 @@ export function startScaffold(
         `import type { ChapterDef } from "./types";\n\nexport const CHAPTERS: ChapterDef[] = [];\n`
       );
     }
+
+    // ── Brand shell: compile intro/outro if brand config exists ──────
+    // Guard: only compile if primitives dir exists (brand shell TSX imports from it)
+    const primitivesDir = path.join(presDir, "src/primitives");
+    if (fs.existsSync(primitivesDir)) {
+    try {
+      if (isBrandShellEnabled(projectId)) {
+        const brandConfig = loadBrandConfig(projectId);
+        if (brandConfig.intro.enabled) {
+          const intro = compileBrandIntro(brandConfig);
+          const introDir = `presentation/src/chapters/${intro.chapterId}`;
+          writeProjectFile(projectId, `${introDir}/${intro.componentName}.tsx`, intro.tsx);
+          writeProjectFile(projectId, `${introDir}/${intro.componentName}.css`, intro.css);
+          writeProjectFile(projectId, `${introDir}/narrations.ts`, intro.narrations);
+        }
+        if (brandConfig.outro.enabled) {
+          const outro = compileBrandOutro(brandConfig);
+          const outroDir = `presentation/src/chapters/${outro.chapterId}`;
+          writeProjectFile(projectId, `${outroDir}/${outro.componentName}.tsx`, outro.tsx);
+          writeProjectFile(projectId, `${outroDir}/${outro.componentName}.css`, outro.css);
+          writeProjectFile(projectId, `${outroDir}/narrations.ts`, outro.narrations);
+        }
+      }
+    } catch (err) {
+      console.warn("[scaffold] Brand shell compilation failed (continuing):", err);
+    }
+    } // end if primitivesDir exists
 
     job.status = "done";
     job.finishedAt = Date.now();

@@ -80,8 +80,8 @@ export const comparisonTableTemplate: TemplateDefinition = {
   slots: ComparisonTableSlots,
   generate,
   chapterCSS: `.ch-comparison-table { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: var(--stage-pad-y) var(--stage-pad-x); gap: 0; overflow: hidden; }
-.ch-comparison-header { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0; border-bottom: 2px solid var(--accent); padding-bottom: var(--space-3); margin-bottom: var(--space-2); }
-.ch-comparison-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0; padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
+.ch-comparison-header { display: grid; gap: 0; border-bottom: 2px solid var(--accent); padding-bottom: var(--space-3); margin-bottom: var(--space-2); }
+.ch-comparison-row { display: grid; gap: 0; padding: var(--space-2) 0; border-bottom: 1px solid var(--border); }
 .ch-comparison-row--highlight { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .ch-comparison-cell { display: flex; align-items: center; padding: var(--space-2) var(--space-3); font-size: var(--t-body); }
 .ch-comparison-header-cell { font-weight: 600; font-size: var(--t-h4); color: var(--accent); }

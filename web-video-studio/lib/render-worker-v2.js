@@ -160,13 +160,14 @@ async function recordChapter(chapterId, chapterIdx, totalChapters) {
   // ── Check render cache first ────────────────────────────────────────
   const cached = getCachedWebm(chapterId);
   if (cached) {
+    cacheHits++;
     writeStatus({
       status: "running",
       progress: `章节 ${chapterIdx + 1}/${totalChapters}: ${chapterId} (缓存命中)…`,
-      cacheHits: (writeStatus._cacheHits || 0) + 1,
     });
     return cached.path;
   }
+  cacheMisses++;
 
   const tmpDir = path.join(projDir, ".render-chapter-tmp", chapterId);
   fs.mkdirSync(tmpDir, { recursive: true });
@@ -195,8 +196,19 @@ async function recordChapter(chapterId, chapterIdx, totalChapters) {
       try { new AudioContext().resume(); } catch {}
     });
 
-    // Load presentation scoped to this chapter
+    // Health check before recording this chapter
     const url = `http://localhost:${port}/?render=1&auto=1&chapter=${chapterId}`;
+    let serverOk = false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`http://localhost:${port}/`, { method: "HEAD" });
+        if (res.ok) { serverOk = true; break; }
+      } catch {}
+      await new Promise(r => setTimeout(r, 2000));
+    }
+    if (!serverOk) throw new Error(`Dev server not reachable at port ${port}`);
+
+    // Load presentation scoped to this chapter
     await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
     await page.evaluate(() => document.fonts.ready).catch(() => {});
     await new Promise((r) => setTimeout(r, 1000));
@@ -276,6 +288,9 @@ async function run() {
     return;
   }
 
+  let cacheHits = 0;
+  let cacheMisses = 0;
+
   writeStatus({ status: "running", progress: `开始分段录制 ${chapterIds.length} 章…` });
 
   // Record chapters sequentially (or in parallel batches)
@@ -300,8 +315,9 @@ async function run() {
 
   writeStatus({
     status: "done",
-    progress: `完成 (${chapterIds.length} 章, ${resolution})`,
+    progress: `完成 (${chapterIds.length} 章, ${cacheHits} 缓存命中, ${cacheMisses} 录制, ${resolution})`,
     outputFile,
+    cacheStats: { hits: cacheHits, misses: cacheMisses, total: chapterIds.length },
   });
 }
 

@@ -34,7 +34,11 @@ export interface WysiwygManifest {
 }
 
 export function editKey(e: Pick<WysiwygEdit, "chapter" | "step" | "selector" | "selectorIndex">): string {
-  return `${e.chapter}:${e.step}:${e.selector}:${e.selectorIndex}`;
+  const ch = e.chapter ?? "unknown";
+  const st = e.step ?? 0;
+  const sel = e.selector ?? "unknown";
+  const idx = e.selectorIndex ?? 0;
+  return `${ch}:${st}:${sel}:${idx}`;
 }
 
 function editsPath(projectId: string): string {

@@ -94,7 +94,7 @@ export const progressBarTemplate: TemplateDefinition = {
 .ch-progress-sub { }
 .ch-progress-target { font-weight: 500; }
 .ch-progress-radial { display: flex; align-items: center; justify-content: center; }
-.ch-progress-ring { width: 200px; height: 200px; border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: 8px; }
+.ch-progress-ring { width: var(--ring-size, 200px); height: var(--ring-size, 200px); border-radius: 50%; display: flex; align-items: center; justify-content: center; padding: var(--space-2); }
 .ch-progress-ring-inner { width: 100%; height: 100%; border-radius: 50%; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); }
 .ch-progress-micros { display: flex; gap: var(--space-8); }
 .ch-progress-micro { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }

@@ -65,8 +65,20 @@ function validateL2(bp: ChapterBlueprintType): ValidationIssue[] {
     const layout = step.layout;
 
     if (layout.mode === "template") {
-      // Validate that the slots match the template's expected schema (via registry)
+      // Validate that the template ID is registered
       const tpl = getTemplate(layout.template);
+      // Validate variant value against the template's registered variants
+      if (layout.variant && tpl.variants && tpl.variants.length > 0) {
+        if (!tpl.variants.includes(layout.variant)) {
+          issues.push({
+            level: "warning",
+            step: i,
+            field: `steps[${i}].layout.variant`,
+            message: `Template "${layout.template}" has no variant "${layout.variant}". Available: ${tpl.variants.join(", ")}. The default variant will be used instead.`,
+          });
+        }
+      }
+      // Validate that the slots match the template's expected schema (via registry)
       const slotsResult = tpl.slots.safeParse(layout.slots);
       if (!slotsResult.success) {
         for (const err of slotsResult.error.issues) {

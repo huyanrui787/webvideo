@@ -77,5 +77,5 @@ export const sideBySideTemplate: TemplateDefinition = {
 .ch-compare-items li { font-size: var(--t-body); }
 .ch-compare-divider { display: flex; align-items: center; justify-content: center; }
 .ch-compare-divider span { font-size: var(--t-h1); font-weight: 700; color: var(--accent); }
-.ch-compare-media img { max-width: 100%; border-radius: 8px; }`,
+.ch-compare-media img { max-width: 100%; border-radius: var(--radius-md); }`,
 };

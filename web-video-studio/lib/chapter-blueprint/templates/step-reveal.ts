@@ -81,5 +81,5 @@ export const stepRevealTemplate: TemplateDefinition = {
 .ch-step-heading { font-size: var(--t-h2); margin: 0; }
 .ch-step-text { font-family: var(--font-body); font-size: var(--t-body); color: var(--text-2); max-width: 56ch; margin: 0; }
 .ch-step-media { flex-shrink: 0; margin-top: var(--space-2); }
-.ch-step-media img { border-radius: 8px; }`,
+.ch-step-media img { border-radius: var(--radius-md); }`,
 };

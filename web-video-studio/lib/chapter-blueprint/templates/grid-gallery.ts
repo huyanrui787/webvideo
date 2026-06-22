@@ -57,7 +57,7 @@ export const gridGalleryTemplate: TemplateDefinition = {
   chapterCSS: `.ch-grid { flex: 1; display: flex; align-items: center; justify-content: center; padding: var(--stage-pad-y) var(--stage-pad-x); }
 .ch-grid-inner { display: grid; grid-template-columns: repeat(var(--grid-cols, 3), 1fr); gap: var(--grid-gap, var(--space-5)); width: 100%; max-width: 1100px; }
 .ch-grid-item { display: flex; flex-direction: column; gap: var(--space-2); }
-.ch-grid-item img { width: 100%; aspect-ratio: 16/9; object-fit: contain; border-radius: 8px; background: white; }
+.ch-grid-item img { width: 100%; aspect-ratio: 16/9; object-fit: contain; border-radius: var(--radius-md); background: var(--bg); }
 .ch-grid-item-info { display: flex; flex-direction: column; gap: var(--space-1); }
 .ch-grid-item-tag { color: var(--accent); }
 .ch-grid-item-caption { font-size: var(--t-small); color: var(--text-2); }`,

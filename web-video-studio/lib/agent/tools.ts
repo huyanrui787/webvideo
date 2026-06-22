@@ -46,7 +46,8 @@ function readSkillFile(filePath: string): string | null {
   if (!roots.some((r) => abs.startsWith(r + path.sep) || abs === r)) return null;
   try {
     return fs.readFileSync(abs, "utf-8");
-  } catch {
+  } catch (err: any) {
+    if (err?.code !== "ENOENT") console.warn("[tools] readSkillFile failed:", err?.message ?? err);
     return null;
   }
 }
@@ -129,7 +130,8 @@ async function getCurrentStatus(projectId: string): Promise<string> {
       .where(eq(projects.id, projectId))
       .limit(1);
     return row[0]?.status ?? "writing";
-  } catch {
+  } catch (err: any) {
+    console.warn("[tools] getProjectStatus failed:", err?.message ?? err);
     return "writing";
   }
 }
@@ -340,6 +342,8 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
         writeProjectFile(projectId, `${chaptersDir}/${generated.componentName}.tsx`, generated.tsx);
         writeProjectFile(projectId, `${chaptersDir}/${generated.componentName}.css`, generated.css);
         writeProjectFile(projectId, `${chaptersDir}/narrations.ts`, generated.narrations);
+        // Persist the blueprint JSON for telemetry, WYSIWYG backfill, and material planning
+        writeProjectFile(projectId, `${chaptersDir}/.blueprint.json`, JSON.stringify(bp, null, 2));
         const regPath = "presentation/src/registry/chapters.ts";
         const regContent = regenerateRegistry(projectId);
         writeProjectFile(projectId, regPath, regContent);
@@ -476,6 +480,8 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           writeProjectFile(projectId, `${dir}/${g.componentName}.tsx`, g.tsx);
           writeProjectFile(projectId, `${dir}/${g.componentName}.css`, g.css);
           writeProjectFile(projectId, `${dir}/narrations.ts`, g.narrations);
+          // Persist blueprint JSON
+          writeProjectFile(projectId, `${dir}/.blueprint.json`, JSON.stringify(r.compiled, null, 2));
         }
 
         // ── Phase 4: Regenerate registry once (with verify + retry) ────
@@ -589,6 +595,110 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
       },
     }),
 
+    ProjectValidateBlueprint: tool({
+      description:
+        "预校验 Blueprint，不提交文件。返回校验结果供 AI 自行修正。在调用 ProjectSetChapter 之前先调用此工具可以避免提交无效 Blueprint。" +
+        "校验三层：L1 Zod schema、L2 语义（槽位完整性/引用正确）、L3 设计规范（Token 使用）。",
+      inputSchema: z.object({
+        chapterId: z.string().min(2).describe("章节 slug"),
+        title: z.string().min(1).describe("章节标题"),
+        steps: z.array(z.object({
+          narration: z.string().default(""),
+          layout: z.object({
+            mode: z.enum(["template","composed","custom"]),
+            template: z.enum(["hero-title","step-reveal","data-spotlight","side-by-side","flow-diagram","code-showcase","quote-card","grid-gallery","timeline","comparison-table","before-after","anatomy","progress-bar","testimonial"]).optional(),
+            variant: z.string().optional(),
+            slots: z.record(z.string(), z.any()).optional(),
+            overrides: z.object({ backgroundStyle: z.enum(["solid","gradient-subtle","gradient-bold","noise"]).optional(), extraClasses: z.string().optional() }).optional(),
+            layoutComp: z.enum(["stack","grid","split","center","absolute"]).optional(),
+            regions: z.record(z.string(), z.object({ content: z.any(), gridArea: z.string().optional(), flex: z.string().optional() })).optional(),
+            animations: z.array(z.object({ target: z.string(), effect: z.enum(["fadeIn","slideUp","slideLeft","slideRight","scaleIn"]), delay: z.number().min(0).default(0), duration: z.number().positive().default(0.6) })).optional(),
+            imports: z.array(z.string()).optional(),
+            jsx: z.string().optional(),
+            css: z.string().optional(),
+          }),
+        })).min(1).max(20),
+        orderHint: z.number().int().min(0).optional(),
+      }),
+      execute: async (input) => {
+        const bp: any = {
+          chapterId: input.chapterId, title: input.title,
+          steps: input.steps.map((s: any) => ({
+            narration: s.narration || "",
+            layout: buildLayoutDef(s.layout),
+          })),
+          orderHint: input.orderHint ?? 0,
+        };
+        const { validated, result } = validateBlueprint(bp);
+        if (!validated) {
+          return {
+            valid: false,
+            issues: result.issues,
+            formattedError: formatValidationResult(result),
+            tip: "根据以上错误修正 Blueprint 后重新调用此工具验证。常见修正：确保必填字段非空（title, quote, heading）、不要使用硬编码颜色/字体、template 名称使用正确 ID。",
+          };
+        }
+        const templatesUsed = [...new Set(
+          validated!.steps.map((s: any) => s.layout?.template).filter(Boolean)
+        )] as string[];
+        return {
+          valid: true,
+          stepCount: validated!.steps.length,
+          templatesUsed,
+          message: `✅ 校验通过。${validated!.steps.length} 步，使用模板: ${templatesUsed.join(", ") || "composed/custom"}。可以安全调用 ProjectSetChapter 提交。`,
+        };
+      },
+    }),
+
+    ProjectPlanMaterials: tool({
+      description:
+        "扫描所有已提交的 Blueprint，分析素材需求缺口，按优先级自动获取素材（生成→本地库→联网搜索→向用户索取）。" +
+        "在 Building 阶段完成、Blueprint 全部提交后调用此工具，确保所有 MediaRef 的 requirement 得到满足。",
+      inputSchema: z.object({
+        action: z.enum(["analyze", "acquire", "summary"]).default("summary").describe("analyze=仅分析缺口, acquire=分析并自动获取, summary=显示获取结果"),
+      }),
+      execute: async ({ action }) => {
+        try {
+          const { scanAllRequirements, planAndAcquireMaterials, generateMaterialGapSummary } =
+            await import("@/lib/material-planner");
+
+          if (action === "analyze") {
+            const reqs = scanAllRequirements(projectId);
+            const gapSummary = reqs.length > 0
+              ? `发现 ${reqs.length} 个素材需求，分布在 ${[...new Set(reqs.map(r => r.usedInChapters))].length} 个章节。`
+              : "未发现素材需求（所有 MediaRef 都有 src 或未声明 requirement）。";
+            return { success: true, action: "analyze", totalRequirements: reqs.length, summary: gapSummary };
+          }
+
+          if (action === "acquire") {
+            const plan = await planAndAcquireMaterials(projectId);
+            const summary = generateMaterialGapSummary(plan);
+            return {
+              success: true, action: "acquire",
+              totalRequirements: plan.requirements.length,
+              available: plan.available.length,
+              acquired: plan.acquired.length,
+              pendingUser: plan.pendingUser.length,
+              summary,
+              acquiredList: plan.acquired.map(a => ({ filename: a.filename, source: a.source, requirementId: a.requirementId })),
+              pendingUserList: plan.pendingUser.map(p => ({ description: p.description, style: p.style, priority: p.priority })),
+            };
+          }
+
+          // summary: read existing plan from disk
+          const planPath = require("path").join(require("@/lib/projects").projectDir(projectId), ".material-plan.json");
+          if (require("fs").existsSync(planPath)) {
+            const plan = JSON.parse(require("fs").readFileSync(planPath, "utf-8"));
+            const summary = generateMaterialGapSummary(plan);
+            return { success: true, action: "summary", summary, plan };
+          }
+          return { success: true, action: "summary", summary: "尚未执行素材规划。使用 action=acquire 开始。", plan: null };
+        } catch (err: any) {
+          return { success: false, error: `Material planner failed: ${err.message}` };
+        }
+      },
+    }),
+
     ProjectSetStatus: tool({
       description: "Update the video project status in the database",
       inputSchema: z.object({
@@ -642,7 +752,10 @@ function regenerateRegistry(projectId: string): string {
       if (d === "01-example") return false;
       return fs.statSync(path.join(chaptersDir, d)).isDirectory();
     }).sort();
-  } catch { return `import type { ChapterDef } from "./types";\n\nexport const CHAPTERS: ChapterDef[] = [];\n`; }
+  } catch (err: any) {
+    console.warn("[tools] regenerateRegistry failed:", err?.message ?? err);
+    return `import type { ChapterDef } from "./types";\n\nexport const CHAPTERS: ChapterDef[] = [];\n`;
+  }
 
   const imports: string[] = [];
   const entries: string[] = [];

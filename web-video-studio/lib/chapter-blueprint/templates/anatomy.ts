@@ -61,9 +61,9 @@ export const anatomyTemplate: TemplateDefinition = {
   generate,
   chapterCSS: `.ch-anatomy { flex: 1; display: flex; align-items: center; justify-content: center; padding: var(--stage-pad-y) var(--stage-pad-x); }
 .ch-anatomy-stage { position: relative; display: inline-block; max-width: 90%; max-height: 80vh; }
-.ch-anatomy-image { border-radius: 8px; overflow: hidden; }
+.ch-anatomy-image { border-radius: var(--radius-md); overflow: hidden; }
 .ch-anatomy-image img { display: block; max-width: 100%; max-height: 70vh; object-fit: contain; }
-.ch-anatomy-label { position: absolute; display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--surface); border: 1px solid var(--accent); border-radius: 6px; font-size: var(--t-small); white-space: nowrap; }
+.ch-anatomy-label { position: absolute; display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--surface); border: 1px solid var(--accent); border-radius: var(--radius-sm); font-size: var(--t-small); white-space: nowrap; }
 .ch-anatomy-num { font-family: var(--font-mono); font-weight: 700; color: var(--accent); }
 .ch-anatomy-label-text { color: var(--text); }
 .ch-anatomy-label--top-left { top: -12px; left: 12px; transform: translateY(-100%); }

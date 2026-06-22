@@ -332,6 +332,7 @@ export function startParallelBuild(
         writeProjectFile(projectId, `${chaptersDir}/${generated.componentName}.tsx`, generated.tsx);
         writeProjectFile(projectId, `${chaptersDir}/${generated.componentName}.css`, generated.css);
         writeProjectFile(projectId, `${chaptersDir}/narrations.ts`, generated.narrations);
+        writeProjectFile(projectId, `${chaptersDir}/.blueprint.json`, JSON.stringify(r.bp, null, 2));
         allChapterDefs.push({
           id: generated.chapterId,
           dirName: generated.chapterId,

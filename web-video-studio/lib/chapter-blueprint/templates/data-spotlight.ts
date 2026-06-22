@@ -64,5 +64,5 @@ export const dataSpotlightTemplate: TemplateDefinition = {
 .ch-data-secondary-item { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
 .ch-data-secondary-value { font-size: var(--t-h2); font-weight: 600; }
 .ch-data-media { margin-top: var(--space-5); }
-.ch-data-media img { max-width: 600px; border-radius: 8px; }`,
+.ch-data-media img { max-width: 640px; border-radius: var(--radius-md); }`,
 };

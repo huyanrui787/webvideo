@@ -48,5 +48,5 @@ export const quoteCardTemplate: TemplateDefinition = {
 .ch-quote-attribution { font-family: var(--font-body); font-size: var(--t-h3); color: var(--text-2); font-style: normal; }
 .ch-quote-context { max-width: 48ch; }
 .ch-quote-media { margin-bottom: var(--space-4); }
-.ch-quote-media img { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; }`,
+.ch-quote-media img { width: var(--avatar-size, 120px); height: var(--avatar-size, 120px); border-radius: 50%; object-fit: cover; }`,
 };

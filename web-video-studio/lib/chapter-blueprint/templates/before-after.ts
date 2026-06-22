@@ -83,7 +83,7 @@ export const beforeAfterTemplate: TemplateDefinition = {
 .ch-before-after-badge { display: inline-block; padding: 2px var(--space-3); border-radius: 4px; font-size: var(--t-small); font-weight: 600; }
 .ch-before-after-badge--before { background: var(--text-2); color: #fff; opacity: 0.7; }
 .ch-before-after-badge--after { background: var(--accent); color: #fff; }
-.ch-before-after-media { width: 100%; border-radius: 8px; overflow: hidden; }
+.ch-before-after-media { width: 100%; border-radius: var(--radius-md); overflow: hidden; }
 .ch-before-after-media img, .ch-before-after-media video { width: 100%; height: auto; }
 .ch-before-after-caption { font-size: var(--t-small); color: var(--text-2); margin: 0; }
 .ch-before-after-divider { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }

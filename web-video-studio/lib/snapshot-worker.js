@@ -123,6 +123,25 @@ async function run() {
   } finally {
     await browser.close();
   }
+
+  // ── Auto-trigger vision review if API key is available ─────────
+  if (process.env.ANTHROPIC_API_KEY) {
+    try {
+      const reviewWorkerPath = path.join(__dirname, "review-worker.js");
+      if (fs.existsSync(reviewWorkerPath)) {
+        const { spawn } = require("child_process");
+        const child = spawn(
+          process.execPath,
+          [reviewWorkerPath, projectId, projectsRoot],
+          { detached: true, stdio: "ignore" }
+        );
+        child.unref();
+        console.log("[snapshot-worker] Vision review worker started");
+      }
+    } catch (err) {
+      console.warn("[snapshot-worker] Failed to start review worker:", err.message);
+    }
+  }
 }
 
 run().catch((err) => {
