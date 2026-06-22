@@ -173,7 +173,7 @@ export async function startDevServer(projectId: string): Promise<{ port: number 
   const cwd = path.join(projectDir(projectId), "presentation");
   const logFile = path.join(cwd, ".vite-dev.log");
 
-  const cmd = `nohup npm run dev -- --port ${port} --strictPort > ${logFile} 2>&1 &`;
+  const cmd = `nohup npm run dev -- --port ${port} --strictPort --host 127.0.0.1 > ${logFile} 2>&1 &`;
 
   await new Promise<void>((resolve, reject) => {
     execFile("sh", ["-c", cmd], { cwd }, (err) => {
