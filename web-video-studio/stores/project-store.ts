@@ -136,7 +136,7 @@ export const useProjectStore = create<ProjectStore>((set) => ({
     scaffold: "idle", scaffoldStale: false, scaffoldProgress: null, scaffoldError: null, scaffoldRetries: 0,
     buildJob: null, chapters: [], chStepCounts: {},
     playState: "idle", playStep: null, playSpeed: 1, subVisible: true, autoMode: true,
-    previewMode: "preview", floating: false, wholePage: false,
+    previewMode: "preview", floating: false, wholePage: false, iframeKey: 0,
     isStreaming: false, aiReadyForPreview: false,
   }),
 }));

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDevServer, startDevServer, stopDevServer } from "@/lib/dev-servers";
+import { requireProjectAccess } from "@/lib/api-helpers";
 import fs from "fs";
 import path from "path";
 import { projectDir } from "@/lib/projects";
@@ -7,16 +8,15 @@ import { projectDir } from "@/lib/projects";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const { error } = await requireProjectAccess(req, id);
+  if (error) return error;
 
-  // Check our in-memory registry first
   const server = getDevServer(id);
   if (server) return NextResponse.json(server);
-
-  // No known server for this project
   return NextResponse.json({ port: null, ready: false });
 }
 
@@ -25,6 +25,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const { error } = await requireProjectAccess(req, id);
+  if (error) return error;
+
   const { action } = await req.json().catch(() => ({ action: "start" }));
 
   if (action === "stop") {

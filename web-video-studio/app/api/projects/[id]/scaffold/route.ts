@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { startScaffold, getScaffoldJob, isScaffolded } from "@/lib/scaffold";
+import { requireProjectAccess } from "@/lib/api-helpers";
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const { error } = await requireProjectAccess(req, id);
+  if (error) return error;
+
   const done = isScaffolded(id);
   if (done) return NextResponse.json({ status: "done" });
   const job = getScaffoldJob(id);
@@ -18,22 +22,18 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const { error, project } = await requireProjectAccess(req, id);
+  if (error) return error;
 
-  // Already done
   if (isScaffolded(id)) {
     return NextResponse.json({ status: "done", skipped: true });
   }
 
-  const project = await db.query.projects.findFirst({
-    where: (p, { eq }) => eq(p.id, id),
-  });
-  if (!project) {
-    return NextResponse.json({ error: "Project not found" }, { status: 404 });
-  }
-
-  const theme = project.theme ?? "midnight-press";
-  const orientation = project.orientation ?? "landscape";
-  startScaffold(id, theme, orientation);
+  const theme = project?.theme ?? "midnight-press";
+  const orientation = project?.orientation ?? "landscape";
+  const projectFormat = project?.projectFormat ?? "video";
+  const mainSkillId = project?.mainSkillId ?? undefined;
+  startScaffold(id, theme, orientation, projectFormat, mainSkillId);
 
   return NextResponse.json({ status: "running" });
 }

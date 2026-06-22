@@ -191,15 +191,19 @@ export function InlinePreview({
   const [muted, setMuted] = useState(false);
   const [segments, setSegments] = useState<Segment[]>([]);
   const stepAudioRef = useRef<HTMLAudioElement | null>(null);
+  const segmentsLoaded = useRef(false);
 
   // Load segments once devPort is available
   useEffect(() => {
-    if (!devPort || segments.length > 0) return;
+    if (!devPort || segmentsLoaded.current) return;
     fetch(`/api/projects/${projectId}/files?path=presentation/audio-segments.json`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.content) { try { setSegments(JSON.parse(d.content)); } catch { /* ignore */ } } })
+      .then(d => {
+        segmentsLoaded.current = true;
+        if (d?.content) { try { setSegments(JSON.parse(d.content)); } catch { /* ignore */ } }
+      })
       .catch(() => {});
-  }, [devPort, projectId, segments.length]);
+  }, [devPort, projectId]);
 
   // Play audio when step changes (PPT mode only)
   useEffect(() => {

@@ -6,9 +6,6 @@ import { loadBrandConfig, compileBrandIntro, compileBrandOutro, isBrandShellEnab
 import { getSkill, MAIN_SKILL_ID } from "@/lib/skills";
 import { getMainSkillScriptsDir } from "@/lib/env";
 import { publishProjectEvent } from "@/lib/events";
-import { db } from "@/lib/db";
-import { projects } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
 
 interface ScaffoldJob {
   status: "running" | "done" | "error";
