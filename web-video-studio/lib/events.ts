@@ -6,12 +6,17 @@ import { EventEmitter } from "events";
 
 export interface ProjectEvent {
   projectId: string;
-  type: "scaffold" | "dev-server" | "build" | "render" | "audio";
+  type: "scaffold" | "scaffold-progress" | "dev-server" | "dev-stderr" | "build" | "render" | "audio";
   data: Record<string, unknown>;
 }
 
 const bus = new EventEmitter();
-bus.setMaxListeners(100); // SSE connections + other listeners
+bus.setMaxListeners(200); // SSE + internal listeners
+
+// Prevent unhandled listener errors from crashing the process
+bus.on("error", (err) => {
+  console.error("[events] Unhandled listener error:", err.message);
+});
 
 export function publishProjectEvent(
   projectId: string,
@@ -19,7 +24,11 @@ export function publishProjectEvent(
   data: Record<string, unknown>
 ) {
   const event: ProjectEvent = { projectId, type, data };
-  bus.emit("project-event", event);
+  try {
+    bus.emit("project-event", event);
+  } catch (err: any) {
+    console.error(`[events] Error publishing ${type} for ${projectId}:`, err.message);
+  }
 }
 
 export function subscribeToProject(
@@ -27,7 +36,11 @@ export function subscribeToProject(
   handler: (event: ProjectEvent) => void
 ): () => void {
   const listener = (event: ProjectEvent) => {
-    if (event.projectId === projectId) handler(event);
+    try {
+      if (event.projectId === projectId) handler(event);
+    } catch (err: any) {
+      console.error(`[events] Error in listener for ${projectId}:`, err.message);
+    }
   };
   bus.on("project-event", listener);
   return () => { bus.off("project-event", listener); };

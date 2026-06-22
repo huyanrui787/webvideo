@@ -141,7 +141,7 @@ function parseScaffoldError(output: string, exitCode: number | null): {
     return { type: "network", message: "网络连接失败", suggestion: "检查网络连接，然后重试" };
   if (combined.includes("enospc") || combined.includes("disk"))
     return { type: "disk", message: "磁盘空间不足", suggestion: "清理磁盘空间后重试" };
-  if (combined.includes("npm err") || combined.includes("enoent") && combined.includes("node_modules"))
+  if (combined.includes("npm err") || (combined.includes("enoent") || combined.includes("ENOENT")) && combined.includes("node_modules"))
     return { type: "npm", message: "npm 依赖安装失败", suggestion: "检查 package.json 和网络，然后重试" };
   if (combined.includes("vite") && (combined.includes("error") || exitCode !== 0))
     return { type: "vite", message: "Vite 项目创建失败", suggestion: "检查模板文件是否完整，然后重试" };
@@ -217,10 +217,25 @@ export function startScaffold(
       env: { ...process.env },
     });
 
-    proc.stdout.on("data", (d: Buffer) => { job.output += d.toString(); });
-    proc.stderr.on("data", (d: Buffer) => { job.output += d.toString(); });
+    // Add timeout for resume scaffold (same as main scaffold)
+    let resumeTimedOut = false;
+    const resumeTimer = setTimeout(() => {
+      resumeTimedOut = true;
+      proc.kill("SIGTERM");
+      setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000);
+      job.status = "error";
+      job.error = "resume scaffold 超时";
+      job.finishedAt = Date.now();
+      writeJobToDisk(projectId, job);
+      publishProjectEvent(projectId, "scaffold", { status: job.status });
+    }, SCAFFOLD_TIMEOUT_MS);
+
+    proc.stdout.on("data", (d: Buffer) => { if (job.output.length < 100_000) job.output += d.toString(); });
+    proc.stderr.on("data", (d: Buffer) => { if (job.output.length < 100_000) job.output += d.toString(); });
 
     proc.on("close", (code) => {
+      clearTimeout(resumeTimer);
+      if (resumeTimedOut) return;
       if (code !== 0) {
         job.status = "error";
         job.error = `resume scaffold 退出码 ${code}`;
@@ -289,19 +304,20 @@ export function startScaffold(
 
   proc.stdout.on("data", (d: Buffer) => {
     const text = d.toString();
-    job.output += text;
+    // Cap output at 100KB to prevent memory exhaustion
+    if (job.output.length < 100_000) job.output += text;
     // Parse structured progress: SCAFFOLD_PROGRESS:stage=npm-install:pct=45
     const m = text.match(/SCAFFOLD_PROGRESS:stage=([^:]+):pct=(\d+)/);
     if (m) {
       const progress = { stage: m[1]!, pct: parseInt(m[2]!, 10) };
       try { fs.writeFileSync(path.join(projectDir(projectId), ".scaffold-progress.json"), JSON.stringify(progress)); } catch {}
-      publishProjectEvent(projectId, "scaffold-progress" as any, progress);
+      publishProjectEvent(projectId, "scaffold-progress", progress);
     }
   });
   proc.stderr.on("data", (d: Buffer) => {
     const text = d.toString();
     job.output += text;
-    publishProjectEvent(projectId, "dev-stderr" as any, { error: text.slice(0, 500) });
+    publishProjectEvent(projectId, "dev-stderr", { error: text.slice(0, 500) });
   });
 
   proc.on("close", (code) => {
@@ -401,6 +417,8 @@ export function startScaffold(
 
   proc.on("error", (err) => {
     clearTimeout(timer);
+    // Guard: don't overwrite if close handler already marked as done/error
+    if (job.finishedAt) return;
     const structuredErr = parseScaffoldError(err.message, null);
     job.status = "error";
     job.error = structuredErr.message;

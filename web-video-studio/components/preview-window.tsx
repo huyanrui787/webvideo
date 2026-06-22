@@ -75,6 +75,9 @@ export interface PreviewWindowProps {
   devServerStarting: boolean;
   devServerError?: string | null;
   devCrashed: boolean;
+  devDegraded?: boolean;
+  scaffoldProgress?: { stage: string; pct: number } | null;
+  scaffoldRetries?: number;
   // lifecycle button
   isStreaming: boolean;
   aiReadyForPreview: boolean;
@@ -86,6 +89,7 @@ export interface PreviewWindowProps {
   onStartDevServer: () => void;
   onRebuild: () => void;
   onTakeManualControl: () => void;
+  onTryDegradedStart?: () => void;
   onStartRender: () => void;
   onStartBuild: () => void;
   onPublish: () => void;
@@ -145,6 +149,9 @@ export function PreviewWindow({
   devServerStarting,
   devServerError,
   devCrashed,
+  devDegraded,
+  scaffoldProgress,
+  scaffoldRetries,
   isStreaming,
   aiReadyForPreview,
   scaffoldStale,
@@ -155,6 +162,7 @@ export function PreviewWindow({
   onStartDevServer,
   onRebuild,
   onTakeManualControl,
+  onTryDegradedStart,
   onStartRender,
   onStartBuild,
   onPublish,
@@ -232,6 +240,9 @@ export function PreviewWindow({
     return () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
+      // Always restore body styles (prevent leak on unmount mid-drag)
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
     };
   }, []);
 
@@ -400,9 +411,12 @@ export function PreviewWindow({
             {/* Window controls */}
             <PreviewLifecycleButton
               scaffold={scaffoldStatus}
+              scaffoldProgress={scaffoldProgress}
+              scaffoldRetries={scaffoldRetries ?? 0}
               devPort={devPort}
               devStarting={devServerStarting}
               devError={devServerError ?? null}
+              devDegraded={devDegraded}
               buildStatus={buildStatus}
               buildDoneChapters={buildDoneChapters}
               buildTotalChapters={buildTotalChapters}
@@ -411,6 +425,7 @@ export function PreviewWindow({
               isStreaming={isStreaming}
               aiReadyForPreview={aiReadyForPreview}
               scaffoldStale={scaffoldStale}
+              devCrashed={devCrashed}
               onStartScaffold={onStartScaffold}
               onStartDevServer={onStartDevServer}
               onStopDevServer={onStopDevServer}
@@ -418,6 +433,7 @@ export function PreviewWindow({
               onRebuild={onRebuild}
               onFullscreen={onFullscreen}
               onTakeManualControl={onTakeManualControl}
+              onTryDegradedStart={onTryDegradedStart}
               variant="titlebar"
             />
 

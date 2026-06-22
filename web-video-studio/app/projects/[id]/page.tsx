@@ -172,8 +172,12 @@ export default function ProjectPage() {
       } catch {}
     });
     es.addEventListener("dev-stderr", (e: MessageEvent) => {
-      // Real-time Vite compile errors surfaced via SSE
-      try { const d = JSON.parse(e.data); if (d.error) setDevError(d.error); } catch {}
+      // Vite stderr — only treat as error if it looks like a compile error,
+      // not warnings or info messages
+      try {
+        const d = JSON.parse(e.data);
+        if (d.error && /error|Error|ERROR/.test(d.error)) setDevError(d.error);
+      } catch {}
     });
     es.addEventListener("build", (e: MessageEvent) => {
       try { const d = JSON.parse(e.data); setBuildJob((prev) => prev ? { ...prev, ...d } : d); } catch {}
@@ -201,7 +205,11 @@ export default function ProjectPage() {
           sseGotDevPort.current = true;
           return;
         }
-        if (prevDevPort.current !== null && !d.ready) setDevCrashed(true);
+        if (prevDevPort.current !== null && !d.ready) {
+          setDevCrashed(true);
+          // Auto-restart on crash (up to 3 times, tracked by server)
+          fetch(`/api/projects/${id}/dev-server/restart`, { method: "POST" }).catch(() => {});
+        }
         // Only retry if port not yet known and not too many attempts
         if (attempts >= 15) { setDevError("开发服务器启动超时"); return; }
         const delay = Math.min(1000 * Math.pow(2, Math.min(attempts - 1, 4)), 16000);
@@ -217,15 +225,30 @@ export default function ProjectPage() {
     return () => { ok = false; };
   }, [id]);
 
+  const startDevSerial = useRef(0);
   const startDev = useCallback(async () => {
+    const serial = ++startDevSerial.current;
     setDevStarting(true); setDevError(null); setDevCrashed(false); setDevDegraded(false); setAiReadyForPreview(false);
     devStartingRef.current = true;
-    sseGotDevPort.current = false; // allow polling to find the new port
+    sseGotDevPort.current = false;
     try {
       const r = await fetch(`/api/projects/${id}/dev-server`, { method: "POST" });
+      if (serial !== startDevSerial.current) return; // stale — ignore
       if (!r.ok && r.status !== 409) { const d = await r.json().catch(() => ({})); setDevError(d.error ?? "fail"); }
-    } catch { setDevError("network"); }
-    setDevStarting(false);
+    } catch {
+      if (serial !== startDevSerial.current) return;
+      setDevError("network");
+    }
+    if (serial === startDevSerial.current) setDevStarting(false);
+  }, [id]);
+
+  const stopDev = useCallback(async () => {
+    setDevPort(null);
+    fetch(`/api/projects/${id}/dev-server`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "stop" }),
+    }).catch(() => {});
   }, [id]);
 
   const startScaffold = useCallback(async () => {
@@ -239,6 +262,11 @@ export default function ProjectPage() {
   const takeManualControl = useCallback(() => {
     userControlMode.current = true;
   }, []);
+
+  // Reset manual control when project reaches a new phase (user likely wants auto again)
+  useEffect(() => {
+    if (project?.status === "writing") userControlMode.current = false;
+  }, [project?.status]);
 
   // ── Auto-trigger TTS when a chapter is built ──────────────────────────
   const handleChapterBuilt = useCallback(
@@ -669,7 +697,11 @@ export default function ProjectPage() {
   if (!project) return null;
 
   const hasPreview = devPort !== null && scaffold === "done";
-  const buildStatus = (buildJob?.status === "running" ? "running" : buildJob?.status === "done" ? "done" : "idle") as "idle" | "running" | "done" | "error";
+  const buildStatus: "idle" | "running" | "done" | "error" =
+    buildJob?.status === "running" ? "running" :
+    buildJob?.status === "done" ? "done" :
+    buildJob?.status === "error" || buildJob?.status === "partial" ? "error" :
+    "idle";
   const doneChapters = buildJob?.chapters?.filter((c: any) => c.status === "done").length ?? 0;
   const totalChapters = buildJob?.chapters?.length ?? 1;
   const buildErrorChapters = buildJob?.chapters?.filter((c: any) => c.status === "error" || c.status === "timeout").length ?? 0;
@@ -927,7 +959,7 @@ export default function ProjectPage() {
             totalChapters={chapters.length} subtitleVisible={subVisible}
             onPlay={play} onPause={pause} onPrevChapter={prevCh} onNextChapter={nextCh}
             onSpeedChange={setSpeed} onSubtitleToggle={() => setSubVisible(v => !v)}
-            onRefreshPreview={refresh} onStopDevServer={() => { setDevPort(null); }} onFullscreen={fullscreen}
+            onRefreshPreview={refresh} onStopDevServer={stopDev} onFullscreen={fullscreen}
             previewMode={previewMode} chapters={displayChapters} chapterStepCounts={chStepCounts}
             onEnterEditMode={() => setPreviewMode("edit")} onExitEditMode={() => { setPreviewMode("preview"); setSelEl(null); setWholeCtx(null); setWholePage(false); }}
             onSeekToStep={seek} wholePageSelected={wholePage} onSelectWholePage={() => setWholePage(v => !v)}
@@ -995,7 +1027,7 @@ export default function ProjectPage() {
               devCrashed={devCrashed}
               onStartScaffold={startScaffold}
               onStartDevServer={startDev}
-              onStopDevServer={() => { setDevPort(null); }}
+              onStopDevServer={stopDev}
               onRefreshPreview={refresh}
               onRebuild={() => { fetch(`/api/projects/${id}/build-parallel`, { method: "POST" }).catch(() => {}); }}
               onFullscreen={fullscreen}
@@ -1078,7 +1110,7 @@ export default function ProjectPage() {
           onSpeedChange={setSpeed}
           onSubtitleToggle={() => setSubVisible(v => !v)}
           onRefreshPreview={refresh}
-          onStopDevServer={() => { setDevPort(null); }}
+          onStopDevServer={stopDev}
           onFullscreen={fullscreen}
           previewMode={previewMode}
           chapters={displayChapters}
