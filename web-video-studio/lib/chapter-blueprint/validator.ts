@@ -11,10 +11,9 @@
 
 import {
   ChapterBlueprint,
-  getSlotSchema,
   type ChapterBlueprint as ChapterBlueprintType,
 } from "./types";
-import type { TemplateId } from "./types";
+import { getTemplate } from "./templates/registry";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Result types
@@ -66,9 +65,9 @@ function validateL2(bp: ChapterBlueprintType): ValidationIssue[] {
     const layout = step.layout;
 
     if (layout.mode === "template") {
-      // Validate that the slots match the template's expected schema
-      const slotSchema = getSlotSchema(layout.template);
-      const slotsResult = slotSchema.safeParse(layout.slots);
+      // Validate that the slots match the template's expected schema (via registry)
+      const tpl = getTemplate(layout.template);
+      const slotsResult = tpl.slots.safeParse(layout.slots);
       if (!slotsResult.success) {
         for (const err of slotsResult.error.issues) {
           issues.push({
@@ -130,6 +129,9 @@ function validateL2(bp: ChapterBlueprintType): ValidationIssue[] {
 const HARDCODED_COLORS_RE = /#[0-9a-fA-F]{3,8}(?!\d)/;
 const HARDCODED_FONT_RE = /font-family\s*:\s*(?!var\(--font)/;
 const DEPRECATED_TOKENS_RE = /var\(--color-|var\(--bg-|var\(--border-/;
+const HARDCODED_RADIUS_RE = /border-radius\s*:\s*(?!var\(--r|var\(--radius)/;
+const HARDCODED_SHADOW_RE = /box-shadow\s*:\s*(?!var\(--s|var\(--shadow|none)/;
+const HARDCODED_MOTION_RE = /cubic-bezier\([^)]+\)(?!\s*;)/;
 
 function validateL3(bp: ChapterBlueprintType): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
@@ -163,6 +165,30 @@ function validateL3(bp: ChapterBlueprintType): ValidationIssue[] {
             step: i,
             field: `steps[${i}].layout.css`,
             message: `CSS references deprecated tokens (var(--color-*), var(--bg-*), var(--border-*)). Use var(--text), var(--accent), var(--surface) instead.`,
+          });
+        }
+        if (HARDCODED_RADIUS_RE.test(layout.css)) {
+          issues.push({
+            level: "warning",
+            step: i,
+            field: `steps[${i}].layout.css`,
+            message: `CSS contains hardcoded border-radius. Use var(--radius-sm), var(--radius-md), var(--radius-lg) or var(--r-card) from the theme.`,
+          });
+        }
+        if (HARDCODED_SHADOW_RE.test(layout.css)) {
+          issues.push({
+            level: "warning",
+            step: i,
+            field: `steps[${i}].layout.css`,
+            message: `CSS contains hardcoded box-shadow. Use var(--shadow-sm), var(--shadow-md), var(--shadow-lg), or theme shadow tokens.`,
+          });
+        }
+        if (HARDCODED_MOTION_RE.test(layout.css)) {
+          issues.push({
+            level: "warning",
+            step: i,
+            field: `steps[${i}].layout.css`,
+            message: `CSS contains hardcoded cubic-bezier(). Use var(--motion-snappy), var(--motion-smooth), var(--motion-gentle), var(--motion-spring), or var(--motion-linear).`,
           });
         }
       }

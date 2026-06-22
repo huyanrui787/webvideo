@@ -25,4 +25,10 @@
     "text": "#1f1a14",
     "accent": "#8c6a48"
   }
+,
+  "motionProfile": {
+    "defaultEasing": "var(--motion-smooth)",
+    "duration": "slow",
+    "description": "Gentle, organic flow"
+  }
 }

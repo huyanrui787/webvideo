@@ -1,62 +1,33 @@
-/* ─────────────────────────────────────────────────────────────────────
- * Theme · dune
- *   Architecture / gallery brochure restraint. Warm desert sand canvas,
- *   charcoal-brown ink, near-zero accent saturation (clay-brown). Inter
- *   for display (architecture portfolios love Inter / Helvetica), Source
- *   Serif for body (gallery wall-text feel). SIGNATURE: NO decoration,
- *   NO pattern, NO vignette — purity. Like monochrome-print but warmer
- *   and with sans-serif headlines instead of serif.
- *
- *   character knobs:
- *     • hero numbers   — Inter, weight 300 (light, refined)
- *     • rule           — 1px solid faint sand hairline
- *     • card           — refined small radius (paper-lift)
- *     • surface        — clean (NO pattern, NO vignette)
- *     • motion         — quietest pace (sand barely moves)
- * ───────────────────────────────────────────────────────────────────── */
-:root {
-  /* ─── palette ─── */
-  --shell:        #dcc8a5;
-  --surface:      #f0e6d2;
-  --surface-2:    #f6ecd9;
-  --surface-3:    #e3d7bf;
-  --text:         #1f1a14;             /* charcoal-brown ink */
-  --text-2:       #2d2620;
-  --text-mute:    #6b5c46;
-  --text-faint:   #9a8c70;
-  --rule:         #c4b496;
-  --accent:       #8c6a48;             /* muted clay (low saturation) */
-  --accent-soft:  rgba(140, 106, 72, 0.10);
-  --accent-glow:  rgba(140, 106, 72, 0.25);
+/* ─── Standardized design token scales (v2) ─── */
+  /* Radius scale */
+  --radius-none: 0;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
 
-  /* ─── fonts ─── */
-  --font-display-cn: "Noto Sans SC", "Source Han Sans SC", -apple-system, sans-serif;
-  --font-display-en: "Inter", "Helvetica Neue", "Helvetica", sans-serif;
-  --font-body:       "Source Serif 4", "Source Serif Pro", "Noto Serif SC", serif;
-  --font-mono:       "JetBrains Mono", "SF Mono", ui-monospace, monospace;
-  --font-features:   "ss01", "ss02", "cv02", "tnum";
+  /* Shadow scale */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.08);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.12);
+  --shadow-xl: 0 20px 50px rgba(0,0,0,0.18);
 
-  /* ─── motion: quietest gallery pace ─── */
-  --dur-base:       780ms;
-  --dur-slow:       1250ms;
-  --dur-cinematic:  1750ms;
+  /* Grid baseline (8px system) */
+  --grid: 8px;
+  --grid-2: 16px;
+  --grid-3: 24px;
+  --grid-4: 32px;
+  --grid-5: 40px;
+  --grid-6: 48px;
+  --grid-8: 64px;
+  --grid-12: 96px;
 
-  /* ─── design identity: gallery restraint ─── */
-  --r-card:        var(--r-xs);     /* 4px — barely-there refinement */
-  --r-stage:       0;
-  --rule-w:        1px;
-  --rule-style:    solid;
-  --hero-num-font:    var(--font-display-en);
-  --hero-num-style:   normal;
-  --hero-num-weight:  300;
-  --hero-num-track:   -0.04em;
-  --stage-pad-x:   140px;              /* generous = refined */
-  --stage-pad-y:   100px;
-  --card-shadow:
-    0 1px 0 var(--rule),
-    0 18px 44px rgba(60, 40, 20, 0.10);
-  --shadow-stage:
-    0 60px 160px rgba(60, 40, 20, 0.30),
-    0 0 0 1px rgba(0, 0, 0, 0.04);
-  /* SIGNATURE: NO surface-pattern, NO vignette — desert dusk purity. */
+  /* Motion easing presets */
+  --motion-snappy: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-gentle: cubic-bezier(0.6, 0, 0.4, 1);
+  --motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-linear: linear;
 }

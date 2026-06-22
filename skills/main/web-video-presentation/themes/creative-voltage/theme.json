@@ -25,4 +25,10 @@
     "text": "#ffffff",
     "accent": "#d4ff00"
   }
+,
+  "motionProfile": {
+    "defaultEasing": "var(--motion-gentle)",
+    "duration": "slow",
+    "description": "Slow, dramatic reveals"
+  }
 }

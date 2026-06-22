@@ -25,4 +25,10 @@
     "text": "#0a0a0a",
     "accent": "#4361ee"
   }
+,
+  "motionProfile": {
+    "defaultEasing": "var(--motion-spring)",
+    "duration": "medium",
+    "description": "Playful, bouncy motion"
+  }
 }

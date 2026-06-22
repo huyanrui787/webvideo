@@ -1,68 +1,33 @@
-/* ─────────────────────────────────────────────────────────────────────
- * Theme · creative-voltage
- *   Retro-modern creative studio. Saturated electric-blue surface (the
- *   brand color IS the canvas) + neon-yellow accent for shock contrast.
- *   Syne for display (curved geometric serif-sans hybrid), Space Mono
- *   for body / mono badges (creative-coder vibe). SIGNATURE: subtle
- *   halftone dot pattern overlay.
- *
- *   character knobs:
- *     • hero numbers   — Syne, weight 800 (geometric chunk)
- *     • rule           — 2px solid neon yellow (bold, decisive)
- *     • card           — refined-sm radius (mostly sharp)
- *     • surface        — halftone dot pattern (retro print signature)
- *     • motion         — punchy + slight overshoot (energy)
- * ───────────────────────────────────────────────────────────────────── */
-:root {
-  /* ─── palette ─── */
-  --shell:        #001a4d;
-  --surface:      #0033b8;             /* saturated electric blue */
-  --surface-2:    #00257d;
-  --surface-3:    #001f5e;
-  --text:         #ffffff;
-  --text-2:       #e8eaff;
-  --text-mute:    #98a4d8;
-  --text-faint:   #6878b8;
-  --rule:         rgba(212, 255, 0, 0.32);
-  --accent:       #d4ff00;             /* neon yellow */
-  --accent-soft:  rgba(212, 255, 0, 0.14);
-  --accent-glow:  rgba(212, 255, 0, 0.50);
+/* ─── Standardized design token scales (v2) ─── */
+  /* Radius scale */
+  --radius-none: 0;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
 
-  /* ─── fonts ─── */
-  --font-display-cn: "Noto Sans SC", "Source Han Sans SC", -apple-system, sans-serif;
-  --font-display-en: "Syne", "Archivo Black", "Inter", sans-serif;
-  --font-body:       "Space Mono", "JetBrains Mono", "Inter", "Noto Sans SC", monospace;
-  --font-mono:       "Space Mono", "JetBrains Mono", "SF Mono", ui-monospace, monospace;
-  --font-features:   "ss01", "ss02", "tnum";
+  /* Shadow scale */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.08);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,0.12);
+  --shadow-xl: 0 20px 50px rgba(0,0,0,0.18);
 
-  /* ─── motion: punchy energy ─── */
-  --dur-quick:     200ms;
-  --dur-base:      450ms;
-  --dur-slow:      720ms;
-  --dur-cinematic: 1100ms;
+  /* Grid baseline (8px system) */
+  --grid: 8px;
+  --grid-2: 16px;
+  --grid-3: 24px;
+  --grid-4: 32px;
+  --grid-5: 40px;
+  --grid-6: 48px;
+  --grid-8: 64px;
+  --grid-12: 96px;
 
-  /* ─── design identity: punk studio ─── */
-  --r-card:        var(--r-sm);
-  --r-stage:       0;
-  --rule-w:        2px;             /* SIGNATURE — bold dividers */
-  --rule-style:    solid;
-  --hero-num-font:    var(--font-display-en);
-  --hero-num-style:   normal;
-  --hero-num-weight:  800;
-  --hero-num-track:   -0.03em;
-  --stage-pad-x:   96px;
-  --stage-pad-y:   72px;
-  --card-shadow:
-    0 1px 0 var(--rule),
-    8px 8px 0 rgba(212, 255, 0, 0.30);    /* offset neon-yellow shadow */
-  --shadow-stage:
-    0 60px 160px rgba(0, 20, 60, 0.65),
-    0 0 0 1px rgba(212, 255, 0, 0.18);
-
-  /* ─── decoration: SIGNATURE — halftone dot pattern overlay ─── */
-  --surface-pattern:
-    radial-gradient(circle, rgba(212, 255, 0, 0.18) 1.5px, transparent 2px);
-  --surface-pattern-size: 18px 18px;
-  --surface-pattern-blend: normal;
-  --surface-pattern-opacity: 0.55;
+  /* Motion easing presets */
+  --motion-snappy: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-gentle: cubic-bezier(0.6, 0, 0.4, 1);
+  --motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-linear: linear;
 }

@@ -25,4 +25,10 @@
     "text": "#e8f4ff",
     "accent": "#00ffcc"
   }
+,
+  "motionProfile": {
+    "defaultEasing": "var(--motion-snappy)",
+    "duration": "fast",
+    "description": "Sharp, linear motion"
+  }
 }

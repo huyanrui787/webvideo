@@ -1,7 +1,9 @@
 import path from "path";
 import fs from "fs";
 import { projectDir } from "@/lib/projects";
-import { getProjectsDir, getRenderWorkerPath } from "@/lib/env";
+import { getProjectsDir, getRenderWorkerPath, getSnapshotWorkerPath } from "@/lib/env";
+import { hasSnapshots } from "@/lib/vision-review";
+import { getResolution } from "@/lib/render-config";
 
 export type RenderStatus = "idle" | "running" | "done" | "error";
 
@@ -33,19 +35,42 @@ export function getRenderJob(projectId: string): RenderJob | null {
   }
 }
 
-export function startRender(projectId: string, port: number): void {
+export function startRender(projectId: string, port: number, resolution?: string): void {
   const existing = getRenderJob(projectId);
   if (existing?.status === "running") return;
 
+  const preset = getResolution(resolution);
+
   // Write initial status synchronously so the API can return immediately
   const f = statusFile(projectId);
-  fs.writeFileSync(f, JSON.stringify({ status: "running", progress: "启动中…", updatedAt: Date.now() }));
+  fs.writeFileSync(f, JSON.stringify({
+    status: "running",
+    progress: `启动中… (${preset.label})`,
+    resolution: resolution ?? "standard",
+    updatedAt: Date.now(),
+  }));
 
   // Spawn detached worker — survives page close / Next.js restart
   const { spawn } = require("child_process") as typeof import("child_process");
+  const args = [WORKER, projectId, String(port), PROJECTS_ROOT];
+  if (resolution && resolution !== "standard") {
+    args.push(`--resolution=${resolution}`);
+  }
+  const child = spawn(process.execPath, args, { detached: true, stdio: "ignore" });
+  child.unref();
+}
+
+const SNAPSHOT_WORKER = getSnapshotWorkerPath();
+
+/** Start a visual snapshot pass — screenshots every step for review */
+export function startSnapshots(projectId: string, port: number): void {
+  const f = path.join(statusFile(projectId).replace(".render-status", ".snapshot-status"));
+  fs.writeFileSync(f, JSON.stringify({ status: "running", progress: "截图中…", updatedAt: Date.now() }));
+
+  const { spawn } = require("child_process") as typeof import("child_process");
   const child = spawn(
     process.execPath,
-    [WORKER, projectId, String(port), PROJECTS_ROOT],
+    [SNAPSHOT_WORKER, projectId, String(port), PROJECTS_ROOT],
     { detached: true, stdio: "ignore" }
   );
   child.unref();

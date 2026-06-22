@@ -255,7 +255,8 @@ export type GridItem = z.infer<typeof GridItem>;
 // Tier 1: Template layout definition
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/** Maps each template to its slot schema */
+/** Maps each template to its slot schema — legacy, kept for backwards compat.
+ *  New code should import slot schemas directly from template modules. */
 const SLOT_SCHEMAS = {
   "hero-title": HeroTitleSlots,
   "step-reveal": StepRevealSlots,
@@ -267,6 +268,11 @@ const SLOT_SCHEMAS = {
   "grid-gallery": GridGallerySlots,
 } as const satisfies Record<TemplateId, z.ZodObject<any>>;
 
+/** Legacy: get slot schema by template ID. Prefer importing directly from template module. */
+export function getSlotSchema(template: TemplateId): z.ZodObject<any> {
+  return SLOT_SCHEMAS[template];
+}
+
 export const TemplateLayout = z.object({
   mode: z.literal("template"),
   template: z.enum(TEMPLATE_IDS),
@@ -277,11 +283,6 @@ export const TemplateLayout = z.object({
   overrides: StyleOverrides.optional(),
 });
 export type TemplateLayout = z.infer<typeof TemplateLayout>;
-
-/** Get the slot schema for a specific template */
-export function getSlotSchema(template: TemplateId): z.ZodObject<any> {
-  return SLOT_SCHEMAS[template];
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Tier 2: Composed mode — primitives assembly

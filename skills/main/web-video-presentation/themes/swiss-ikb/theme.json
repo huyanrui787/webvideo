@@ -24,5 +24,10 @@
     "surface": "#fafaf8",
     "text": "#0a0a0a",
     "accent": "#002fa7"
+  },
+  "motionProfile": {
+    "defaultEasing": "var(--motion-snappy)",
+    "duration": "fast",
+    "description": "Sharp, linear motion — Swiss is never springy"
   }
 }

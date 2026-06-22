@@ -52,6 +52,23 @@ export type {
   MediaRef,
 } from "./types";
 
+// Template registry — public API for extensibility
+export {
+  getTemplate,
+  hasTemplate,
+  listTemplateIds,
+  listTemplates,
+  registerTemplate,
+  collectTemplateCSS,
+  getTemplateImports,
+} from "./templates/registry";
+
+export type {
+  TemplateDefinition,
+  TemplateContext,
+  TemplateOutput,
+} from "./templates/types";
+
 export {
   compileChapter,
   compileRegistry,

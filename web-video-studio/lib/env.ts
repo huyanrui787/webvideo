@@ -112,6 +112,13 @@ export function getRenderWorkerPath(): string {
   return path.join(getAppDataDir(), "lib", "render-worker.js");
 }
 
+/** Path to the snapshot-worker.js script for visual testing. */
+export function getSnapshotWorkerPath(): string {
+  const bundled = path.join(getAppDataDir(), "lib", "snapshot-worker.js");
+  if (fs.existsSync(bundled)) return bundled;
+  return path.join(getAppDataDir(), "lib", "snapshot-worker.js");
+}
+
 // ── Settings ────────────────────────────────────────────────────────────────
 
 /** Path to the user settings file (API keys, preferences). */

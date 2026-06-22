@@ -25,4 +25,10 @@
     "text": "#0a1f3d",
     "accent": "#1e3a8a"
   }
+,
+  "motionProfile": {
+    "defaultEasing": "var(--motion-gentle)",
+    "duration": "medium",
+    "description": "Measured editorial pace"
+  }
 }
