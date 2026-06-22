@@ -1,0 +1,157 @@
+/* ─── chapter 03 image ─── */
+.im-scene { color: var(--text); }
+
+.im-kicker {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.im-accent { color: var(--accent); }
+.im-sub {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 30px;
+  color: var(--text-mute);
+}
+
+.im-intro { justify-content: center; gap: var(--space-5); }
+.im-center { align-items: center; text-align: center; }
+.im-hero {
+  margin: 0;
+  font-size: 118px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+
+/* old flow */
+.im-old { justify-content: center; gap: var(--space-7); }
+.im-old-row { display: flex; gap: var(--space-5); }
+.im-old-card {
+  flex: 1;
+  border: var(--rule-w) dashed var(--rule);
+  padding: 44px;
+  text-align: center;
+  font-family: var(--font-display-cn);
+  font-weight: 700;
+  font-size: 42px;
+  color: var(--text-mute);
+}
+.im-rerun {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+.im-rerun-arrow {
+  font-family: var(--font-display-en);
+  font-size: 56px;
+  color: var(--text-faint);
+}
+.im-rerun-text {
+  background: var(--accent);
+  color: var(--surface);
+  font-family: var(--font-display-cn);
+  font-weight: 800;
+  font-size: 48px;
+  padding: 18px 40px;
+}
+
+/* split */
+.im-split { flex-direction: row; align-items: center; gap: var(--space-9); }
+.im-split-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.im-mid {
+  margin: 0;
+  font-size: 80px;
+  line-height: 1.05;
+}
+.im-note {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 26px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+.im-shot {
+  margin: 0;
+  flex: 1.1;
+  border: var(--rule-w) solid var(--rule);
+  box-shadow: var(--card-shadow);
+  background: var(--surface-2);
+}
+.im-shot img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-bottom: var(--rule-w) solid var(--rule);
+}
+.im-shot figcaption {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  color: var(--text-mute);
+  padding: 14px 20px;
+}
+
+/* two ways */
+.im-two { justify-content: center; gap: var(--space-7); }
+.im-two-row { display: flex; gap: var(--space-5); }
+.im-two-card {
+  flex: 1;
+  border: var(--rule-w) solid var(--rule);
+  background: var(--surface-2);
+  box-shadow: var(--card-shadow);
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 300px;
+}
+.im-two-card-accent { background: var(--accent); color: var(--surface); }
+.im-two-card-accent .im-two-num { color: var(--surface); }
+.im-two-card-accent .im-two-d { color: var(--surface); }
+.im-two-num {
+  font-size: 96px;
+  color: var(--accent);
+  line-height: 1;
+}
+.im-two-t { font-size: 60px; }
+.im-two-d {
+  font-family: var(--font-body);
+  font-size: 26px;
+  color: var(--text-mute);
+}
+
+/* tools grid */
+.im-tools { justify-content: center; gap: var(--space-7); }
+.im-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-5);
+}
+.im-tool-card {
+  border: var(--rule-w) solid var(--rule);
+  background: var(--surface-2);
+  box-shadow: var(--card-shadow);
+  padding: 56px 24px;
+  text-align: center;
+}
+.im-tool-t {
+  font-size: 44px;
+}
+
+/* emphasis */
+.im-emph-box {
+  background: var(--accent);
+  color: var(--surface);
+  font-family: var(--font-display-cn);
+  font-weight: 800;
+  font-size: 80px;
+  padding: 24px 56px;
+}

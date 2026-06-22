@@ -1,0 +1,48 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * 海量代码练出的学霸
+ * Auto-generated from chapter blueprint. Edit the blueprint, not this file.
+ * ───────────────────────────────────────────────────────────────────── */
+
+.ch-how-it-works { color: var(--text); }
+
+.ch-data { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: var(--stage-pad-y) var(--stage-pad-x); gap: var(--space-5); }
+.ch-data-primary { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+.ch-data-value { font-size: var(--t-display-1); font-weight: 700; color: var(--accent); }
+.ch-data-label { font-size: var(--t-h3); }
+.ch-data-context { font-family: var(--font-body); font-size: var(--t-body); color: var(--text-2); max-width: 48ch; text-align: center; margin: 0; }
+.ch-data-secondary { display: flex; gap: var(--space-9); margin-top: var(--space-4); }
+.ch-data-secondary-item { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); }
+.ch-data-secondary-value { font-size: var(--t-h2); font-weight: 600; }
+.ch-data-media { margin-top: var(--space-5); }
+.ch-data-media img { max-width: 600px; border-radius: 8px; }
+
+.ch-flow { flex: 1; display: flex; align-items: center; justify-content: center; padding: var(--stage-pad-y) var(--stage-pad-x); }
+
+.ch-compare { flex: 1; display: flex; align-items: center; justify-content: center; padding: var(--stage-pad-y) var(--stage-pad-x); gap: var(--space-7); }
+.ch-compare-panel { flex: 1; display: flex; flex-direction: column; gap: var(--space-4); max-width: 440px; }
+.ch-compare-label { display: inline-block; padding: 2px var(--space-3); background: var(--accent); color: #fff; border-radius: 4px; align-self: flex-start; }
+.ch-compare-heading { font-size: var(--t-h2); margin: 0; }
+.ch-compare-body { font-family: var(--font-body); font-size: var(--t-body); color: var(--text-2); margin: 0; }
+.ch-compare-items { margin: 0; padding-left: var(--space-5); display: flex; flex-direction: column; gap: var(--space-2); }
+.ch-compare-items li { font-size: var(--t-body); }
+.ch-compare-divider { display: flex; align-items: center; justify-content: center; }
+.ch-compare-divider span { font-size: var(--t-h1); font-weight: 700; color: var(--accent); }
+.ch-compare-media img { max-width: 100%; border-radius: 8px; }
+
+.ch-quote { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: var(--stage-pad-y) var(--stage-pad-x); gap: var(--space-5); }
+.ch-quote--centered { align-items: center; text-align: center; }
+.ch-quote--side { align-items: flex-start; }
+.ch-quote--overlay { align-items: center; text-align: center; }
+.ch-quote-text { font-size: var(--t-display-2); line-height: 1.15; max-width: 22ch; margin: 0; }
+.ch-quote-attribution { font-family: var(--font-body); font-size: var(--t-h3); color: var(--text-2); font-style: normal; }
+.ch-quote-context { max-width: 48ch; }
+.ch-quote-media { margin-bottom: var(--space-4); }
+.ch-quote-media img { width: 120px; height: 120px; border-radius: 50%; object-fit: cover; }
+
+.ch-code { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: var(--stage-pad-y) var(--stage-pad-x); gap: var(--space-5); }
+.ch-code-header { display: flex; justify-content: space-between; align-items: center; }
+.ch-code-filename { color: var(--accent); }
+.ch-code-annotations { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-4); }
+.ch-code-annotation { display: flex; gap: var(--space-3); align-items: baseline; }
+.ch-code-output { margin-top: var(--space-5); }
+.ch-code-output img { max-width: 100%; border-radius: 8px; }

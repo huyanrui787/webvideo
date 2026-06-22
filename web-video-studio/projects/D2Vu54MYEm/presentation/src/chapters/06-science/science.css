@@ -1,0 +1,175 @@
+.sc-scene {
+  background: var(--surface);
+  color: var(--text);
+  gap: 36px;
+}
+.sc-dark {
+  background: var(--shell);
+}
+
+.sc-kicker {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.sc-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 32px;
+}
+.sc-center-mid {
+  align-items: center;
+}
+
+/* divide */
+.sc-divide {
+  display: inline-block;
+}
+.sc-old {
+  font-family: var(--font-display-cn);
+  font-weight: 700;
+  font-size: 56px;
+  color: var(--text-faint);
+  position: relative;
+}
+.sc-old::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 54%;
+  height: 6px;
+  background: var(--text-faint);
+}
+.sc-turn {
+  font-family: var(--font-display-cn);
+  font-weight: 900;
+  font-size: 150px;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--accent);
+}
+
+/* protein flow */
+.sc-flow {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+}
+.sc-flow-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 48px 56px;
+  border: 4px solid var(--text);
+  background: var(--surface-2);
+  box-shadow: 10px 10px 0 var(--text);
+}
+.sc-flow-idx {
+  font-family: var(--font-display-en);
+  font-weight: 900;
+  font-size: 80px;
+  color: var(--accent);
+  line-height: 0.9;
+}
+.sc-flow-name {
+  font-family: var(--font-display-cn);
+  font-weight: 900;
+  font-size: 48px;
+  color: var(--text);
+}
+.sc-sub {
+  font-family: var(--font-body);
+  font-size: 36px;
+  color: var(--text-mute);
+  margin: 0;
+}
+.sc-hl {
+  font-family: var(--font-display-en);
+  font-style: italic;
+  font-weight: 900;
+  color: var(--accent);
+}
+
+/* score */
+.sc-score-row {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 72px;
+}
+.sc-score-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.sc-score-num {
+  font-size: 300px;
+  line-height: 0.82;
+}
+.sc-num-mute {
+  color: var(--text-faint);
+}
+.sc-num-accent {
+  color: var(--accent);
+}
+.sc-score-label {
+  font-family: var(--font-display-cn);
+  font-weight: 700;
+  font-size: 44px;
+  color: var(--text);
+}
+.sc-score-arrow {
+  font-family: var(--font-display-en);
+  font-weight: 900;
+  font-size: 120px;
+  color: var(--text);
+}
+
+/* graph */
+.sc-graph-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 480px;
+}
+
+/* final */
+.sc-final-line {
+  display: flex;
+  align-items: baseline;
+  gap: 32px;
+}
+.sc-final-text {
+  font-family: var(--font-display-cn);
+  font-weight: 900;
+  font-size: 110px;
+  color: var(--surface);
+}
+.sc-final-num {
+  font-size: 360px;
+  color: var(--accent);
+  line-height: 0.8;
+}
+.sc-final-punch {
+  font-family: var(--font-display-cn);
+  font-weight: 900;
+  font-size: 200px;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--surface);
+}

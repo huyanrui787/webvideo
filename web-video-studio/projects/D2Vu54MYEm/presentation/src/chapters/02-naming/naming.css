@@ -1,0 +1,235 @@
+.nm-scene {
+  background: var(--surface);
+  color: var(--text);
+}
+.nm-dark {
+  background: var(--shell);
+}
+.nm-on-dark {
+  color: var(--surface);
+}
+.nm-on-dark-accent {
+  color: var(--accent);
+}
+
+.nm-center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.nm-kicker {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* etymon */
+.nm-etymon-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 56px;
+}
+.nm-etymon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 48px 56px;
+  border: 4px solid var(--text);
+  background: var(--surface-2);
+}
+.nm-word-en {
+  font-family: var(--font-display-en);
+  font-style: italic;
+  font-weight: 900;
+  font-size: 72px;
+  color: var(--accent);
+}
+.nm-word-src {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  letter-spacing: 0.1em;
+  color: var(--text-mute);
+}
+.nm-word-cn {
+  font-family: var(--font-display-cn);
+  font-weight: 900;
+  font-size: 56px;
+  color: var(--text);
+}
+.nm-link {
+  font-family: var(--font-display-cn);
+  font-weight: 900;
+  font-size: 36px;
+  color: var(--text-mute);
+  border: 3px dashed var(--text-mute);
+  padding: 12px 20px;
+}
+
+/* statement */
+.nm-statement {
+  font-family: var(--font-display-cn);
+  font-weight: 900;
+  font-size: 150px;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.nm-accent {
+  color: var(--accent);
+}
+
+/* mapping */
+.nm-map-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 36px;
+}
+.nm-map-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 40px;
+  padding: 32px 40px;
+  border: 4px solid var(--text);
+  background: var(--surface-2);
+  box-shadow: 10px 10px 0 var(--text);
+}
+.nm-map-row-accent {
+  background: var(--accent);
+}
+.nm-map-row-accent .nm-map-name,
+.nm-map-row-accent .nm-map-arrow,
+.nm-map-row-accent .nm-map-cn {
+  color: var(--surface);
+}
+.nm-map-name {
+  font-family: var(--font-display-en);
+  font-weight: 900;
+  font-size: 80px;
+  color: var(--text);
+  min-width: 380px;
+}
+.nm-map-arrow {
+  font-family: var(--font-display-en);
+  font-weight: 900;
+  font-size: 56px;
+  color: var(--accent);
+}
+.nm-map-cn {
+  font-family: var(--font-display-cn);
+  font-weight: 900;
+  font-size: 56px;
+  color: var(--text);
+}
+
+/* gap */
+.nm-gap-line {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+}
+.nm-gap-text {
+  font-family: var(--font-display-cn);
+  font-weight: 700;
+  font-size: 64px;
+  color: var(--text);
+}
+.nm-gap-num {
+  font-size: 200px;
+  color: var(--accent);
+  line-height: 0.9;
+}
+.nm-sub {
+  font-family: var(--font-body);
+  font-size: 34px;
+  color: var(--text-mute);
+  margin: 0;
+  max-width: 1100px;
+}
+
+/* flow */
+.nm-flow-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 48px;
+}
+.nm-flow-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 40px;
+}
+.nm-flow-node {
+  font-family: var(--font-display-cn);
+  font-weight: 900;
+  font-size: 48px;
+  color: var(--text);
+  padding: 36px 44px;
+  border: 4px solid var(--text);
+  background: var(--surface-2);
+}
+.nm-flow-node-down {
+  background: var(--surface-3);
+  color: var(--text-mute);
+}
+.nm-flow-arrow {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+/* zero */
+.nm-zero {
+  font-size: 360px;
+  color: var(--accent);
+  line-height: 0.85;
+}
+
+/* price */
+.nm-price-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 40px;
+}
+.nm-price-row {
+  display: flex;
+  flex-direction: row;
+  gap: 96px;
+}
+.nm-price-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.nm-price-label {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+.nm-price-num {
+  font-size: 200px;
+  line-height: 0.9;
+}
+.nm-num-accent {
+  color: var(--accent);
+}

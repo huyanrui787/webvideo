@@ -1,0 +1,194 @@
+[
+  {
+    "chapter": "coldopen",
+    "step": 1,
+    "text": "藏了整整两个月。",
+    "audio": "coldopen/1.mp3"
+  },
+  {
+    "chapter": "coldopen",
+    "step": 2,
+    "text": "Anthropic说它太危险，不能公开。",
+    "audio": "coldopen/2.mp3"
+  },
+  {
+    "chapter": "coldopen",
+    "step": 3,
+    "text": "今晚，这个模型交到了所有人手上。",
+    "audio": "coldopen/3.mp3"
+  },
+  {
+    "chapter": "twins",
+    "step": 1,
+    "text": "今夜Anthropic双连发。Claude Fable 5和Mythos 5同时上线。",
+    "audio": "twins/1.mp3"
+  },
+  {
+    "chapter": "twins",
+    "step": 2,
+    "text": "这俩名字，大有来头。",
+    "audio": "twins/2.mp3"
+  },
+  {
+    "chapter": "twins",
+    "step": 3,
+    "text": "Fable来自拉丁语寓言，Mythos是希腊语神话。",
+    "audio": "twins/3.mp3"
+  },
+  {
+    "chapter": "twins",
+    "step": 4,
+    "text": "同一个底座，公开版叫寓言，完整版叫神话。",
+    "audio": "twins/4.mp3"
+  },
+  {
+    "chapter": "twins",
+    "step": 5,
+    "text": "两者跑分几乎一模一样，差距只有一到三个百分点。",
+    "audio": "twins/5.mp3"
+  },
+  {
+    "chapter": "twins",
+    "step": 6,
+    "text": "唯一的区别，是寓言版内置了安全分类器。一碰网安任务，它直接降级成上一代回复。",
+    "audio": "twins/6.mp3"
+  },
+  {
+    "chapter": "benchmarks",
+    "step": 1,
+    "text": "光说没用，咱们看跑分。SWE-Bench Pro，最卷的智能体编程榜。",
+    "audio": "benchmarks/1.mp3"
+  },
+  {
+    "chapter": "benchmarks",
+    "step": 2,
+    "text": "Fable 5拿下80.3%。",
+    "audio": "benchmarks/2.mp3"
+  },
+  {
+    "chapter": "benchmarks",
+    "step": 3,
+    "text": "11天前的上代王者Opus 4.8，只有69.2%，GPT-5.5是58.6%。",
+    "audio": "benchmarks/3.mp3"
+  },
+  {
+    "chapter": "benchmarks",
+    "step": 4,
+    "text": "新模型一脚把刚坐稳11天的王座踹翻。",
+    "audio": "benchmarks/4.mp3"
+  },
+  {
+    "chapter": "benchmarks",
+    "step": 5,
+    "text": "代码质量榜上，Fable 5是29.3%，GPT-5.5只有5.7%，五倍差距。而且它中等算力就到顶了，随便想想就是第一。",
+    "audio": "benchmarks/5.mp3"
+  },
+  {
+    "chapter": "stripe",
+    "step": 1,
+    "text": "但真正吓人的，不是这些数字。",
+    "audio": "stripe/1.mp3"
+  },
+  {
+    "chapter": "stripe",
+    "step": 2,
+    "text": "Stripe拿到内测权限，干了件大事。一个五千万行的代码库，做全局迁移。",
+    "audio": "stripe/2.mp3"
+  },
+  {
+    "chapter": "stripe",
+    "step": 3,
+    "text": "正常情况，一整个团队要两个多月。Fable 5，只用了一天。",
+    "audio": "stripe/3.mp3"
+  },
+  {
+    "chapter": "stripe",
+    "step": 4,
+    "text": "一天，五千万行，整个团队都看傻了。",
+    "audio": "stripe/4.mp3"
+  },
+  {
+    "chapter": "stripe",
+    "step": 5,
+    "text": "物理研究任务上，它用三分之一的算力，36小时跑到对手四天才到的位置。",
+    "audio": "stripe/5.mp3"
+  },
+  {
+    "chapter": "symphony",
+    "step": 1,
+    "text": "最魔幻的一个。",
+    "audio": "symphony/1.mp3"
+  },
+  {
+    "chapter": "symphony",
+    "step": 2,
+    "text": "一个从没听过音乐的AI，用代码写了首贝多芬混音。",
+    "audio": "symphony/2.mp3"
+  },
+  {
+    "chapter": "symphony",
+    "step": 3,
+    "text": "再用代码，写了段跟着节拍跳舞的流体。",
+    "audio": "symphony/3.mp3"
+  },
+  {
+    "chapter": "science",
+    "step": 1,
+    "text": "视觉能力上，进步同样夸张。",
+    "audio": "science/1.mp3"
+  },
+  {
+    "chapter": "science",
+    "step": 2,
+    "text": "以前玩宝可梦，得喂一整套地图导航工具，还经常卡关。",
+    "audio": "science/2.mp3"
+  },
+  {
+    "chapter": "science",
+    "step": 3,
+    "text": "Fable 5只靠看屏幕截图，没地图，没辅助，纯裸眼通关整个火红版。",
+    "audio": "science/3.mp3"
+  },
+  {
+    "chapter": "science",
+    "step": 4,
+    "text": "到了生命科学，蛋白质设计，14个靶点拿下9个强候选。",
+    "audio": "science/4.mp3"
+  },
+  {
+    "chapter": "science",
+    "step": 5,
+    "text": "最炸的是基因组学。它花一周多几乎没人管，自己搜了138个物种的数据，自己训练了模型。",
+    "audio": "science/5.mp3"
+  },
+  {
+    "chapter": "science",
+    "step": 6,
+    "text": "结果，超越了刚发在Science上的同类研究。体量小一百倍，性能还反超。",
+    "audio": "science/6.mp3"
+  },
+  {
+    "chapter": "mythos",
+    "step": 1,
+    "text": "GPT-5.5才发一个半月，能看到它尾灯的项目只剩两个。往下，全是单方面屠杀。",
+    "audio": "mythos/1.mp3"
+  },
+  {
+    "chapter": "mythos",
+    "step": 2,
+    "text": "而Anthropic把意思藏进了名字里。神话，是文明命运的叙事；寓言，是最古老的道德教化。",
+    "audio": "mythos/2.mp3"
+  },
+  {
+    "chapter": "mythos",
+    "step": 3,
+    "text": "古希腊哲学的诞生，曾是理性对神话的一次胜利。",
+    "audio": "mythos/3.mp3"
+  },
+  {
+    "chapter": "mythos",
+    "step": 4,
+    "text": "如今一家公司站在ASI门口，把最强模型叫做神话和寓言。接下来的问题是，意义和善恶的判断，还能不能留在人类手里。",
+    "audio": "mythos/4.mp3"
+  }
+]

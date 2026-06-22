@@ -1,0 +1,56 @@
+{
+  "chapterId": "data-proof-example",
+  "title": "数据冲击示例",
+  "steps": [
+    {
+      "narration": "99.5%。这个数字意味着，在光速参考系中，时间膨胀了整整一个数量级。",
+      "layout": {
+        "mode": "composed",
+        "layout": "grid",
+        "gridTemplate": "2fr 1fr",
+        "regions": {
+          "big-number": {
+            "content": [{ "primitive": "Counter", "params": { "to": 99.5, "unit": "%", "duration": 1.5, "from": 0 } }],
+            "gridArea": "1/1"
+          },
+          "context": {
+            "content": [{ "primitive": "Reveal", "params": { "from": "right", "delay": 0.6 } }],
+            "gridArea": "1/2"
+          }
+        },
+        "animations": [
+          { "target": "big-number", "effect": "scaleIn", "delay": 0.2, "duration": 0.8 },
+          { "target": "context", "effect": "slideRight", "delay": 0.6, "duration": 0.6 }
+        ]
+      }
+    },
+    {
+      "narration": "全世界的互联网流量，每天超过 5 艾字节。",
+      "layout": {
+        "mode": "composed",
+        "layout": "grid",
+        "gridTemplate": "1fr 1fr 1fr",
+        "regions": {
+          "stat1": {
+            "content": [{ "primitive": "Counter", "params": { "to": 5, "unit": "EB", "duration": 1.2 } }],
+            "gridArea": "1/1"
+          },
+          "stat2": {
+            "content": [{ "primitive": "Counter", "params": { "to": 350, "unit": "ms", "duration": 1.2 } }],
+            "gridArea": "1/2"
+          },
+          "stat3": {
+            "content": [{ "primitive": "Counter", "params": { "to": 99.99, "unit": "%", "decimals": 2, "duration": 1.2 } }],
+            "gridArea": "1/3"
+          }
+        },
+        "animations": [
+          { "target": "stat1", "effect": "fadeIn", "delay": 0.2, "duration": 0.6 },
+          { "target": "stat2", "effect": "fadeIn", "delay": 0.5, "duration": 0.6 },
+          { "target": "stat3", "effect": "fadeIn", "delay": 0.8, "duration": 0.6 }
+        ]
+      }
+    }
+  ],
+  "orderHint": 1
+}

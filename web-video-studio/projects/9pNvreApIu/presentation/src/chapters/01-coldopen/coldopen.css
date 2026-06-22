@@ -1,0 +1,172 @@
+/* ─── chapter 01 coldopen ─── */
+.co-scene {
+  color: var(--text);
+}
+.co-center {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-5);
+}
+.co-left {
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+.co-kicker {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* step 0 — question */
+.co-question {
+  margin: 0;
+  font-family: var(--font-display-cn);
+  font-weight: 800;
+  font-size: 92px;
+  line-height: 1.2;
+  max-width: 22ch;
+  letter-spacing: -0.01em;
+}
+.co-cursor-bar {
+  width: 120px;
+  height: 8px;
+  background: var(--accent);
+}
+
+/* step 1 — sameness grid */
+.co-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 1300px;
+}
+.co-cell {
+  border: var(--rule-w) solid var(--rule);
+  background: var(--surface-2);
+  box-shadow: var(--card-shadow);
+  padding: 44px 0;
+  font-family: var(--font-display-cn);
+  font-weight: 800;
+  font-size: 52px;
+  color: var(--text-faint);
+  text-align: center;
+}
+.co-caption {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 30px;
+  color: var(--text-mute);
+}
+
+/* step 2 — logo */
+.co-logo {
+  margin: 0;
+  font-size: 180px;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+}
+.co-version-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+.co-bar {
+  width: 200px;
+  height: 12px;
+  background: var(--accent);
+}
+.co-version {
+  font-size: 140px;
+  color: var(--accent);
+}
+.co-sub {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 34px;
+  color: var(--text-2);
+}
+
+/* step 3 / 5 — big statement */
+.co-big {
+  margin: 0;
+  font-size: 110px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.co-accent {
+  color: var(--accent);
+}
+.co-line {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 32px;
+  letter-spacing: 0.1em;
+  color: var(--text-mute);
+}
+
+/* step 4 — direction grid */
+.co-dirs {
+  justify-content: center;
+  gap: var(--space-7);
+}
+.co-dir-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+.co-dir-card {
+  border: var(--rule-w) solid var(--rule);
+  background: var(--surface-2);
+  box-shadow: var(--card-shadow);
+  padding: 40px 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 200px;
+  justify-content: center;
+}
+.co-dir-num {
+  font-size: 56px;
+  color: var(--accent);
+  line-height: 1;
+}
+.co-dir-cn {
+  font-size: 48px;
+  line-height: 1;
+}
+.co-dir-en {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  letter-spacing: 0.2em;
+  color: var(--text-mute);
+}
+
+/* step 5 — emphasis */
+.co-emph-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+.co-emph-box {
+  border: var(--rule-w) solid var(--rule);
+  background: var(--surface-2);
+  box-shadow: var(--card-shadow);
+  padding: 28px 44px;
+  font-family: var(--font-display-cn);
+  font-weight: 800;
+  font-size: 52px;
+}
+.co-emph-box-accent {
+  background: var(--accent);
+  color: var(--surface);
+}
+.co-plus {
+  font-family: var(--font-display-en);
+  font-size: 64px;
+  color: var(--text-mute);
+}

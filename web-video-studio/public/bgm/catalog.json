@@ -1,0 +1,62 @@
+[
+  {
+    "id": "tech-flow",
+    "name": "Tech Flow",
+    "nameZh": "科技脉动",
+    "mood": "tech",
+    "moodZh": "科技感",
+    "desc": "电子合成器节拍，适合 AI / 产品 / 技术演讲",
+    "bpm": 110,
+    "duration": 120
+  },
+  {
+    "id": "corporate-calm",
+    "name": "Corporate Calm",
+    "nameZh": "商务沉稳",
+    "mood": "corporate",
+    "moodZh": "商务",
+    "desc": "轻钢琴 + 弦乐，适合企业汇报、方案讲解",
+    "bpm": 80,
+    "duration": 120
+  },
+  {
+    "id": "inspiring-rise",
+    "name": "Inspiring Rise",
+    "nameZh": "励志向上",
+    "mood": "inspiring",
+    "moodZh": "励志",
+    "desc": "逐渐推进的管弦乐，适合品牌宣传、活动开场",
+    "bpm": 95,
+    "duration": 120
+  },
+  {
+    "id": "gentle-narration",
+    "name": "Gentle Narration",
+    "nameZh": "轻快叙事",
+    "mood": "storytelling",
+    "moodZh": "叙事",
+    "desc": "吉他 + 轻打击乐，适合教程、功能介绍",
+    "bpm": 90,
+    "duration": 120
+  },
+  {
+    "id": "dark-tension",
+    "name": "Dark Tension",
+    "nameZh": "沉浸暗调",
+    "mood": "dark",
+    "moodZh": "沉浸",
+    "desc": "低沉氛围层次，适合数据报告、深度分析",
+    "bpm": 70,
+    "duration": 120
+  },
+  {
+    "id": "upbeat-positive",
+    "name": "Upbeat Positive",
+    "nameZh": "活力正能量",
+    "mood": "upbeat",
+    "moodZh": "活力",
+    "desc": "明快节奏 + 马林巴，适合产品发布、庆典场景",
+    "bpm": 120,
+    "duration": 120
+  }
+]

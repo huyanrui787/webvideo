@@ -1,0 +1,124 @@
+/* Chapter 7 · mythos — [close] · bauhaus-bold */
+
+.my-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  transition: background 500ms var(--ease-overshoot);
+}
+.my-dark { background: var(--text); }
+.my-mark {
+  position: absolute;
+  top: 56px;
+  left: 80px;
+  display: flex;
+  gap: 14px;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  color: var(--text-mute);
+  z-index: 5;
+}
+.my-dark .my-mark { color: var(--text-faint); }
+.my-mark-sep { color: var(--accent); }
+.my-scene { position: absolute; inset: 0; padding: 0 120px; }
+.my-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+.my-kicker {
+  font-size: 18px;
+  letter-spacing: 0.28em;
+  color: var(--accent);
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: my-rise 340ms var(--ease-overshoot) 60ms forwards;
+}
+.my-accent { color: var(--accent); }
+
+/* step 0 only-two */
+.my-only-row { display: flex; align-items: center; gap: 48px; }
+.my-only-num {
+  font-size: 420px;
+  line-height: 0.8;
+  color: var(--accent);
+  opacity: 0;
+  transform: scale(0.7);
+  animation: my-pop 440ms var(--ease-overshoot) 140ms forwards;
+}
+.my-only-cap {
+  font-size: 72px;
+  line-height: 1.1;
+  color: var(--text);
+  opacity: 0;
+  transform: translateX(-24px);
+  animation: my-slide 420ms var(--ease-overshoot) 420ms forwards;
+}
+.my-only-foot {
+  margin-top: 44px;
+  font-size: 64px;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: my-rise 400ms var(--ease-overshoot) 640ms forwards;
+}
+
+/* step 1 naming */
+.my-name-scene { display: flex; flex-direction: column; justify-content: center; }
+.my-name-grid { display: flex; flex-direction: column; gap: 56px; }
+.my-name-item {
+  display: flex;
+  align-items: baseline;
+  gap: 56px;
+  border-bottom: 4px solid var(--text);
+  padding-bottom: 32px;
+  opacity: 0;
+  transform: translateX(-30px);
+  animation: my-slide 440ms var(--ease-overshoot) both;
+}
+.my-name-item:nth-child(1) { animation-delay: 180ms; }
+.my-name-item:nth-child(2) { animation-delay: 440ms; }
+.my-name-en { font-size: 120px; color: var(--accent); min-width: 480px; }
+.my-name-desc { font-size: 56px; color: var(--text); }
+
+/* step 2 logos */
+.my-logos {
+  font-size: 116px;
+  line-height: 1.1;
+  color: var(--surface);
+  opacity: 0;
+  transform: translateY(28px);
+  animation: my-rise 480ms var(--ease-overshoot) 160ms forwards;
+}
+.my-logos-foot {
+  margin-top: 48px;
+  font-size: 32px;
+  letter-spacing: 0.28em;
+  color: var(--accent);
+  opacity: 0;
+  animation: my-rise 400ms var(--ease-overshoot) 620ms forwards;
+}
+
+/* step 3 close */
+.my-close-top {
+  font-size: 64px;
+  line-height: 1.3;
+  color: rgba(244, 241, 234, 0.7);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: my-rise 440ms var(--ease-overshoot) 120ms forwards;
+}
+.my-close-q {
+  margin-top: 48px;
+  font-size: 116px;
+  line-height: 1.1;
+  color: var(--surface);
+  opacity: 0;
+  transform: translateY(28px);
+  animation: my-rise 520ms var(--ease-overshoot) 480ms forwards;
+}
+
+@keyframes my-rise { to { opacity: 1; transform: translateY(0); } }
+@keyframes my-slide { to { opacity: 1; transform: translateX(0); } }
+@keyframes my-pop { to { opacity: 1; transform: scale(1); } }

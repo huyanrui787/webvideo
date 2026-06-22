@@ -1,0 +1,24 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * AI 驱动的智能流水线
+ * Auto-generated from chapter blueprint. Edit the blueprint, not this file.
+ * ───────────────────────────────────────────────────────────────────── */
+
+.ch-smart-pipeline { color: var(--text); }
+
+.sp-question-stage{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:20px}.sp-big-q{font-family:var(--font-display-cn);font-size:52px;color:var(--text-2);opacity:0.7}.sp-answer{font-family:var(--font-display-cn);font-size:56px;color:var(--accent)}
+
+.sp-robot-stage{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:30px}.sp-robot-svg{width:240px;height:240px;animation:sp-shake 2s ease-in-out infinite}@keyframes sp-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}.sp-caption{font-family:var(--font-mono);font-size:24px;color:var(--text-mute)}
+
+.sp-flow-step{display:flex;align-items:center;gap:40px;padding:60px 80px;height:100%}.sp-flow-icon{flex-shrink:0}.sp-flow-text{display:flex;flex-direction:column;gap:8px}.sp-flow-num{font-family:var(--font-mono);font-size:18px;color:var(--accent)}.sp-flow-title{font-family:var(--font-display-cn);font-size:44px;color:var(--text);margin:0}.sp-flow-desc{font-family:var(--font-body);font-size:24px;color:var(--text-2);margin:0}
+
+.sp-lego-stage{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:40px}.sp-lego-svg{width:500px;height:100px}.sp-lego-svg rect{animation:sp-snap 0.4s ease-out forwards;opacity:0}@keyframes sp-snap{0%{opacity:0;transform:translateY(-20px)}100%{opacity:1;transform:translateY(0)}}.sp-lego-label{font-family:var(--font-mono);font-size:24px;color:var(--text-2);letter-spacing:2px}
+
+.ch-hero { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: var(--space-5); padding: var(--stage-pad-y) var(--stage-pad-x); }
+.ch-hero--centered { align-items: center; text-align: center; }
+.ch-hero--left { align-items: flex-start; text-align: left; }
+.ch-hero--split { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: var(--space-9); }
+.ch-hero-title { font-size: var(--t-display-2); line-height: 1.05; margin: 0; max-width: 24ch; }
+.ch-hero-sub { font-family: var(--font-body); font-size: var(--t-body); color: var(--text-2); max-width: 56ch; margin: 0; }
+.ch-hero-bg { position: absolute; inset: 0; z-index: 0; opacity: 0.3; }
+.ch-hero-bg img, .ch-hero-bg video { width: 100%; height: 100%; object-fit: cover; }
+.ch-hero-logo { position: absolute; top: var(--space-6); right: var(--space-6); width: 64px; }

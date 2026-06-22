@@ -1,0 +1,7 @@
+{
+  "domain": "business-report",
+  "tone": "analytical",
+  "data_density": "high",
+  "key_signals": ["火箭", "航天", "回收", "成本", "发射", "卫星", "星链", "商业", "增长", "创新"],
+  "narrative_style": "data-report"
+}

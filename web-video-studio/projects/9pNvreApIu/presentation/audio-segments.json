@@ -1,0 +1,266 @@
+[
+  {
+    "chapter": "coldopen",
+    "step": 1,
+    "text": "AI 做出来的东西，是不是一眼就能认出来？",
+    "audio": "coldopen/1.mp3"
+  },
+  {
+    "chapter": "coldopen",
+    "step": 2,
+    "text": "千篇一律的句式、配色、节奏，全是 AI 味。",
+    "audio": "coldopen/2.mp3"
+  },
+  {
+    "chapter": "coldopen",
+    "step": 3,
+    "text": "YouMind 1.0 想解决的，就是这个问题。",
+    "audio": "coldopen/3.mp3"
+  },
+  {
+    "chapter": "coldopen",
+    "step": 4,
+    "text": "它的看家本领是创作，覆盖六大方向。",
+    "audio": "coldopen/4.mp3"
+  },
+  {
+    "chapter": "coldopen",
+    "step": 5,
+    "text": "写作、生图、音视频、幻灯片、网页、学习。",
+    "audio": "coldopen/5.mp3"
+  },
+  {
+    "chapter": "coldopen",
+    "step": 6,
+    "text": "每个方向都沉淀了这个领域的审美和门道。",
+    "audio": "coldopen/6.mp3"
+  },
+  {
+    "chapter": "writing",
+    "step": 1,
+    "text": "先说写作，这是最高频的场景。",
+    "audio": "writing/1.mp3"
+  },
+  {
+    "chapter": "writing",
+    "step": 2,
+    "text": "它把写作分成了六种题材。观点、小说、商务、技术、邮件、营销。",
+    "audio": "writing/2.mp3"
+  },
+  {
+    "chapter": "writing",
+    "step": 3,
+    "text": "每种都做成了内置 Skill。AI 会自动判断你在写什么。",
+    "audio": "writing/3.mp3"
+  },
+  {
+    "chapter": "writing",
+    "step": 4,
+    "text": "加载对应技能，按这个题材的标准来采集、构思、产出。",
+    "audio": "writing/4.mp3"
+  },
+  {
+    "chapter": "writing",
+    "step": 5,
+    "text": "还能精准改动。选中一句、甚至一个词。",
+    "audio": "writing/5.mp3"
+  },
+  {
+    "chapter": "writing",
+    "step": 6,
+    "text": "AI 只改这一段，真正做到指哪打哪。",
+    "audio": "writing/6.mp3"
+  },
+  {
+    "chapter": "image",
+    "step": 1,
+    "text": "再说生图。以前最大的痛点是出图改不动。",
+    "audio": "image/1.mp3"
+  },
+  {
+    "chapter": "image",
+    "step": 2,
+    "text": "想换背景、删个元素，都得整张重跑。",
+    "audio": "image/2.mp3"
+  },
+  {
+    "chapter": "image",
+    "step": 3,
+    "text": "1.0 加了图片编辑器，点图片就唤起工具栏。",
+    "audio": "image/3.mp3"
+  },
+  {
+    "chapter": "image",
+    "step": 4,
+    "text": "框选要改的部分，或者直接描述需求。",
+    "audio": "image/4.mp3"
+  },
+  {
+    "chapter": "image",
+    "step": 5,
+    "text": "编辑文字、裁剪、擦除，全都能做。",
+    "audio": "image/5.mp3"
+  },
+  {
+    "chapter": "image",
+    "step": 6,
+    "text": "这套编辑器也搬到了幻灯片上。",
+    "audio": "image/6.mp3"
+  },
+  {
+    "chapter": "image",
+    "step": 7,
+    "text": "每一页的元素和布局，都能单独调。",
+    "audio": "image/7.mp3"
+  },
+  {
+    "chapter": "cast",
+    "step": 1,
+    "text": "重头戏来了，音视频。先看智能成片。",
+    "audio": "cast/1.mp3"
+  },
+  {
+    "chapter": "cast",
+    "step": 2,
+    "text": "做好的幻灯片，点一下就变成讲解视频。",
+    "audio": "cast/2.mp3"
+  },
+  {
+    "chapter": "cast",
+    "step": 3,
+    "text": "它先给每页生成脚本，再配上音频。",
+    "audio": "cast/3.mp3"
+  },
+  {
+    "chapter": "cast",
+    "step": 4,
+    "text": "背景音乐、人声、字幕、转场，都能改。",
+    "audio": "cast/4.mp3"
+  },
+  {
+    "chapter": "cast",
+    "step": 5,
+    "text": "这套可控的流程，YouMind 叫它 Cast。",
+    "audio": "cast/5.mp3"
+  },
+  {
+    "chapter": "cast",
+    "step": 6,
+    "text": "比如让它做个 15 秒的耳机广告。",
+    "audio": "cast/6.mp3"
+  },
+  {
+    "chapter": "cast",
+    "step": 7,
+    "text": "它依次生成脚本、素材、分镜、配音，每步确认，最后组装成片。",
+    "audio": "cast/7.mp3"
+  },
+  {
+    "chapter": "cast",
+    "step": 8,
+    "text": "还能上传真人肖像和声音做克隆。用你的形象出镜。",
+    "audio": "cast/8.mp3"
+  },
+  {
+    "chapter": "web-learn",
+    "step": 1,
+    "text": "网页这块，新增了动态策展。",
+    "audio": "web-learn/1.mp3"
+  },
+  {
+    "chapter": "web-learn",
+    "step": 2,
+    "text": "以前每加一条内容，都得手动更新重发。",
+    "audio": "web-learn/2.mp3"
+  },
+  {
+    "chapter": "web-learn",
+    "step": 3,
+    "text": "现在用 @ 选中整个 Board，加内容网页自动同步。",
+    "audio": "web-learn/3.mp3"
+  },
+  {
+    "chapter": "web-learn",
+    "step": 4,
+    "text": "学习这边，接入了 Browser Use。",
+    "audio": "web-learn/4.mp3"
+  },
+  {
+    "chapter": "web-learn",
+    "step": 5,
+    "text": "以前只能读搜索引擎的摘要和快照，遇到要登录的页面就歇菜。现在能直接操作浏览器，读实时内容。",
+    "audio": "web-learn/5.mp3"
+  },
+  {
+    "chapter": "skill-sprite",
+    "step": 1,
+    "text": "接下来是创作者激励计划。",
+    "audio": "skill-sprite/1.mp3"
+  },
+  {
+    "chapter": "skill-sprite",
+    "step": 2,
+    "text": "你可以把自己的工作流打包成 Skill。用积分定价，上架技能广场，赚奖励金。",
+    "audio": "skill-sprite/2.mp3"
+  },
+  {
+    "chapter": "skill-sprite",
+    "step": 3,
+    "text": "广场已经超过 2000 个 Skill，有创作者赚到了第一笔 2000 美元。",
+    "audio": "skill-sprite/3.mp3"
+  },
+  {
+    "chapter": "skill-sprite",
+    "step": 4,
+    "text": "大多数 AI 是任务型的。你给指令，它干完就散。但创作是连续的。",
+    "audio": "skill-sprite/4.mp3"
+  },
+  {
+    "chapter": "skill-sprite",
+    "step": 5,
+    "text": "所以 1.0 有了精灵。它有长期记忆，还有可编辑的灵魂文档。",
+    "audio": "skill-sprite/5.mp3"
+  },
+  {
+    "chapter": "skill-sprite",
+    "step": 6,
+    "text": "它还能接到 Telegram 和微信。任务是一次性的，精灵是长期搭档。",
+    "audio": "skill-sprite/6.mp3"
+  },
+  {
+    "chapter": "platform-outro",
+    "step": 1,
+    "text": "YouMind 也走出了网页，iOS 端上线了。",
+    "audio": "platform-outro/1.mp3"
+  },
+  {
+    "chapter": "platform-outro",
+    "step": 2,
+    "text": "从 X、YouTube 看到好内容，直接分享进 Board。安卓和桌面端也快见面了。",
+    "audio": "platform-outro/2.mp3"
+  },
+  {
+    "chapter": "platform-outro",
+    "step": 3,
+    "text": "还有 YouMind API，能让 Claude Code 这类 Agent 读取内容。",
+    "audio": "platform-outro/3.mp3"
+  },
+  {
+    "chapter": "platform-outro",
+    "step": 4,
+    "text": "反过来也能连 Notion、Slack，文稿一键发到公众号和 X。",
+    "audio": "platform-outro/4.mp3"
+  },
+  {
+    "chapter": "platform-outro",
+    "step": 5,
+    "text": "两年前的 YouMind 概念太多。现在的 1.0，从输入到加工到输出，每一步都更顺。",
+    "audio": "platform-outro/5.mp3"
+  },
+  {
+    "chapter": "platform-outro",
+    "step": 6,
+    "text": "欢迎你来，也谢谢你还在。和 YouMind 一起，大胆创作。",
+    "audio": "platform-outro/6.mp3"
+  }
+]

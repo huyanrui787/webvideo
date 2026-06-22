@@ -1,0 +1,64 @@
+{
+  "chapterId": "comparison-example",
+  "title": "叙事分屏示例",
+  "steps": [
+    {
+      "narration": "在爱因斯坦之前，时间和空间是绝对的、互不相干的。牛顿的宇宙像一座完美的钟表。",
+      "layout": {
+        "mode": "composed",
+        "layout": "split",
+        "regions": {
+          "left": {
+            "content": [{ "primitive": "Reveal", "params": { "from": "left", "delay": 0.2 } }]
+          },
+          "right": {
+            "content": [{ "primitive": "Reveal", "params": { "from": "right", "delay": 0.5 } }]
+          }
+        },
+        "animations": [
+          { "target": "left", "effect": "slideRight", "delay": 0, "duration": 0.7 },
+          { "target": "right", "effect": "slideLeft", "delay": 0.3, "duration": 0.7 }
+        ]
+      }
+    },
+    {
+      "narration": "但迈克尔逊-莫雷实验打破了这一切。光速在任何参考系中都是一样的——这个事实改变了整个世界。",
+      "layout": {
+        "mode": "composed",
+        "layout": "split",
+        "regions": {
+          "theory": {
+            "content": [{ "primitive": "Stagger", "params": { "from": "up", "interval": 0.15 } }]
+          },
+          "experiment": {
+            "content": [{ "primitive": "Reveal", "params": { "from": "right", "delay": 0.8 } }]
+          }
+        },
+        "animations": [
+          { "target": "theory", "effect": "slideUp", "delay": 0.2, "duration": 0.6 },
+          { "target": "experiment", "effect": "fadeIn", "delay": 0.6, "duration": 0.8 }
+        ]
+      }
+    },
+    {
+      "narration": "牛顿说：引力是一种力，跨越空间瞬时作用。爱因斯坦说：不，引力是时空弯曲。质量告诉时空如何弯曲，时空告诉质量如何运动。",
+      "layout": {
+        "mode": "composed",
+        "layout": "split",
+        "regions": {
+          "left": {
+            "content": [{ "primitive": "Reveal", "params": { "from": "up" } }]
+          },
+          "right": {
+            "content": [{ "primitive": "Reveal", "params": { "from": "up", "delay": 0.4 } }]
+          }
+        },
+        "animations": [
+          { "target": "left", "effect": "slideUp", "delay": 0, "duration": 0.6 },
+          { "target": "right", "effect": "slideUp", "delay": 0.4, "duration": 0.6 }
+        ]
+      }
+    }
+  ],
+  "orderHint": 2
+}

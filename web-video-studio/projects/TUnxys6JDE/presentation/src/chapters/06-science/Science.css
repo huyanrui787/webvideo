@@ -1,0 +1,197 @@
+/* Chapter 6 · science — [build] · bauhaus-bold */
+
+.sc-root { position: absolute; inset: 0; overflow: hidden; }
+.sc-mark {
+  position: absolute;
+  top: 56px;
+  left: 80px;
+  display: flex;
+  gap: 14px;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  color: var(--text-mute);
+  z-index: 5;
+}
+.sc-mark-sep { color: var(--accent); }
+.sc-scene { position: absolute; inset: 0; padding: 100px 120px 80px; }
+.sc-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+.sc-kicker {
+  font-size: 18px;
+  letter-spacing: 0.28em;
+  color: var(--accent);
+  margin-bottom: 28px;
+  opacity: 0;
+  animation: sc-rise 340ms var(--ease-overshoot) 60ms forwards;
+}
+.sc-accent { color: var(--accent); }
+
+/* step 0 */
+.sc-intro {
+  font-size: 160px;
+  line-height: 1.02;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(28px);
+  animation: sc-rise 440ms var(--ease-overshoot) 160ms forwards;
+}
+
+/* step 1~2 pokemon */
+.sc-poke-scene { display: flex; flex-direction: column; justify-content: center; }
+.sc-poke-row { display: flex; gap: 56px; align-items: stretch; }
+.sc-poke-col {
+  flex: 1;
+  padding: 48px 44px;
+  border: 4px solid var(--text);
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 420ms var(--ease-overshoot), transform 420ms var(--ease-overshoot);
+}
+.sc-poke-col.in { opacity: 1; transform: translateY(0); }
+.sc-poke-old { background: var(--surface); }
+.sc-poke-new { background: var(--accent); border-color: var(--accent); position: relative; }
+.sc-poke-tag {
+  font-size: 24px;
+  letter-spacing: 0.16em;
+  color: var(--text-mute);
+  text-transform: uppercase;
+}
+.sc-poke-new .sc-poke-tag { color: var(--surface); }
+.sc-poke-list {
+  margin: 32px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 44px;
+  line-height: 1.6;
+  color: var(--text);
+}
+.sc-poke-list li { position: relative; padding-left: 40px; }
+.sc-poke-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.5em;
+  width: 18px;
+  height: 18px;
+  background: var(--text-mute);
+}
+.sc-poke-foot {
+  margin-top: 28px;
+  font-size: 26px;
+  letter-spacing: 0.12em;
+  color: var(--text-mute);
+}
+.sc-poke-big {
+  margin-top: 40px;
+  font-size: 96px;
+  line-height: 1;
+  color: var(--surface);
+}
+.sc-poke-foot2 {
+  margin-top: 24px;
+  font-size: 26px;
+  letter-spacing: 0.12em;
+  color: rgba(244, 241, 234, 0.8);
+}
+.sc-poke-clear {
+  margin-top: 40px;
+  display: inline-block;
+  font-size: 64px;
+  color: var(--accent);
+  background: var(--surface);
+  padding: 10px 28px;
+  box-shadow: 8px 8px 0 var(--text);
+  opacity: 0;
+  transform: scale(0.7) rotate(-2deg);
+  animation: sc-pop 380ms var(--ease-overshoot) 240ms forwards;
+}
+
+/* step 3 protein */
+.sc-prot-row {
+  display: flex;
+  align-items: center;
+  gap: 72px;
+  margin: 24px 0 40px;
+}
+.sc-prot-stat { display: flex; flex-direction: column; opacity: 0; transform: translateY(28px); animation: sc-rise 420ms var(--ease-overshoot) both; }
+.sc-prot-stat:nth-child(1) { animation-delay: 180ms; }
+.sc-prot-stat:nth-child(3) { animation-delay: 520ms; }
+.sc-prot-num { font-size: 300px; line-height: 0.9; }
+.sc-prot-lbl { margin-top: 12px; font-size: 28px; letter-spacing: 0.14em; color: var(--text-mute); }
+.sc-prot-arrow {
+  font-size: 120px;
+  color: var(--accent);
+  opacity: 0;
+  animation: sc-rise 320ms var(--ease-overshoot) 400ms forwards;
+}
+.sc-prot-foot {
+  font-size: 48px;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: sc-rise 400ms var(--ease-overshoot) 720ms forwards;
+}
+
+/* step 4 genomics timeline */
+.sc-gen-scene { display: flex; flex-direction: column; justify-content: center; }
+.sc-gen-line { display: flex; align-items: center; gap: 12px; }
+.sc-gen-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  transform: scale(0.8);
+  animation: sc-pop 400ms var(--ease-overshoot) both;
+}
+.sc-gen-node:nth-child(1) { animation-delay: 160ms; }
+.sc-gen-node:nth-child(3) { animation-delay: 460ms; }
+.sc-gen-node:nth-child(5) { animation-delay: 760ms; }
+.sc-gen-num { font-size: 200px; line-height: 0.9; color: var(--text); }
+.sc-gen-u { font-size: 0.4em; }
+.sc-gen-lbl { margin-top: 12px; font-size: 26px; letter-spacing: 0.14em; color: var(--text-mute); }
+.sc-gen-bar {
+  flex: 1;
+  height: 10px;
+  background: var(--text);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: sc-grow 460ms var(--ease-overshoot) both;
+}
+.sc-gen-bar:nth-of-type(2) { animation-delay: 360ms; }
+.sc-gen-bar:nth-of-type(4) { animation-delay: 660ms; }
+
+/* step 5 result */
+.sc-result {
+  font-size: 128px;
+  line-height: 1.04;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(28px);
+  animation: sc-rise 440ms var(--ease-overshoot) 160ms forwards;
+}
+.sc-result-row { display: flex; gap: 32px; margin-top: 48px; }
+.sc-result-pill {
+  font-family: var(--font-mono);
+  font-size: 40px;
+  padding: 18px 40px;
+  border: 4px solid var(--text);
+  color: var(--text);
+  opacity: 0;
+  transform: scale(0.8);
+  animation: sc-pop 380ms var(--ease-overshoot) both;
+}
+.sc-result-row .sc-result-pill:nth-child(1) { animation-delay: 460ms; }
+.sc-result-pill-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--surface);
+  animation-delay: 680ms;
+}
+
+@keyframes sc-rise { to { opacity: 1; transform: translateY(0); } }
+@keyframes sc-pop { to { opacity: 1; transform: scale(1); } }
+@keyframes sc-grow { to { transform: scaleX(1); } }

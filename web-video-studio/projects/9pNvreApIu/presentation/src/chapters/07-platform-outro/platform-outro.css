@@ -1,0 +1,207 @@
+/* ─── chapter 07 platform-outro ─── */
+.po-scene { color: var(--text); }
+
+.po-kicker {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.po-accent { color: var(--accent); }
+.po-sub {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 28px;
+  line-height: 1.5;
+  color: var(--text-mute);
+}
+.po-note {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 24px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+/* split */
+.po-split { flex-direction: row; align-items: center; gap: var(--space-9); }
+.po-split-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.po-hero {
+  margin: 0;
+  font-size: 100px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+.po-mid { margin: 0; font-size: 68px; line-height: 1.1; }
+.po-shot {
+  margin: 0;
+  flex: 1;
+  border: var(--rule-w) solid var(--rule);
+  box-shadow: var(--card-shadow);
+  background: var(--surface-2);
+}
+.po-shot img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-bottom: var(--rule-w) solid var(--rule);
+}
+.po-shot figcaption {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.1em;
+  color: var(--text-mute);
+  padding: 12px 18px;
+}
+
+/* share */
+.po-share { justify-content: center; gap: var(--space-7); }
+.po-share-flow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.po-src {
+  border: var(--rule-w) solid var(--rule);
+  padding: 18px 34px;
+  font-family: var(--font-display-en);
+  font-size: 40px;
+}
+.po-share-arrow {
+  font-family: var(--font-display-en);
+  font-size: 48px;
+  color: var(--accent);
+}
+.po-dest {
+  background: var(--accent);
+  color: var(--surface);
+  padding: 18px 36px;
+  font-family: var(--font-display-cn);
+  font-weight: 800;
+  font-size: 44px;
+}
+.po-coming { display: flex; gap: var(--space-5); }
+.po-coming-card {
+  flex: 1;
+  border: var(--rule-w) dashed var(--rule);
+  padding: 40px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.po-coming-t { font-size: 56px; }
+.po-coming-d {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  letter-spacing: 0.1em;
+  color: var(--text-mute);
+}
+
+/* agents */
+.po-agents { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.po-agent-tag {
+  border: var(--rule-w) solid var(--rule);
+  background: var(--surface-2);
+  box-shadow: 4px 4px 0 var(--text);
+  padding: 14px 28px;
+  font-family: var(--font-mono);
+  font-size: 28px;
+}
+
+/* connector */
+.po-conn { display: flex; flex-direction: column; gap: var(--space-3); }
+.po-conn-label {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+}
+.po-conn-tags { display: flex; gap: var(--space-3); }
+.po-conn-tag {
+  border: var(--rule-w) solid var(--rule);
+  padding: 12px 26px;
+  font-family: var(--font-display-cn);
+  font-weight: 700;
+  font-size: 32px;
+}
+.po-conn-tag-accent { background: var(--accent); color: var(--surface); }
+
+/* IPO */
+.po-ipo { justify-content: center; gap: var(--space-7); }
+.po-ipo-wrap { position: relative; }
+.po-ipo-svg {
+  position: absolute;
+  top: 70px;
+  left: 0;
+  width: 100%;
+  height: 40px;
+  z-index: 0;
+}
+.po-ipo-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-7);
+}
+.po-ipo-node {
+  flex: 1;
+  border: var(--rule-w) solid var(--rule);
+  background: var(--surface-2);
+  box-shadow: var(--card-shadow);
+  padding: 44px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: center;
+}
+.po-ipo-en {
+  font-size: 64px;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+.po-ipo-cn {
+  font-family: var(--font-display-cn);
+  font-weight: 700;
+  font-size: 40px;
+}
+.po-ipo-foot {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-display-cn);
+  font-weight: 700;
+  font-size: 38px;
+}
+
+/* close */
+.po-close {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+}
+.po-close-h {
+  margin: 0;
+  font-size: 120px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+.po-close-bar {
+  width: 240px;
+  height: 12px;
+  background: var(--accent);
+  margin: var(--space-5) 0;
+}
+.po-close-sub {
+  margin: 0;
+  font-family: var(--font-display-cn);
+  font-weight: 700;
+  font-size: 56px;
+}

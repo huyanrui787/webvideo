@@ -1,0 +1,53 @@
+name: Build macOS App
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need the skills repo alongside
+          path: webvideo
+
+      - name: Checkout skills
+        uses: actions/checkout@v4
+        with:
+          repository: your-org/skills
+          path: skills
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies
+        working-directory: webvideo/web-video-studio
+        run: npm ci
+
+      - name: Build Next.js
+        working-directory: webvideo/web-video-studio
+        run: npm run build
+
+      - name: Compile Electron
+        working-directory: webvideo/web-video-studio
+        run: npx tsc -p tsconfig.electron.json
+
+      - name: Build macOS app
+        working-directory: webvideo/web-video-studio
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --mac --publish never
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WebVideo-Studio-macOS
+          path: webvideo/web-video-studio/release/*.dmg

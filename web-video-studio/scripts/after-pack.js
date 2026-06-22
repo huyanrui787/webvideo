@@ -1,0 +1,79 @@
+/**
+ * electron-builder afterPack hook — ad-hoc sign the .app bundle.
+ *
+ * Without this, Electron's embedded linker signature creates a mismatch:
+ * the binary claims to be signed but no CodeResources exist in the bundle,
+ * causing macOS to show "damaged and can't be opened."
+ *
+ * Steps:
+ *   1. Strip existing linker signature from the Mach-O binary
+ *   2. Strip xattrs that block codesign
+ *   3. Ad-hoc sign the entire .app bundle
+ *
+ * Result: Gatekeeper shows "unidentified developer" (not "damaged"),
+ * which the user can bypass via right-click → Open.
+ */
+const { execSync } = require("child_process");
+const path = require("path");
+const fs = require("fs");
+
+exports.default = async function afterPack(context) {
+  const { appOutDir, packager } = context;
+  const appName = packager.appInfo.productFilename;
+  const appPath = path.join(appOutDir, `${appName}.app`);
+
+  if (!fs.existsSync(appPath)) {
+    console.log(`[after-pack] App not found at ${appPath}, skipping`);
+    return;
+  }
+
+  console.log(`[after-pack] Signing: ${appPath}`);
+
+  try {
+    // 1. Clean extended attributes first (before touching signatures)
+    execSync(`xattr -cr "${appPath}"`, { stdio: "pipe", timeout: 30_000 });
+    console.log("[after-pack] Cleaned xattrs");
+
+    // 2. Strip existing linker signature (Electron binary has one from build)
+    execSync(`codesign --remove-signature "${appPath}" 2>/dev/null; exit 0`, {
+      stdio: "pipe",
+      timeout: 30_000,
+      shell: true,
+    });
+    const macExe = path.join(appPath, "Contents", "MacOS", appName);
+    if (fs.existsSync(macExe)) {
+      try {
+        execSync(`codesign --remove-signature "${macExe}" 2>/dev/null; exit 0`, {
+          stdio: "pipe",
+          timeout: 10_000,
+          shell: true,
+        });
+      } catch { /* ok */ }
+    }
+    console.log("[after-pack] Removed linker signatures");
+
+    // 3. Ad-hoc sign WITHOUT --deep (signs the bundle envelope only, faster)
+    execSync(`codesign --force --sign - "${appPath}"`, {
+      stdio: "pipe",
+      timeout: 60_000,
+    });
+    console.log("[after-pack] ✓ Ad-hoc signed successfully");
+
+    // Verify
+    const verify = execSync(`codesign -dvv "${appPath}" 2>&1`, {
+      stdio: "pipe",
+      timeout: 10_000,
+    }).toString();
+    const hasSealed = verify.includes("Sealed Resources");
+    console.log(
+      `[after-pack] Verify: ${hasSealed ? "Sealed ✓" : "No seal ✗"}`
+    );
+  } catch (err) {
+    // Print actual stderr for debugging
+    const msg = err.stderr?.toString() || err.message;
+    console.error("[after-pack] Signing error:", msg.slice(0, 300));
+    console.log(
+      "[after-pack] App built without signature — right-click → Open to bypass Gatekeeper"
+    );
+  }
+};

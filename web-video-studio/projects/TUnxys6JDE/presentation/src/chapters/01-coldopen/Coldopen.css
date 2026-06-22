@@ -1,0 +1,165 @@
+/* Chapter 1 · coldopen — [hook] · bauhaus-bold
+   Sharp block reveals, massive type, no easing tricks. */
+
+.cd-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.cd-mark {
+  position: absolute;
+  top: 56px;
+  left: 80px;
+  display: flex;
+  gap: 14px;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  color: var(--text-mute);
+  z-index: 5;
+}
+.cd-mark-sep { color: var(--accent); }
+
+.cd-scene {
+  position: absolute;
+  inset: 0;
+  padding: 0 140px;
+}
+.cd-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* ── step 0 ── */
+.cd-kicker {
+  font-size: 18px;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+  margin-bottom: 36px;
+  opacity: 0;
+  animation: cd-rise 360ms var(--ease-overshoot) 80ms forwards;
+}
+.cd-line {
+  font-size: 168px;
+  line-height: 0.96;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+}
+.cd-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateX(-40px);
+  animation: cd-slide 420ms var(--ease-overshoot) forwards;
+  animation-delay: calc(180ms + var(--i) * 140ms);
+}
+.cd-num {
+  color: var(--accent);
+  font-size: 200px;
+  letter-spacing: -0.04em;
+}
+.cd-underbar {
+  margin-top: 44px;
+  width: 0;
+  height: 16px;
+  background: var(--text);
+  animation: cd-grow 520ms var(--ease-overshoot) 520ms forwards;
+}
+
+/* ── step 1 ── */
+.cd-quotemark {
+  font-size: 260px;
+  line-height: 0.6;
+  color: var(--accent);
+  margin-bottom: 8px;
+  opacity: 0;
+  transform: scale(0.6);
+  animation: cd-pop 320ms var(--ease-overshoot) forwards;
+}
+.cd-danger {
+  display: flex;
+  flex-direction: column;
+  font-size: 180px;
+  line-height: 0.98;
+}
+.cd-danger-1,
+.cd-danger-2 {
+  display: inline-block;
+  opacity: 0;
+  clip-path: inset(0 100% 0 0);
+  animation: cd-wipe 380ms var(--ease-overshoot) forwards;
+}
+.cd-danger-1 {
+  color: var(--text);
+  animation-delay: 200ms;
+}
+.cd-danger-2 {
+  color: var(--accent);
+  animation-delay: 460ms;
+}
+.cd-attr {
+  margin-top: 40px;
+  font-size: 17px;
+  letter-spacing: 0.22em;
+  color: var(--text-mute);
+  opacity: 0;
+  animation: cd-rise 360ms var(--ease-overshoot) 820ms forwards;
+}
+
+/* ── step 2 ── */
+.cd-reveal {
+  display: flex;
+  flex-direction: column;
+}
+.cd-reveal-sm {
+  font-size: 80px;
+  color: var(--text-mute);
+  opacity: 0;
+  transform: translateY(24px);
+  animation: cd-rise 380ms var(--ease-overshoot) forwards;
+}
+.cd-reveal-lg {
+  font-size: 184px;
+  line-height: 1;
+  color: var(--text);
+  margin-top: 8px;
+  opacity: 0;
+  transform: translateY(36px);
+  animation: cd-rise 420ms var(--ease-overshoot) 220ms forwards;
+}
+.cd-accent { color: var(--accent); }
+.cd-stamp {
+  margin-top: 48px;
+  align-self: flex-start;
+  font-size: 56px;
+  letter-spacing: 0.06em;
+  color: var(--surface);
+  background: var(--accent);
+  padding: 12px 36px;
+  box-shadow: 8px 8px 0 var(--text);
+  opacity: 0;
+  transform: scale(0.7) rotate(-3deg);
+  animation: cd-stamp-in 360ms var(--ease-overshoot) 560ms forwards;
+}
+
+/* ── keyframes ── */
+@keyframes cd-rise {
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes cd-slide {
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes cd-grow {
+  to { width: 320px; }
+}
+@keyframes cd-pop {
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes cd-wipe {
+  to { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+@keyframes cd-stamp-in {
+  to { opacity: 1; transform: scale(1) rotate(-3deg); }
+}

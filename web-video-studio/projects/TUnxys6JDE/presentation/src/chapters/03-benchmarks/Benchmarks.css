@@ -1,0 +1,186 @@
+/* Chapter 3 · benchmarks — [data] · bauhaus-bold */
+
+.bm-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.bm-mark {
+  position: absolute;
+  top: 56px;
+  left: 80px;
+  display: flex;
+  gap: 14px;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  color: var(--text-mute);
+  z-index: 5;
+}
+.bm-mark-sep { color: var(--accent); }
+
+.bm-scene {
+  position: absolute;
+  inset: 0;
+  padding: 100px 120px 80px;
+}
+
+.bm-kicker {
+  font-size: 18px;
+  letter-spacing: 0.28em;
+  color: var(--accent);
+  margin-bottom: 28px;
+  opacity: 0;
+  animation: bm-rise 340ms var(--ease-overshoot) 60ms forwards;
+}
+.bm-accent { color: var(--accent); }
+.bm-faint { color: var(--text-faint); }
+
+/* ── step 0 intro ── */
+.bm-intro {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.bm-intro-title {
+  font-size: 176px;
+  line-height: 1;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(28px);
+  animation: bm-rise 420ms var(--ease-overshoot) 160ms forwards;
+}
+.bm-intro-sub {
+  margin-top: 24px;
+  font-size: 64px;
+  color: var(--text-mute);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: bm-rise 400ms var(--ease-overshoot) 340ms forwards;
+}
+
+/* ── step 1~3 chart ── */
+.bm-chart-scene {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.bm-chart-head {
+  font-size: 44px;
+  color: var(--text);
+  margin-bottom: 44px;
+}
+.bm-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.bm-bar-row {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  align-items: center;
+  gap: 36px;
+  opacity: 0;
+  transform: translateX(-30px);
+  transition: opacity 360ms var(--ease-overshoot), transform 360ms var(--ease-overshoot);
+}
+.bm-bar-row.in { opacity: 1; transform: translateX(0); }
+.bm-bar-label {
+  font-size: 26px;
+  color: var(--text);
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.bm-bar-note {
+  font-size: 15px;
+  letter-spacing: 0.16em;
+  color: var(--accent);
+}
+.bm-bar-track {
+  position: relative;
+  height: 72px;
+  display: flex;
+  align-items: center;
+}
+.bm-bar-fill {
+  height: 100%;
+  background: var(--surface-3);
+  border: 4px solid var(--text);
+  transition: width 720ms var(--ease-overshoot);
+}
+.bm-bar-fill.lead {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.bm-bar-val {
+  position: absolute;
+  left: calc(100% + 0px);
+  margin-left: 24px;
+  font-size: 64px;
+  color: var(--text);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 300ms var(--ease-overshoot) 360ms;
+}
+.bm-bar-val.in { opacity: 1; }
+.bm-overthrow {
+  margin-top: 52px;
+  font-size: 52px;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: bm-rise 400ms var(--ease-overshoot) 900ms forwards;
+}
+
+/* ── step 4 quality ── */
+.bm-quality {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.bm-q-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 96px;
+  margin: 24px 0 48px;
+}
+.bm-q-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0;
+  transform: scale(0.8);
+  animation: bm-pop 420ms var(--ease-overshoot) forwards;
+}
+.bm-q-col:nth-child(1) { animation-delay: 220ms; }
+.bm-q-col:nth-child(3) { animation-delay: 460ms; }
+.bm-q-num { font-size: 300px; line-height: 0.9; }
+.bm-q-name {
+  margin-top: 16px;
+  font-size: 28px;
+  letter-spacing: 0.16em;
+  color: var(--text-mute);
+}
+.bm-q-vs {
+  font-size: 140px;
+  color: var(--text);
+  opacity: 0;
+  transform: scale(0.5) rotate(-8deg);
+  animation: bm-pop 380ms var(--ease-overshoot) 640ms forwards;
+}
+.bm-q-foot {
+  text-align: center;
+  font-size: 56px;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: bm-rise 400ms var(--ease-overshoot) 820ms forwards;
+}
+
+/* ── keyframes ── */
+@keyframes bm-rise { to { opacity: 1; transform: translateY(0); } }
+@keyframes bm-pop { to { opacity: 1; transform: scale(1); } }

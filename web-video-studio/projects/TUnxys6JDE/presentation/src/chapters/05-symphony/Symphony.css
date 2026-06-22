@@ -1,0 +1,82 @@
+/* Chapter 5 · symphony — [release] · bauhaus-bold
+   Black canvas, particle fluid, breathing room. */
+
+.sy-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--text);
+}
+.sy-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.sy-scene {
+  position: absolute;
+  inset: 0;
+  padding: 0 140px;
+  z-index: 2;
+}
+.sy-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.sy-over { pointer-events: none; }
+
+/* step 0 */
+.sy-lead {
+  font-size: 160px;
+  color: var(--surface);
+  opacity: 0;
+  transform: translateY(28px);
+  animation: sy-rise 520ms var(--ease-overshoot) 100ms forwards;
+}
+
+/* step 1 */
+.sy-title {
+  font-size: 24px;
+  letter-spacing: 0.34em;
+  color: var(--accent);
+  margin-bottom: 40px;
+  opacity: 0;
+  animation: sy-rise 460ms var(--ease-overshoot) 120ms forwards;
+}
+.sy-line {
+  font-size: 128px;
+  line-height: 1.04;
+  color: var(--surface);
+  opacity: 0;
+  transform: translateY(28px);
+  animation: sy-rise 520ms var(--ease-overshoot) 320ms forwards;
+}
+.sy-accent { color: var(--accent); }
+.sy-sub {
+  margin-top: 28px;
+  font-size: 56px;
+  color: rgba(244, 241, 234, 0.7);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: sy-rise 480ms var(--ease-overshoot) 620ms forwards;
+}
+
+/* step 2 */
+.sy-sub2 {
+  font-size: 56px;
+  color: rgba(244, 241, 234, 0.7);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: sy-rise 460ms var(--ease-overshoot) 120ms forwards;
+}
+.sy-line2 {
+  margin-top: 16px;
+  opacity: 0;
+  transform: translateY(28px);
+  animation: sy-rise 520ms var(--ease-overshoot) 360ms forwards;
+}
+
+@keyframes sy-rise { to { opacity: 1; transform: translateY(0); } }

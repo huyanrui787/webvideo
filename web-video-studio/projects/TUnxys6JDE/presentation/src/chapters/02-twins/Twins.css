@@ -1,0 +1,217 @@
+/* Chapter 2 · twins — [build] · bauhaus-bold */
+
+.tw-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.tw-mark {
+  position: absolute;
+  top: 56px;
+  left: 80px;
+  display: flex;
+  gap: 14px;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  color: var(--text-mute);
+  z-index: 5;
+}
+.tw-mark-sep { color: var(--accent); }
+
+.tw-scene {
+  position: absolute;
+  inset: 0;
+  padding: 0 120px;
+}
+.tw-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.tw-kicker {
+  font-size: 18px;
+  letter-spacing: 0.3em;
+  color: var(--accent);
+  margin-bottom: 28px;
+  opacity: 0;
+  animation: tw-rise 340ms var(--ease-overshoot) 60ms forwards;
+}
+
+/* ── step 0 ── */
+.tw-title {
+  font-size: 120px;
+  line-height: 1;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(28px);
+  animation: tw-rise 400ms var(--ease-overshoot) 160ms forwards;
+}
+.tw-names {
+  margin-top: 48px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  font-size: 84px;
+}
+.tw-name-a,
+.tw-name-b,
+.tw-plus {
+  opacity: 0;
+  transform: scale(0.7);
+  animation: tw-pop 360ms var(--ease-overshoot) forwards;
+}
+.tw-name-a { color: var(--accent); animation-delay: 420ms; }
+.tw-plus { color: var(--text-mute); animation-delay: 560ms; }
+.tw-name-b { color: var(--text); animation-delay: 680ms; }
+
+/* ── step 1~3 cards ── */
+.tw-cards-scene {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.tw-cards {
+  display: flex;
+  gap: 56px;
+}
+.tw-card {
+  width: 520px;
+  height: 540px;
+  padding: 56px 48px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  animation: tw-card-in 420ms var(--ease-overshoot) both;
+}
+.tw-card:nth-child(1) { animation-delay: 60ms; }
+.tw-card:nth-child(2) { animation-delay: 200ms; }
+.tw-card-dark {
+  background: var(--text);
+}
+.tw-card-en {
+  font-size: 64px;
+  color: var(--accent);
+}
+.tw-card-dark .tw-card-en { color: var(--accent); }
+.tw-card-etym {
+  margin-top: 24px;
+  font-size: 20px;
+  letter-spacing: 0.18em;
+  color: var(--text-mute);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 360ms var(--ease-overshoot), transform 360ms var(--ease-overshoot);
+}
+.tw-card-dark .tw-card-etym { color: var(--text-faint); }
+.tw-card-etym.in { opacity: 1; transform: translateY(0); }
+.tw-card-cn {
+  margin-top: auto;
+  font-size: 200px;
+  line-height: 0.9;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 420ms var(--ease-overshoot), transform 420ms var(--ease-overshoot);
+}
+.tw-card-dark .tw-card-cn { color: var(--surface); }
+.tw-card-cn.in { opacity: 1; transform: translateY(0); }
+.tw-card-tag {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  background: var(--accent);
+  color: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 18px;
+  letter-spacing: 0.16em;
+  padding: 8px 20px;
+  opacity: 0;
+  transform: scale(0.7) rotate(3deg);
+  transition: opacity 320ms var(--ease-overshoot), transform 320ms var(--ease-overshoot);
+}
+.tw-card-tag.in { opacity: 1; transform: scale(1) rotate(3deg); }
+.tw-base {
+  margin-top: 44px;
+  font-size: 22px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--text-mute);
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 360ms var(--ease-overshoot), transform 360ms var(--ease-overshoot);
+}
+.tw-base.in { opacity: 1; transform: translateY(0); }
+
+/* ── step 4 gap ── */
+.tw-gap-row {
+  margin: 12px 0;
+  opacity: 0;
+  transform: scale(0.8);
+  animation: tw-pop 420ms var(--ease-overshoot) 200ms forwards;
+}
+.tw-gap-num {
+  font-size: 360px;
+  color: var(--accent);
+  line-height: 0.9;
+}
+.tw-gap-pct { font-size: 180px; }
+.tw-gap-cap {
+  font-size: 88px;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(24px);
+  animation: tw-rise 400ms var(--ease-overshoot) 480ms forwards;
+}
+
+/* ── step 5 diff ── */
+.tw-diff {
+  font-size: 132px;
+  line-height: 1;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(28px);
+  animation: tw-rise 420ms var(--ease-overshoot) 140ms forwards;
+}
+.tw-accent { color: var(--accent); }
+.tw-flow {
+  margin-top: 64px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+.tw-flow-node {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  padding: 18px 32px;
+  border: 4px solid var(--text);
+  color: var(--text);
+  opacity: 0;
+  transform: translateX(-20px);
+  animation: tw-slide 380ms var(--ease-overshoot) forwards;
+}
+.tw-flow-node:nth-of-type(1) { animation-delay: 520ms; }
+.tw-flow-down {
+  background: var(--accent);
+  color: var(--surface);
+  border-color: var(--accent);
+  animation-delay: 840ms;
+}
+.tw-flow-arrow {
+  font-size: 64px;
+  color: var(--accent);
+  opacity: 0;
+  animation: tw-rise 320ms var(--ease-overshoot) 700ms forwards;
+}
+
+/* ── keyframes ── */
+@keyframes tw-rise { to { opacity: 1; transform: translateY(0); } }
+@keyframes tw-slide { to { opacity: 1; transform: translateX(0); } }
+@keyframes tw-pop { to { opacity: 1; transform: scale(1); } }
+@keyframes tw-card-in {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}

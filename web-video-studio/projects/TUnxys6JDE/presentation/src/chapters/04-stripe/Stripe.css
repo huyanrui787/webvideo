@@ -1,0 +1,197 @@
+/* Chapter 4 · stripe — [turn] · bauhaus-bold */
+
+.st-root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.st-mark {
+  position: absolute;
+  top: 56px;
+  left: 80px;
+  display: flex;
+  gap: 14px;
+  font-size: 14px;
+  letter-spacing: 0.22em;
+  color: var(--text-mute);
+  z-index: 5;
+}
+.st-mark-sep { color: var(--accent); }
+.st-scene {
+  position: absolute;
+  inset: 0;
+  padding: 0 120px;
+}
+.st-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+.st-kicker {
+  font-size: 18px;
+  letter-spacing: 0.28em;
+  color: var(--accent);
+  margin-bottom: 28px;
+  opacity: 0;
+  animation: st-rise 340ms var(--ease-overshoot) 60ms forwards;
+}
+.st-accent { color: var(--accent); }
+
+/* ── step 0 turn — 画面反转，黑底 ── */
+.st-turn {
+  background: var(--text);
+}
+.st-turn .st-turn-line {
+  font-size: 156px;
+  line-height: 1.02;
+  color: var(--surface);
+}
+.st-turn .st-strike {
+  position: relative;
+  color: var(--text-faint);
+}
+.st-turn .st-strike::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 52%;
+  height: 12px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: st-strike 460ms var(--ease-overshoot) 520ms forwards;
+}
+.st-turn-line .st-big {
+  display: inline-block;
+  color: var(--accent);
+  opacity: 0;
+  transform: translateY(28px);
+  animation: st-rise 420ms var(--ease-overshoot) 900ms forwards;
+}
+
+/* ── step 1 stripe scale ── */
+.st-stripe-num {
+  font-size: 300px;
+  line-height: 0.9;
+  color: var(--accent);
+  opacity: 0;
+  transform: translateY(36px);
+  animation: st-rise 460ms var(--ease-overshoot) 160ms forwards;
+}
+.st-stripe-unit { font-size: 120px; color: var(--text); }
+.st-stripe-cap {
+  font-size: 64px;
+  color: var(--text);
+  margin-top: 16px;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: st-rise 400ms var(--ease-overshoot) 420ms forwards;
+}
+.st-stripe-tag {
+  margin-top: 28px;
+  font-size: 24px;
+  letter-spacing: 0.18em;
+  color: var(--text-mute);
+  opacity: 0;
+  animation: st-rise 360ms var(--ease-overshoot) 640ms forwards;
+}
+
+/* ── step 2~3 time compare ── */
+.st-cmp-scene {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.st-cmp-row {
+  display: flex;
+  gap: 64px;
+  align-items: stretch;
+}
+.st-cmp-col {
+  flex: 1;
+  padding: 56px 48px;
+  border: 4px solid var(--text);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  transform: translateY(36px);
+  animation: st-rise 440ms var(--ease-overshoot) both;
+}
+.st-cmp-old { animation-delay: 120ms; }
+.st-cmp-new {
+  background: var(--accent);
+  border-color: var(--accent);
+  animation-delay: 380ms;
+}
+.st-cmp-who {
+  font-size: 26px;
+  letter-spacing: 0.16em;
+  color: var(--text-mute);
+  text-transform: uppercase;
+}
+.st-cmp-new .st-cmp-who { color: var(--surface); }
+.st-cmp-time {
+  margin-top: 24px;
+  font-size: 168px;
+  line-height: 0.92;
+  color: var(--text);
+}
+.st-cmp-new .st-cmp-time { color: var(--surface); }
+.st-cmp-foot {
+  margin-top: 24px;
+  font-size: 28px;
+  color: var(--text-mute);
+}
+.st-cmp-new .st-cmp-foot { color: var(--surface); }
+
+/* ── step 3 shock big ── */
+.st-shock {
+  margin-top: 56px;
+  text-align: center;
+  font-size: 96px;
+  color: var(--text);
+  opacity: 0;
+  transform: scale(0.85);
+  animation: st-pop 440ms var(--ease-overshoot) 120ms forwards;
+}
+
+/* ── step 4 physics ── */
+.st-phys {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.st-phys-grid {
+  display: flex;
+  gap: 80px;
+  margin-top: 24px;
+}
+.st-phys-stat {
+  opacity: 0;
+  transform: translateY(28px);
+  animation: st-rise 420ms var(--ease-overshoot) both;
+}
+.st-phys-stat:nth-child(1) { animation-delay: 200ms; }
+.st-phys-stat:nth-child(2) { animation-delay: 440ms; }
+.st-phys-big { font-size: 240px; line-height: 0.9; color: var(--accent); }
+.st-phys-small { font-size: 96px; color: var(--text); }
+.st-phys-lbl {
+  margin-top: 12px;
+  font-size: 26px;
+  letter-spacing: 0.12em;
+  color: var(--text-mute);
+}
+.st-phys-vs {
+  margin-top: 40px;
+  font-size: 44px;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(20px);
+  animation: st-rise 400ms var(--ease-overshoot) 680ms forwards;
+}
+
+@keyframes st-rise { to { opacity: 1; transform: translateY(0); } }
+@keyframes st-pop { to { opacity: 1; transform: scale(1); } }
+@keyframes st-strike { to { transform: scaleX(1); } }

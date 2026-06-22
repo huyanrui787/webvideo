@@ -1,0 +1,96 @@
+{
+  "chapterId": "process-flow-example",
+  "title": "流程动画示例",
+  "steps": [
+    {
+      "narration": "整个 DNS 查询过程就像一个精细的接力赛。你的电脑发出请求，然后信息在全球的服务器之间跳转。",
+      "layout": {
+        "mode": "composed",
+        "layout": "stack",
+        "regions": {
+          "graph": {
+            "content": [{
+              "primitive": "NetworkGraph",
+              "params": {
+                "nodes": [
+                  { "id": "client", "label": "你的电脑", "highlight": true },
+                  { "id": "resolver", "label": "DNS 解析器" },
+                  { "id": "root", "label": "根服务器" },
+                  { "id": "tld", "label": ".com 服务器" },
+                  { "id": "auth", "label": "权威服务器" }
+                ],
+                "edges": [
+                  { "from": "client", "to": "resolver" },
+                  { "from": "resolver", "to": "root" },
+                  { "from": "resolver", "to": "tld" },
+                  { "from": "resolver", "to": "auth" }
+                ],
+                "visibleNodes": 5
+              }
+            }]
+          },
+          "steps": {
+            "content": [
+              { "primitive": "Stagger", "params": { "from": "up", "interval": 0.2, "delay": 0.3 } },
+              { "primitive": "TypeWriter", "params": { "text": "→ 根服务器：互联网顶层目录", "speed": 40 } },
+              { "primitive": "TypeWriter", "params": { "text": "→ .com 服务器：域名注册局", "speed": 40 } },
+              { "primitive": "TypeWriter", "params": { "text": "→ 权威服务器：最终答案", "speed": 40 } }
+            ]
+          }
+        },
+        "animations": [
+          { "target": "graph", "effect": "fadeIn", "delay": 0, "duration": 1 },
+          { "target": "steps", "effect": "slideUp", "delay": 0.5, "duration": 0.6 }
+        ]
+      }
+    },
+    {
+      "narration": "先从根服务器开始——互联网的顶层目录。然后是顶级域名服务器，最后是权威服务器给出精确答案。",
+      "layout": {
+        "mode": "composed",
+        "layout": "stack",
+        "regions": {
+          "graph": {
+            "content": [{
+              "primitive": "NetworkGraph",
+              "params": {
+                "nodes": [
+                  { "id": "root", "label": "根服务器", "x": 200, "y": 540 },
+                  { "id": "tld", "label": ".com", "x": 700, "y": 540 },
+                  { "id": "auth", "label": "权威", "x": 1200, "y": 540 }
+                ],
+                "edges": [
+                  { "from": "root", "to": "tld" },
+                  { "from": "tld", "to": "auth" }
+                ],
+                "visibleNodes": 3
+              }
+            }]
+          },
+          "explain": {
+            "content": [{ "primitive": "TypeWriter", "params": { "text": "根 → .com → 权威\n查询路径：3 跳", "speed": 40, "delay": 0.6 } }]
+          }
+        }
+      }
+    },
+    {
+      "narration": "整个过程不到一秒。一条信息穿越半个地球，比你眨一次眼还快 100 倍。这一切，都发生在 DNS 这个沉默的互联网电话簿上。",
+      "layout": {
+        "mode": "composed",
+        "layout": "center",
+        "regions": {
+          "closer": {
+            "content": [
+              { "primitive": "Counter", "params": { "to": 600, "unit": "ms", "duration": 1.5 } },
+              { "primitive": "Reveal", "params": { "from": "up", "delay": 0.6 } }
+            ]
+          }
+        },
+        "animations": [
+          { "target": "closer", "effect": "scaleIn", "delay": 0, "duration": 0.8 }
+        ]
+      }
+    }
+  ],
+  "orderHint": 3
+}
