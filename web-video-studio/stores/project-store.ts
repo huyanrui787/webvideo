@@ -4,6 +4,11 @@ import { create } from "zustand";
 import type { ChapterProgress } from "@/components/chapter-progress-panel";
 import type { PlaybackStep } from "@/components/playback-bar";
 import type { Project } from "@/lib/db/schema";
+import {
+  type PreviewState,
+  type PreviewStateData,
+  assertTransition,
+} from "@/lib/preview-state-machine";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -86,7 +91,17 @@ interface ProjectSlice {
   resetForNavigation: () => void;
 }
 
-export type ProjectStore = DevSlice & ScaffoldSlice & BuildSlice & PlaybackSlice & PreviewSlice & ProjectSlice;
+// State machine slice — canonical lifecycle state
+interface StateMachineSlice {
+  previewState: PreviewState;
+  previewStateData: PreviewStateData;
+  /** Transition to a new state. Returns true if accepted. */
+  transition: (to: PreviewState, data?: Partial<PreviewStateData>) => boolean;
+  /** Reset the state machine to idle */
+  resetStateMachine: () => void;
+}
+
+export type ProjectStore = DevSlice & ScaffoldSlice & BuildSlice & PlaybackSlice & PreviewSlice & ProjectSlice & StateMachineSlice;
 
 export const useProjectStore = create<ProjectStore>((set) => ({
   // ── Dev ──
@@ -138,5 +153,27 @@ export const useProjectStore = create<ProjectStore>((set) => ({
     playState: "idle", playStep: null, playSpeed: 1, subVisible: true, autoMode: true,
     previewMode: "preview", floating: false, wholePage: false, iframeKey: 0,
     isStreaming: false, aiReadyForPreview: false,
+    previewState: "idle",
+    previewStateData: { state: "idle", devPort: null, scaffoldProgress: null, scaffoldRetries: 0, buildDoneChapters: 0, buildTotalChapters: 0, buildErrorCount: 0, lastError: null },
+  }),
+
+  // ── State Machine ──
+  previewState: "idle",
+  previewStateData: { state: "idle", devPort: null, scaffoldProgress: null, scaffoldRetries: 0, buildDoneChapters: 0, buildTotalChapters: 0, buildErrorCount: 0, lastError: null },
+  transition: (to, data) => {
+    let accepted = false;
+    set((s) => {
+      assertTransition(s.previewState, to);
+      accepted = true;
+      return {
+        previewState: to,
+        previewStateData: { ...s.previewStateData, ...data, state: to },
+      };
+    });
+    return accepted;
+  },
+  resetStateMachine: () => set({
+    previewState: "idle",
+    previewStateData: { state: "idle", devPort: null, scaffoldProgress: null, scaffoldRetries: 0, buildDoneChapters: 0, buildTotalChapters: 0, buildErrorCount: 0, lastError: null },
   }),
 }));
