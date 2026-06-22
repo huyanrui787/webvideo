@@ -93,7 +93,7 @@ export function AudioCheckpointCard({
 
       {devPort && (
         <a
-          href={`http://localhost:${devPort}`}
+          href={`http://127.0.0.1:${devPort}`}
           target="_blank"
           rel="noreferrer"
           className="block text-center text-xs text-blue-600 hover:underline"

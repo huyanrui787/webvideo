@@ -295,7 +295,7 @@ export function PreviewWindow({
                   <iframe
                     ref={iframeRef}
                     key={iframeKey}
-                    src={`http://localhost:${devPort}?pid=${projectId}`}
+                    src={`http://127.0.0.1:${devPort}?pid=${projectId}`}
                     allow="autoplay"
                     className="w-full h-full border-0"
                     title="卡片预览"
@@ -306,7 +306,7 @@ export function PreviewWindow({
               <iframe
                 ref={iframeRef}
                 key={iframeKey}
-                src={`http://localhost:${devPort}?pid=${projectId}`}
+                src={`http://127.0.0.1:${devPort}?pid=${projectId}`}
                 allow="autoplay"
                 className={`w-full h-full border-0 ${previewMode === "edit" ? "ring-2 ring-inset ring-[var(--border-strong)]" : ""}`}
                 title="演示预览"

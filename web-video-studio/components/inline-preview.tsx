@@ -358,7 +358,7 @@ export function InlinePreview({
                     <iframe
                       ref={iframeRef}
                       key={iframeKey}
-                      src={`http://localhost:${devPort}?pid=${projectId}${autoPlayMode ? "&auto=1" : ""}`}
+                      src={`http://127.0.0.1:${devPort}?pid=${projectId}${autoPlayMode ? "&auto=1" : ""}`}
                       allow="autoplay"
                       className={`absolute inset-0 w-full h-full border-0 ${previewMode === "edit" ? "ring-2 ring-inset ring-[var(--border-strong)]" : ""}`}
                       title="演示预览"
@@ -735,7 +735,7 @@ function GraphicPreview({
         {devPort ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="relative h-full" style={{ aspectRatio: "9/16", maxHeight: "100%", maxWidth: "100%" }}>
-              <iframe ref={iframeRef} key={iframeKey} src={`http://localhost:${devPort}?pid=${projectId}`} allow="autoplay" className="w-full h-full border-0" title="卡片预览" />
+              <iframe ref={iframeRef} key={iframeKey} src={`http://127.0.0.1:${devPort}?pid=${projectId}`} allow="autoplay" className="w-full h-full border-0" title="卡片预览" />
             </div>
           </div>
         ) : scaffoldStatus === "running" ? (

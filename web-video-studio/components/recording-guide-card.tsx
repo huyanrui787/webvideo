@@ -6,8 +6,8 @@ interface RecordingGuideCardProps {
 }
 
 export function RecordingGuideCard({ devPort, hasAudio }: RecordingGuideCardProps) {
-  const autoUrl = devPort ? `http://localhost:${devPort}?auto=1` : null;
-  const manualUrl = devPort ? `http://localhost:${devPort}` : null;
+  const autoUrl = devPort ? `http://127.0.0.1:${devPort}?auto=1` : null;
+  const manualUrl = devPort ? `http://127.0.0.1:${devPort}` : null;
 
   return (
     <div className="mx-3 my-2 rounded-2xl border-2 border-green-200 bg-green-50 p-4 space-y-4">

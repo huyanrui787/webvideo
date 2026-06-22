@@ -318,7 +318,7 @@ export function CodeFileTree({ projectId, chapters, devPort }: CodeFileTreeProps
                     {devPort ? (
                       <div className="flex-1 bg-black min-h-0">
                         <iframe
-                          src={`http://localhost:${devPort}?pid=${projectId}&primitive=${encodeURIComponent(primitiveName)}`}
+                          src={`http://127.0.0.1:${devPort}?pid=${projectId}&primitive=${encodeURIComponent(primitiveName)}`}
                           className="w-full h-full border-0"
                           title={`${primitiveName} 演示`}
                         />
