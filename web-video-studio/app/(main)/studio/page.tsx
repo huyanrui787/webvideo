@@ -194,6 +194,7 @@ export default function HomePage() {
     const timeout = setTimeout(() => controller.abort(), 120_000); // 2 min timeout
     try {
       // Create project first
+      console.log("[handleAiGenerate] Creating project...");
       const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

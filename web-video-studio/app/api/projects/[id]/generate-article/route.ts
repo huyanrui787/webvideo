@@ -1,4 +1,4 @@
-import { deepseek as deepseekProvider } from "@ai-sdk/deepseek";
+import { deepseek } from "@ai-sdk/deepseek";
 import { streamText } from "ai";
 import { NextResponse } from "next/server";
 import { writeProjectFile } from "@/lib/projects";
@@ -31,7 +31,7 @@ export async function POST(
     async start(controller) {
       try {
         const result = streamText({
-          model: deepseekProvider("deepseek-v4-pro"),
+          model: deepseek("deepseek-v4-pro"),
           system: `你是一位擅长知识科普的内容创作者。根据用户给出的主题，写一篇适合制作成视频演示的中文科普文章。
 
 要求：
