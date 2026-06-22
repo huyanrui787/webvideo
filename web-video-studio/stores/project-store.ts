@@ -83,6 +83,7 @@ interface ProjectSlice {
   setProject: (p: Project | null) => void;
   setIsStreaming: (v: boolean) => void;
   setAiReadyForPreview: (v: boolean) => void;
+  resetForNavigation: () => void;
 }
 
 export type ProjectStore = DevSlice & ScaffoldSlice & BuildSlice & PlaybackSlice & PreviewSlice & ProjectSlice;
@@ -130,4 +131,12 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   setProject: (p) => set({ project: p }),
   setIsStreaming: (v) => set({ isStreaming: v }),
   setAiReadyForPreview: (v) => set({ aiReadyForPreview: v }),
+  resetForNavigation: () => set({
+    devPort: null, devStarting: false, devError: null, devCrashed: false, devDegraded: false,
+    scaffold: "idle", scaffoldStale: false, scaffoldProgress: null, scaffoldError: null, scaffoldRetries: 0,
+    buildJob: null, chapters: [], chStepCounts: {},
+    playState: "idle", playStep: null, playSpeed: 1, subVisible: true, autoMode: true,
+    previewMode: "preview", floating: false, wholePage: false,
+    isStreaming: false, aiReadyForPreview: false,
+  }),
 }));

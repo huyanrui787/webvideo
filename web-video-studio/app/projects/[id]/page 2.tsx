@@ -95,7 +95,6 @@ export default function ProjectPage() {
   const setChStepCounts = useProjectStore((s) => s.setChStepCounts);
   const setBuildJob = useProjectStore((s) => s.setBuildJob);
   const setProject = useProjectStore((s) => s.setProject);
-  const resetForNavigation = useProjectStore((s) => s.resetForNavigation);
   const setIsStreaming = useProjectStore((s) => s.setIsStreaming);
   const setPreviewMode = useProjectStore((s) => s.setPreviewMode);
   const setFloating = useProjectStore((s) => s.setFloating);
@@ -146,14 +145,6 @@ export default function ProjectPage() {
       if (r.status === 401) { router.replace(`/login?next=/projects/${id}`); return; }
       if (r.status === 404) { setPageState("notfound"); return; }
       if (!r.ok) throw new Error("load fail");
-      // Reset per-project refs and store on navigation
-      resetForNavigation();
-      prevDevPort.current = null;
-      sseGotDevPort.current = false;
-      scaffoldTriggered.current = false;
-      userControlMode.current = false;
-      devStartingRef.current = false;
-      startDevSerial.current = 0;
       const d = await r.json(); setProject(d); setThemeName(d.theme ?? ""); setPageState("ready");
     } catch (e: any) { setErrMsg(e.message); setPageState("error"); }
   }, [id, router]);
@@ -181,12 +172,8 @@ export default function ProjectPage() {
       } catch {}
     });
     es.addEventListener("dev-stderr", (e: MessageEvent) => {
-      // Vite stderr — only treat as error if it looks like a compile error,
-      // not warnings or info messages
-      try {
-        const d = JSON.parse(e.data);
-        if (d.error && /error|Error|ERROR/.test(d.error)) setDevError(d.error);
-      } catch {}
+      // Real-time Vite compile errors surfaced via SSE
+      try { const d = JSON.parse(e.data); if (d.error) setDevError(d.error); } catch {}
     });
     es.addEventListener("build", (e: MessageEvent) => {
       try { const d = JSON.parse(e.data); setBuildJob((prev) => prev ? { ...prev, ...d } : d); } catch {}
@@ -214,11 +201,7 @@ export default function ProjectPage() {
           sseGotDevPort.current = true;
           return;
         }
-        if (prevDevPort.current !== null && !d.ready) {
-          setDevCrashed(true);
-          // Auto-restart on crash (up to 3 times, tracked by server)
-          fetch(`/api/projects/${id}/dev-server/restart`, { method: "POST" }).catch(() => {});
-        }
+        if (prevDevPort.current !== null && !d.ready) setDevCrashed(true);
         // Only retry if port not yet known and not too many attempts
         if (attempts >= 15) { setDevError("开发服务器启动超时"); return; }
         const delay = Math.min(1000 * Math.pow(2, Math.min(attempts - 1, 4)), 16000);
@@ -249,15 +232,6 @@ export default function ProjectPage() {
       setDevError("network");
     }
     if (serial === startDevSerial.current) setDevStarting(false);
-  }, [id]);
-
-  const stopDev = useCallback(async () => {
-    setDevPort(null);
-    fetch(`/api/projects/${id}/dev-server`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "stop" }),
-    }).catch(() => {});
   }, [id]);
 
   const startScaffold = useCallback(async () => {
@@ -706,11 +680,7 @@ export default function ProjectPage() {
   if (!project) return null;
 
   const hasPreview = devPort !== null && scaffold === "done";
-  const buildStatus: "idle" | "running" | "done" | "error" =
-    buildJob?.status === "running" ? "running" :
-    buildJob?.status === "done" ? "done" :
-    buildJob?.status === "error" || buildJob?.status === "partial" ? "error" :
-    "idle";
+  const buildStatus = (buildJob?.status === "running" ? "running" : buildJob?.status === "done" ? "done" : "idle") as "idle" | "running" | "done" | "error";
   const doneChapters = buildJob?.chapters?.filter((c: any) => c.status === "done").length ?? 0;
   const totalChapters = buildJob?.chapters?.length ?? 1;
   const buildErrorChapters = buildJob?.chapters?.filter((c: any) => c.status === "error" || c.status === "timeout").length ?? 0;
@@ -968,7 +938,7 @@ export default function ProjectPage() {
             totalChapters={chapters.length} subtitleVisible={subVisible}
             onPlay={play} onPause={pause} onPrevChapter={prevCh} onNextChapter={nextCh}
             onSpeedChange={setSpeed} onSubtitleToggle={() => setSubVisible(v => !v)}
-            onRefreshPreview={refresh} onStopDevServer={stopDev} onFullscreen={fullscreen}
+            onRefreshPreview={refresh} onStopDevServer={() => { setDevPort(null); }} onFullscreen={fullscreen}
             previewMode={previewMode} chapters={displayChapters} chapterStepCounts={chStepCounts}
             onEnterEditMode={() => setPreviewMode("edit")} onExitEditMode={() => { setPreviewMode("preview"); setSelEl(null); setWholeCtx(null); setWholePage(false); }}
             onSeekToStep={seek} wholePageSelected={wholePage} onSelectWholePage={() => setWholePage(v => !v)}
@@ -1036,7 +1006,7 @@ export default function ProjectPage() {
               devCrashed={devCrashed}
               onStartScaffold={startScaffold}
               onStartDevServer={startDev}
-              onStopDevServer={stopDev}
+              onStopDevServer={() => { setDevPort(null); }}
               onRefreshPreview={refresh}
               onRebuild={() => { fetch(`/api/projects/${id}/build-parallel`, { method: "POST" }).catch(() => {}); }}
               onFullscreen={fullscreen}
@@ -1119,7 +1089,7 @@ export default function ProjectPage() {
           onSpeedChange={setSpeed}
           onSubtitleToggle={() => setSubVisible(v => !v)}
           onRefreshPreview={refresh}
-          onStopDevServer={stopDev}
+          onStopDevServer={() => { setDevPort(null); }}
           onFullscreen={fullscreen}
           previewMode={previewMode}
           chapters={displayChapters}

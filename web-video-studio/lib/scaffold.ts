@@ -143,11 +143,11 @@ function parseScaffoldError(output: string, exitCode: number | null): {
     return { type: "disk", message: "磁盘空间不足", suggestion: "清理磁盘空间后重试" };
   if (combined.includes("npm err") || (combined.includes("enoent") || combined.includes("ENOENT")) && combined.includes("node_modules"))
     return { type: "npm", message: "npm 依赖安装失败", suggestion: "检查 package.json 和网络，然后重试" };
-  if (combined.includes("vite") && (combined.includes("error") || exitCode !== 0))
+  if ((combined.includes("vite: command") || combined.includes("vite.config")) && (combined.includes("error") || exitCode !== 0))
     return { type: "vite", message: "Vite 项目创建失败", suggestion: "检查模板文件是否完整，然后重试" };
   if (combined.includes("timeout") || combined.includes("killed"))
     return { type: "timeout", message: "脚手架执行超时", suggestion: "项目较大时可增加超时上限，或检查网络" };
-  return { type: "unknown", message: output.slice(-200).trim() || `退出码 ${exitCode}`, suggestion: "查看完整日志排查，或跳过脚手架尝试直接启动" };
+  return { type: "unknown", message: output.slice(-200).trim() || `退出码 ${exitCode}`, suggestion: "查看完整日志排查。若核心文件已存在，可尝试直接启动开发服务器" };
 }
 
 export function startScaffold(
@@ -224,10 +224,11 @@ export function startScaffold(
       proc.kill("SIGTERM");
       setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000);
       job.status = "error";
-      job.error = "resume scaffold 超时";
+      const timeoutErr = parseScaffoldError("timeout", null);
+      job.error = timeoutErr.message;
       job.finishedAt = Date.now();
       writeJobToDisk(projectId, job);
-      publishProjectEvent(projectId, "scaffold", { status: job.status });
+      publishProjectEvent(projectId, "scaffold", { status: job.status, error: timeoutErr });
     }, SCAFFOLD_TIMEOUT_MS);
 
     proc.stdout.on("data", (d: Buffer) => { if (job.output.length < 100_000) job.output += d.toString(); });
@@ -237,11 +238,12 @@ export function startScaffold(
       clearTimeout(resumeTimer);
       if (resumeTimedOut) return;
       if (code !== 0) {
+        const structuredErr = parseScaffoldError(job.output, code);
         job.status = "error";
-        job.error = `resume scaffold 退出码 ${code}`;
+        job.error = structuredErr.message;
         job.finishedAt = Date.now();
         writeJobToDisk(projectId, job);
-    publishProjectEvent(projectId, "scaffold", { status: job.status, error: job.error });
+        publishProjectEvent(projectId, "scaffold", { status: job.status, error: structuredErr });
         return;
       }
       // Write completion marker

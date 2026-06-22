@@ -41,6 +41,13 @@ export async function POST(
     );
   }
 
-  const { port } = await startDevServer(id);
-  return NextResponse.json({ port, ready: true });
+  try {
+    const { port } = await startDevServer(id);
+    return NextResponse.json({ port, ready: true });
+  } catch (err) {
+    return NextResponse.json(
+      { error: (err as Error).message || "启动失败" },
+      { status: 500 }
+    );
+  }
 }
