@@ -24,11 +24,31 @@
     "surface": "#f5e6dc",
     "text": "#1a1410",
     "accent": "#d24a78"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-spring)",
     "duration": "medium",
     "description": "Playful, bouncy motion"
-  }
+  },
+  "tone": [
+    "playful",
+    "expressive",
+    "modern",
+    "contrast-driven"
+  ],
+  "formality": "medium-low",
+  "density": "medium",
+  "scheme": "light",
+  "avoidFor": [
+    "单一主题深度讲解",
+    "正式企业汇报",
+    "学术论文",
+    "数据密集报告"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "双色底硬切分 蜜桃+薰衣草",
+    "Outfit几何无衬线 + 玫红accent",
+    "屏幕本身就是双色底"
+  ]
 }

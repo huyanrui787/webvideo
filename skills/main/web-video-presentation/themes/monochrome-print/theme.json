@@ -19,13 +19,33 @@
     "高级感产品",
     "文化 / 艺术评论"
   ],
+  "tone": [
+    "literary",
+    "considered",
+    "neutral",
+    "honest"
+  ],
+  "formality": "high",
+  "density": "high",
+  "scheme": "light",
+  "avoidFor": [
+    "娱乐/游戏",
+    "儿童内容",
+    "促销/快消",
+    "需要视觉冲击力的营销"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "只有1px实线发丝 + 4px精炼圆角",
+    "墨蓝accent（非纯黑且非饱和色）",
+    "无装饰极简 —— Monocle/Wallpaper气质"
+  ],
   "preview": {
     "shell": "#f5f3ee",
     "surface": "#fbfaf6",
     "text": "#0a0a0a",
     "accent": "#1d4ed8"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "medium",

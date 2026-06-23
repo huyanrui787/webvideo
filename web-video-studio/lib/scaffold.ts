@@ -3,6 +3,7 @@ import fs from "fs";
 import { spawn } from "child_process";
 import { projectDir, writeProjectFile } from "@/lib/projects";
 import { loadBrandConfig, compileBrandIntro, compileBrandOutro, isBrandShellEnabled } from "@/lib/brand-shell";
+import { repairScaffold } from "@/lib/scaffold-repair";
 import { getSkill, MAIN_SKILL_ID } from "@/lib/skills";
 import { getMainSkillScriptsDir } from "@/lib/env";
 import { publishProjectEvent } from "@/lib/events";
@@ -81,6 +82,21 @@ const SCAFFOLD_SENTINEL_FILES = [
   "node_modules/.bin/vite",
 ];
 
+/** Check if real chapters (not example/placeholder) exist in the project */
+function hasRealChapters(projectId: string): boolean {
+  const chaptersDir = path.join(projectDir(projectId), "presentation", "src", "chapters");
+  if (!fs.existsSync(chaptersDir)) return false;
+  try {
+    const dirs = fs.readdirSync(chaptersDir).filter((d) => {
+      const stat = fs.statSync(path.join(chaptersDir, d));
+      return stat.isDirectory() && !d.startsWith(".") && !d.startsWith("__") && d !== "01-example";
+    });
+    return dirs.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function isScaffolded(projectId: string): boolean {
   const presDir = path.join(projectDir(projectId), "presentation");
   // Check for manim format first (no Vite+React scaffold needed)
@@ -158,6 +174,24 @@ export function startScaffold(
   if (isScaffolded(projectId)) {
     // Publish "done" status so frontend syncs immediately
     publishProjectEvent(projectId, "scaffold", { status: "done" });
+    return;
+  }
+
+  // ── Chapter protection: never overwrite existing real chapters ──────────
+  // If the skeleton is damaged (isScaffolded returned false) but real chapters
+  // exist on disk, repair only the skeleton — don't wipe chapter code.
+  if (hasRealChapters(projectId)) {
+    console.log("[scaffold] Skeleton repair: chapters exist, only restoring missing skeleton files");
+    try {
+      repairScaffold(projectId, theme, orientation, projectFormat, mainSkillId);
+    } catch (err) {
+      console.warn("[scaffold] Skeleton repair failed, falling through to full scaffold:", err);
+    }
+    // Even if repair failed, mark scaffold as done since chapters exist
+    const job: ScaffoldJob = { status: "done", output: "骨架已修复（章节已保留）", startedAt: Date.now(), finishedAt: Date.now() };
+    jobs.set(projectId, job);
+    writeJobToDisk(projectId, job);
+    publishProjectEvent(projectId, "scaffold", { status: job.status, error: job.error });
     return;
   }
 
@@ -245,6 +279,29 @@ export function startScaffold(
       }
       // Write completion marker
       fs.writeFileSync(path.join(presDir, ".scaffold-done"), "");
+
+      // Post-scaffold validation: catch broken tokens.css and chapters.css early
+      const tokensPath = path.join(presDir, "src", "styles", "tokens.css");
+      const chaptersPath = path.join(presDir, "src", "styles", "chapters.css");
+      const warnings: string[] = [];
+      try {
+        const tokensCss = fs.readFileSync(tokensPath, "utf-8");
+        if (!tokensCss.includes(":root")) warnings.push("tokens.css missing :root wrapper — theme variables may not apply");
+        if (!tokensCss.includes("--text:") || !tokensCss.includes("--accent:") || !tokensCss.includes("--shell:"))
+          warnings.push("tokens.css missing required color variables (--text, --accent, --shell)");
+        if (!tokensCss.includes("--font-display-cn") || !tokensCss.includes("--font-body"))
+          warnings.push("tokens.css missing required font variables");
+      } catch { warnings.push("tokens.css unreadable after scaffold"); }
+      try {
+        const chaptersCss = fs.readFileSync(chaptersPath, "utf-8");
+        if (!chaptersCss.includes("ch-composed-region--"))
+          warnings.push("chapters.css missing composed region variants — chapters may render with tiny text");
+      } catch { warnings.push("chapters.css unreadable after scaffold"); }
+      if (warnings.length > 0) {
+        job.warnings = warnings;
+        console.warn("[scaffold] Post-scaffold warnings for " + projectId + ":", warnings.join("; "));
+      }
+
       job.status = "done";
       job.finishedAt = Date.now();
       writeJobToDisk(projectId, job);

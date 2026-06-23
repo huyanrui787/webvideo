@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { DefaultChatTransport } from "ai";
-import { useChat } from "@ai-sdk/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useChatSimple } from "./useChatSimple";
 import type { AnyPart } from "@/lib/types";
 import type { ProjectFormat } from "@/lib/db/schema";
 import { GraphicPlanCheckpointCard } from "./graphic-plan-checkpoint-card";
@@ -15,7 +14,6 @@ import { MusicCheckpointCard } from "./music-checkpoint-card";
 import { IllustrationCheckpointCard } from "./illustration-checkpoint-card";
 import type { IllustrationResult } from "./illustration-checkpoint-card";
 import type { ShotItem } from "@/app/api/projects/[id]/illustrate/route";
-import { RhythmPreview } from "./rhythm-preview";
 import { ContentCheckpointCard } from "./content-checkpoint-card";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -113,7 +111,6 @@ interface ChatPanelProps {
   onDevServerNeeded?: () => void;
   onProjectDone?: () => void;
   onAudioCheckpoint?: () => void;
-  onChapterBuilt?: (chapterIds: string[]) => void;
   onStreamEnd?: () => void;
   onStreamError?: (error: Error) => void;
   onStreamingChange?: (isStreaming: boolean) => void;
@@ -121,6 +118,7 @@ interface ChatPanelProps {
   chapters?: ChapterProgress[];
   onChaptersChange?: (chapters: ChapterProgress[]) => void;
   projectFormat?: ProjectFormat;
+  projectStatus?: string;
   onCardStatusChange?: (cards: Array<{ id: string; title: string; status: "pending" | "building" | "done" | "error" }>) => void;
   contentCheckpoint?: boolean;
   contentStats?: { scriptWords: number; outlineChapters: number; outlineSteps: number };
@@ -140,7 +138,6 @@ export function ChatPanel({
   onDevServerNeeded,
   onProjectDone,
   onAudioCheckpoint,
-  onChapterBuilt,
   onStreamEnd,
   onStreamError,
   onStreamingChange,
@@ -153,6 +150,7 @@ export function ChatPanel({
   contentStats,
   onContentConfirm,
   onRebuildChapter,
+  projectStatus,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [annotations, setAnnotations] = useState<Record<string, AnnotationMsg>>({});
@@ -193,25 +191,34 @@ export function ChatPanel({
   const [pendingImages, setPendingImages] = useState<Array<{ dataUrl: string; name: string }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { messages, sendMessage, setMessages, status, stop } = useChat({
-    transport: new DefaultChatTransport({
-      api: `/api/projects/${projectId}/chat`,
-    }),
+  // ── Sanitize: strip any part that would crash Chat.makeRequest ──────
+  function sanitizeMessages(msgs: any[]) {
+    return msgs.map((m: any) => ({
+      ...m,
+      parts: Array.isArray(m.parts)
+        ? m.parts.filter((p: any) => {
+            if (p == null || typeof p !== "object") return false;
+            if (p.type === "text") return typeof p.text === "string";
+            if ((p.type || "").startsWith("tool-")) return typeof (p.toolName || p.name) === "string" && p.state != null;
+            return true; // keep other types (image, file, etc.)
+          })
+        : [],
+    })).filter((m: any) => m.parts.length > 0);
+  }
+
+  const { messages, sendMessage, setMessages, isLoading, stop } = useChatSimple({
+    api: `/api/projects/${projectId}/chat`,
     onError: (err) => {
-      setStreamError(err?.message ?? "连接中断");
+      const msg = err?.message ?? "连接中断";
+      setStreamError(msg.includes("刷新") ? msg : `${msg} — 刷新页面即可恢复`);
       onStreamError?.(err);
     },
-    onFinish: (event) => {
-      const reason = event.finishReason;
-      if (reason === "length" || reason === "error") {
-        maybeAutoResume(reason);
-      } else if (reason === "stop") {
-        const lastMsg = event.messages[event.messages.length - 1];
-        const text = getMessageText(lastMsg);
-        if (isTruncatedText(text)) maybeAutoResume("stop");
-      }
-    },
+    onFinish: () => { /* auto-resume handled by maybeAutoResume below */ },
   });
+
+  // Ref for synchronous message access (needed by auto-resume watchdog)
+  const messagesRef = useRef<any[]>([]);
+  messagesRef.current = messages;
 
   // Load persisted history once on mount
   const historyLoadedRef = useRef(false);
@@ -222,9 +229,26 @@ export function ChatPanel({
       .then((r) => r.ok ? r.json() : null)
       .then((d) => {
         if (d?.messages?.length) {
+          // Filter and sanitize messages loaded from history.
+          // The ai SDK's Chat.makeRequest iterates parts and accesses .state on tool-invocation parts.
+          // Any null/undefined part or tool-invocation without .state crashes with:
+          //   Cannot read properties of undefined (reading 'state')
+          const valid = d.messages
+            .map((m: any) => ({
+              ...m,
+              parts: Array.isArray(m.parts)
+                ? m.parts.filter((p: any) => {
+                    if (p == null || typeof p !== "object") return false;
+                    if (p.type === "text") return typeof p.text === "string";
+                    if (p.type === "tool-invocation") return typeof p.toolName === "string" && p.state != null;
+                    return false; // drop unknown part types
+                  })
+                : [],
+            }))
+            .filter((m: any) => m.parts.length > 0);
           // Deduplicate before setting — prevents React "duplicate key" warning
           const seen = new Set<string>();
-          const unique = d.messages.filter((m: { id: string }) => {
+          const unique = valid.filter((m: { id: string }) => {
             if (seen.has(m.id)) return false;
             seen.add(m.id);
             return true;
@@ -244,7 +268,7 @@ export function ChatPanel({
   const hasPendingTools = lastMsg?.parts?.some(
     (p: any) => (p.type === "tool-invocation" || p.type === "tool-call") && p.state !== "result" && p.state !== "output"
   ) ?? false;
-  const isLoading = status === "submitted" || status === "streaming" || hasPendingTools;
+  // No need to recalculate — useChatSimple provides isLoading directly
 
   // ── Utility: extract text from a UIMessage ────────────────────────────────
 
@@ -274,11 +298,15 @@ export function ChatPanel({
     autoResumeCountRef.current++;
     setStreamError(null);
 
-    // Send immediately — no delay, so the loading bar never disappears
-    sendMessage({
-      role: "user",
-      parts: [{ type: "text", text: "继续。" }],
-    });
+    // Brief delay to let SDK state settle after stop/error before re-sending.
+    // Prevents the ai v6.0.208 race condition where makeRequest's finally block
+    // crashes because activeResponse hasn't been fully cleaned up.
+    setTimeout(() => {
+      sendMessage({
+        role: "user",
+        parts: [{ type: "text", text: "继续。" }],
+      });
+    }, 300);
   }
 
   // ── Watchdog: detect stuck isLoading state ────────────────────────────────
@@ -311,73 +339,21 @@ export function ChatPanel({
   const prevLoadingRef = useRef(false);
 
   // Re-sync project state after each AI turn ends
-  const buildingStartFired = useRef(false);
+  // Note: building/done transitions are now SSE-driven (see page.tsx status-change listener).
+  // The old message-parsing approach is replaced — keep onBuildingStart for backwards compat but
+  // it's now triggered by SSE events in the parent component.
   useEffect(() => {
     if (prevLoadingRef.current !== isLoading) {
       onStreamingChange?.(isLoading);
     }
-    if (prevLoadingRef.current && !isLoading && status !== "error") {
+    if (prevLoadingRef.current && !isLoading && !streamError) {
       onStreamEnd?.();
-      // Detect ProjectSetStatus("building") — auto-trigger build start
-      if (!buildingStartFired.current && onBuildingStart) {
-        for (const m of messages) {
-          if (historyMsgIdsRef.current.has((m as any).id)) continue; // skip history
-          const parts = (m as any).parts ?? [];
-          for (const p of parts) {
-            if ((p.type === "tool-invocation" || p.type === "tool-call") && p.toolName === "ProjectSetStatus") {
-              const input = p.input ?? p.args ?? {};
-              if (input.status === "building") {
-                buildingStartFired.current = true;
-                onBuildingStart();
-                break;
-              }
-            }
-          }
-        }
-      }
     }
     prevLoadingRef.current = isLoading;
-  }, [isLoading, status, onStreamEnd, onBuildingStart, messages]);
+  }, [isLoading, status, onStreamEnd, messages]);
 
-  // Detect newly-built chapters from tool results — fire onChapterBuilt for auto TTS trigger
-  const builtChapterIdsRef = useRef(new Set<string>());
-  useEffect(() => {
-    if (!onChapterBuilt) return;
-    const newlyBuilt: string[] = [];
-    for (const m of messages) {
-      if (historyMsgIdsRef.current.has((m as any).id)) continue;
-      const parts = (m as any).parts ?? [];
-      for (const p of parts) {
-        const partType: string = (p as any).type ?? "";
-        // Match tool parts: SDK v5/6 use "tool-invocation" or "tool-call"
-        if (partType !== "tool-invocation" && partType !== "tool-call") continue;
-        const name: string = (p as any).toolName ?? (p as any).toolInvocation?.toolName ?? "";
-        if (name !== "ProjectSetChapter" && name !== "ProjectSetChapters") continue;
-        // Completed states per SDK: "result" (final) or "output" (streamed output available)
-        const st: string = (p as any).state ?? "";
-        if (st !== "result" && st !== "output") continue;
-        // Read result from either field (SDK uses .result, server raw uses .output)
-        const output = (p as any).result ?? (p as any).output ?? {};
-        if (!output.success) continue;
-
-        if (output.chapterId && !builtChapterIdsRef.current.has(output.chapterId)) {
-          builtChapterIdsRef.current.add(output.chapterId);
-          newlyBuilt.push(output.chapterId);
-        }
-        if (Array.isArray(output.built)) {
-          for (const b of output.built) {
-            if (b.chapterId && !builtChapterIdsRef.current.has(b.chapterId)) {
-              builtChapterIdsRef.current.add(b.chapterId);
-              newlyBuilt.push(b.chapterId);
-            }
-          }
-        }
-      }
-    }
-    if (newlyBuilt.length > 0) {
-      onChapterBuilt(newlyBuilt);
-    }
-  }, [messages, onChapterBuilt]);
+  // Note: chapter-built detection is now SSE-driven (page.tsx status-change + chapter-built events).
+  // The old message-parsing approach has been removed. Chapter status is unified in the parent.
 
   useEffect(() => {
     onRegisterTrigger?.((text: string) => {
@@ -575,9 +551,10 @@ export function ChatPanel({
     sendMessage({ role: "user", parts: [{ type: "text", text }] });
   }
 
+
   return (
     <div className="flex flex-col h-full">
-      {/* Messages */}
+{/* Messages */}
       <div className="flex-1 overflow-y-auto py-3 space-y-2">
         {messages.length === 0 && historyLoaded && (
           <div className="text-center text-sm text-t3 pt-8 px-4">
@@ -588,6 +565,13 @@ export function ChatPanel({
         {messages.length === 0 && !historyLoaded && (
           <div className="text-center text-sm text-t3 pt-8 px-4">
             <p className="animate-pulse">加载对话记录…</p>
+          </div>
+        )}
+        {/* Recovery notice: last message was user → conversation may have been interrupted */}
+        {historyLoaded && messages.length > 0 && messages[messages.length - 1]?.role === "user" && (
+          <div className="mx-3 mb-2 p-2 rounded text-xs bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center gap-2">
+            <span>⚡</span>
+            <span>上次对话可能未完成。已保存的内容不会丢失，发送消息即可续接。</span>
           </div>
         )}
         {/* Render-time dedup: Set-based O(n) — also skip invisible auto-resume messages. */}
@@ -660,19 +644,6 @@ export function ChatPanel({
                       displayText.replace(/(?<!\n)\n(?!\n)/g, "  \n")
                     }</ReactMarkdown>
                     <ToolCallsBlock parts={parts} isStreaming={msgStreaming} />
-                    {(() => {
-                      // 检测 ProjectWrite("rhythm.md") 工具调用，渲染节奏预览
-                      const rhythmWrite = toolParts.find((p: AnyPart) => {
-                        const input = p.toolInvocation?.input ?? p.input;
-                        const toolName = p.toolName ?? p.toolInvocation?.toolName;
-                        return toolName === "ProjectWrite" && input?.path === "rhythm.md";
-                      });
-                      if (rhythmWrite) {
-                        const content = rhythmWrite.input?.content ?? rhythmWrite.toolInvocation?.input?.content;
-                        if (content) return <RhythmPreview rhythmMd={content} />;
-                      }
-                      return null;
-                    })()}
                   </div>
                 </div>
               )}

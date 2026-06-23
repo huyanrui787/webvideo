@@ -29,5 +29,26 @@
     "defaultEasing": "var(--motion-snappy)",
     "duration": "fast",
     "description": "Sharp, linear motion — Swiss is never springy"
-  }
+  },
+  "tone": [
+    "precise",
+    "minimal",
+    "intellectual",
+    "crisp"
+  ],
+  "formality": "high",
+  "density": "high",
+  "scheme": "light",
+  "avoidFor": [
+    "情感/故事型",
+    "手工艺/复古",
+    "儿童/娱乐",
+    "温馨柔软品牌"
+  ],
+  "cjkCompatible": false,
+  "signatureElements": [
+    "极细200 weight Inter/Helvetica",
+    "1px发丝网格 + IKB克莱因蓝",
+    "0圆角直角 —— Massimo Vignelli"
+  ]
 }

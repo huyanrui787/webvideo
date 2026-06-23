@@ -24,11 +24,31 @@
     "surface": "#f5f3ee",
     "text": "#1a1a1a",
     "accent": "#c25e3a"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "medium",
     "description": "Measured editorial pace"
-  }
+  },
+  "tone": [
+    "witty",
+    "conversational",
+    "opinionated",
+    "warm"
+  ],
+  "formality": "medium",
+  "density": "medium",
+  "scheme": "light",
+  "avoidFor": [
+    "正式企业汇报",
+    "学术论文",
+    "法律/合规",
+    "数据密集报告"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "细线几何叠层 圆+线+点",
+    "Fraunces italic厚体serif + 暖陶accent",
+    "俏皮有性格 —— 杂志专栏与艺术评论之间"
+  ]
 }

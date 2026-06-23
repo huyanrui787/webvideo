@@ -1,0 +1,111 @@
+{
+  "chapterId": "iron-chain",
+  "title": "区块链铁链",
+  "steps": [
+    {
+      "narration": "这个机制叫分布式账本。没 CEO，没客服，没机房可以关。除非你把全世界互联网全断掉，否则它一直运行。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "kicker": "分布式账本",
+          "title": "永不停机",
+          "subtitle": "没有 CEO · 没有机房 · 关不掉"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-subtle"
+        }
+      }
+    },
+    {
+      "narration": "支撑它的技术，就是区块链。名字听着唬人，其实很简单。就是一系列用密码学串起来的数据块。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "kicker": "核心技术",
+          "title": "区块链",
+          "subtitle": "密码学串起的数据块"
+        },
+        "overrides": {
+          "backgroundStyle": "solid"
+        }
+      }
+    },
+    {
+      "narration": "交易打包成区块，每个区块记录十分钟内的所有交易。记满了，用加密算法生成一个独一无二的指纹，叫哈希值。",
+      "layout": {
+        "mode": "template",
+        "template": "flow-diagram",
+        "slots": {
+          "nodes": [
+            {
+              "id": "collect",
+              "label": "交易汇集"
+            },
+            {
+              "id": "pack",
+              "label": "打包成区块"
+            },
+            {
+              "id": "hash",
+              "label": "加密压缩"
+            },
+            {
+              "id": "fingerprint",
+              "label": "生成哈希指纹"
+            }
+          ]
+        },
+        "overrides": {
+          "backgroundStyle": "solid"
+        }
+      }
+    },
+    {
+      "narration": "下一个区块把自己的头上刻上这个指纹，再打包新交易，再生成新指纹。你动历史上任何一个区块里的任意一笔，指纹就变了，后面全部对不上。像多米诺骨牌，动一个全塌。",
+      "layout": {
+        "mode": "template",
+        "template": "flow-diagram",
+        "slots": {
+          "nodes": [
+            {
+              "id": "block-n",
+              "label": "区块 N",
+              "desc": "哈希: 0x3f2a..."
+            },
+            {
+              "id": "block-n1",
+              "label": "区块 N+1",
+              "desc": "← 刻上前一指纹"
+            },
+            {
+              "id": "block-n2",
+              "label": "区块 N+2",
+              "desc": "← 刻上前一指纹"
+            }
+          ]
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-subtle"
+        }
+      }
+    },
+    {
+      "narration": "所以你看，过去依赖银行、公证处保证可信，现在一个数学结构直接做到了。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "kicker": "不可篡改",
+          "title": "数学 = 信任",
+          "subtitle": "代码替代银行·律师·公证处"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-bold"
+        }
+      }
+    }
+  ],
+  "orderHint": 2
+}

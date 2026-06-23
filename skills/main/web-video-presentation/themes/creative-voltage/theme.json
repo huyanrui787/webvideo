@@ -24,11 +24,31 @@
     "surface": "#0033b8",
     "text": "#ffffff",
     "accent": "#d4ff00"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "slow",
     "description": "Slow, dramatic reveals"
-  }
+  },
+  "tone": [
+    "expressive",
+    "rebellious",
+    "graphic",
+    "energetic"
+  ],
+  "formality": "medium-low",
+  "density": "medium",
+  "scheme": "dark",
+  "avoidFor": [
+    "企业财报",
+    "学术论文",
+    "保守行业",
+    "政府机构"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "halftone网点纹理",
+    "霓虹黄偏移阴影",
+    "Syne + Space Mono"
+  ]
 }

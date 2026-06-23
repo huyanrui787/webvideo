@@ -72,6 +72,8 @@ function isEntryValid(projectId: string, entry: DevServerEntry): boolean {
   const meta = readPidFile(projectId);
   if (!meta) return false;
   if (meta.port !== entry.port) return false;
+  // If PID=0 was stored (PID unknown), fall back to port check
+  if (!meta.pid || meta.pid <= 0) return true; // port was verified during startDevServer
   return isProcessAlive(meta.pid);
 }
 
@@ -125,8 +127,9 @@ function findPidForPort(port: number): number {
       if (pid > 0) return pid;
     } catch { /* keep trying */ }
     if (attempt < 4) {
-      // Brief sleep between retries (synchronous — acceptable in this async context)
-      Atomics.wait?.(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 200);
+      // Brief synchronous sleep between retries
+      const until = Date.now() + 200;
+      while (Date.now() < until) { /* spin-wait (200ms max) — acceptable for lsof retry */ }
     }
   }
   return 0;
@@ -152,11 +155,38 @@ function findOrphanPort(projectId: string): { port: number; pid: number } | null
   return null;
 }
 
+/** Kill zombie Vite processes on ports 5200-5299 and reclaim their ports.
+ *  A zombie = process is dead OR its cwd no longer exists. */
+function cleanupZombies(): number {
+  const busy = getBusyPortsInRange();
+  let killed = 0;
+  for (const port of busy) {
+    try {
+      const pid = parseInt(
+        execSync(`lsof -ti :${port} -sTCP:LISTEN 2>/dev/null`, { encoding: "utf-8" }).trim()
+      );
+      if (!pid) continue;
+      // Check if the process is still alive
+      if (!isProcessAlive(pid)) { process.kill(pid, "SIGKILL"); killed++; continue; }
+      // Check if its working directory still exists
+      let cwd = "";
+      try {
+        cwd = execSync(`lsof -p ${pid} -Fn 2>/dev/null | grep '^fcwd' | sed 's/^fcwd//'`, { encoding: "utf-8", timeout: 2000 }).trim();
+      } catch { /* can't read cwd — assume zombie */ process.kill(pid, "SIGKILL"); killed++; continue; }
+      if (cwd && !fs.existsSync(cwd)) { process.kill(pid, "SIGKILL"); killed++; }
+    } catch { /* best-effort */ }
+  }
+  if (killed > 0) console.log(`[dev-servers] Cleaned up ${killed} zombie Vite process(es)`);
+  return killed;
+}
+
+const MAX_CONCURRENT = 5; // max simultaneous Vite instances (ports 5200-5204)
+
 async function allocatePort(): Promise<number> {
   const usedByUs = new Set([...servers.values()].map((s) => s.port));
   const busy = getBusyPortsInRange();
 
-  for (let port = BASE_PORT; port <= MAX_PORT; port++) {
+  for (let port = BASE_PORT; port < BASE_PORT + MAX_CONCURRENT; port++) {
     if (usedByUs.has(port)) continue;
     if (!busy.has(port)) return port;
   }
@@ -170,11 +200,11 @@ async function allocatePort(): Promise<number> {
   }
 
   // Recheck after cleanup
-  for (let port = BASE_PORT; port <= MAX_PORT; port++) {
+  for (let port = BASE_PORT; port < BASE_PORT + MAX_CONCURRENT; port++) {
     if (!busy.has(port)) return port;
   }
 
-  throw new Error("No available ports in range 5200–5799. All ports busy.");
+  throw new Error(`预览已达上限（${MAX_CONCURRENT}个），请关闭其他项目预览后重试`);
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -243,6 +273,9 @@ export async function startDevServer(projectId: string): Promise<{ port: number 
         return { port: orphan.port };
       }
 
+      // Clean up zombie Vite processes before starting
+      cleanupZombies();
+
       // Allocate port and start
       const port = await allocatePort();
       const cwd = path.join(projectDir(projectId), "presentation");
@@ -260,34 +293,51 @@ export async function startDevServer(projectId: string): Promise<{ port: number 
         });
       });
 
-      // Poll for readiness (up to 30s)
+      // Poll for readiness (up to 15s)
+      const TIMEOUT_MS = 15_000;
       const ready = await new Promise<boolean>((resolve) => {
         const start = Date.now();
         const check = async () => {
           if (await isPortOpen(port)) { resolve(true); return; }
-          if (Date.now() - start < 30_000) setTimeout(check, 600);
+          if (Date.now() - start < TIMEOUT_MS) setTimeout(check, 600);
           else resolve(false);
         };
-        // Start checking sooner (200ms instead of 1500ms)
         setTimeout(check, 200);
       });
 
       if (!ready) {
         let logTail = "";
         try {
-          logTail = execSync(`tail -25 "${logFile}" 2>/dev/null`, { encoding: "utf-8" });
+          logTail = execSync(`tail -15 "${logFile}" 2>/dev/null`, { encoding: "utf-8" });
         } catch { /* ignore */ }
-        throw new Error(`Vite 启动超时（30s）。日志：\n${logTail}`);
+        // Try to kill the failed Vite so it doesn't become a zombie
+        try { execSync(`kill $(lsof -ti :${port} -sTCP:LISTEN 2>/dev/null) 2>/dev/null`); } catch { /* ok */ }
+        throw new Error(`Vite 启动超时（${TIMEOUT_MS / 1000}s）。日志：\n${logTail || "(空)"}`);
       }
 
-      // Find PID with retries
+      // Find PID and verify it belongs to THIS project (not another project on same port)
       const pid = findPidForPort(port);
       if (!pid || pid <= 0) {
         console.error(`[dev-servers] Could not determine PID for port ${port} — Vite may be orphaned`);
       }
 
-      writePidFile(projectId, pid || 0, port);
-      servers.set(projectId, { pid: pid || 0, port });
+      // Verify the process is actually for this project (cwd check)
+      let verifiedPid = pid;
+      if (pid && pid > 0) {
+        try {
+          const procCwd = execSync(`lsof -p ${pid} -Fn 2>/dev/null | grep '^fcwd' | sed 's/^fcwd//'`, { encoding: "utf-8", timeout: 2000 }).trim();
+          if (procCwd && procCwd !== cwd) {
+            console.error(`[dev-servers] Port ${port} PID ${pid} belongs to ${procCwd}, not ${cwd} — refusing to track`);
+            verifiedPid = 0;
+          }
+        } catch { /* can't verify — trust the port check */ }
+      }
+
+      // If PID unknown but port is open, track with port-only validation
+      if (verifiedPid && verifiedPid > 0) {
+        writePidFile(projectId, verifiedPid, port);
+      }
+      servers.set(projectId, { pid: verifiedPid || 0, port });
       publishProjectEvent(projectId, "dev-server", { port, ready: true });
       return { port };
     } finally {

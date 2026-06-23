@@ -1,0 +1,176 @@
+{
+  "chapterId": "beyond-currency",
+  "title": "不只是记账",
+  "steps": [
+    {
+      "narration": "如果区块链只是个转账账本，那它可能也就是另一个支付系统。真正让它跳出货币范畴的，是智能合约——一段自动执行的程序，写在区块链上，条件满足就自动触发。",
+      "layout": {
+        "mode": "template",
+        "template": "flow-diagram",
+        "variant": "horizontal",
+        "slots": {
+          "nodes": [
+            {
+              "id": "condition",
+              "label": "条件触发"
+            },
+            {
+              "id": "contract",
+              "label": "智能合约"
+            },
+            {
+              "id": "execute",
+              "label": "自动执行"
+            },
+            {
+              "id": "result",
+              "label": "结果上链"
+            }
+          ]
+        },
+        "overrides": {
+          "backgroundStyle": "solid"
+        }
+      }
+    },
+    {
+      "narration": "老王想跟小李打赌明天下不下雨，但不信任对方。有了智能合约，两人一起写个天气合约，把钱锁进去。合约自动读取气象数据，下雨钱转给老王，没下转给小李。全程没有中间人，没有赖账的可能。因为代码就是法律。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "variant": "centered",
+        "slots": {
+          "kicker": "智能合约",
+          "title": "代码就是法律",
+          "subtitle": "没有中间人，没有赖账的可能"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-bold"
+        }
+      }
+    },
+    {
+      "narration": "正因如此，区块链能做的事远超货币。去中心化金融 DeFi 用智能合约做借贷交易保险，没有银行柜台。数字艺术品通过 NFT 确权，你的画在链上打上唯一归属标记，流转历史全透明。供应链追踪也是——一瓶牛奶从牧场到货架，每一步扫码上链。",
+      "layout": {
+        "mode": "template",
+        "template": "step-reveal",
+        "variant": "numbered",
+        "slots": {
+          "steps": [
+            {
+              "heading": "DeFi 去中心化金融",
+              "body": "借贷·交易·保险——无银行柜台"
+            },
+            {
+              "heading": "NFT 数字艺术品",
+              "body": "唯一归属标记·流转历史全透明"
+            },
+            {
+              "heading": "供应链追踪",
+              "body": "牛奶从牧场到货架·每步扫码上链"
+            }
+          ]
+        },
+        "overrides": {
+          "backgroundStyle": "solid"
+        }
+      }
+    },
+    {
+      "narration": "还有分布式身份、去中心化自治组织 DAO……智能合约的应用生态正在不断扩展。",
+      "layout": {
+        "mode": "composed",
+        "layout": "stack",
+        "regions": {
+          "eco": {
+            "content": [
+              {
+                "primitive": "NetworkGraph",
+                "params": {
+                  "nodes": [
+                    {
+                      "id": "sc",
+                      "label": "智能合约",
+                      "highlight": true
+                    },
+                    {
+                      "id": "defi",
+                      "label": "DeFi"
+                    },
+                    {
+                      "id": "nft",
+                      "label": "NFT"
+                    },
+                    {
+                      "id": "supply",
+                      "label": "供应链"
+                    },
+                    {
+                      "id": "did",
+                      "label": "分布式身份"
+                    },
+                    {
+                      "id": "dao",
+                      "label": "DAO"
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "from": "sc",
+                      "to": "defi"
+                    },
+                    {
+                      "from": "sc",
+                      "to": "nft"
+                    },
+                    {
+                      "from": "sc",
+                      "to": "supply"
+                    },
+                    {
+                      "from": "sc",
+                      "to": "did"
+                    },
+                    {
+                      "from": "sc",
+                      "to": "dao"
+                    }
+                  ],
+                  "visibleNodes": 6,
+                  "edgeColor": "var(--accent)",
+                  "accentColor": "var(--accent)"
+                }
+              }
+            ],
+            "gridArea": "1/1"
+          }
+        },
+        "animations": [
+          {
+            "target": "eco",
+            "effect": "fadeIn",
+            "delay": 0,
+            "duration": 0.8
+          }
+        ]
+      }
+    },
+    {
+      "narration": "智能合约把信任的边界，从「相信一个机构」拓展到了「相信一段公开的代码」。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "variant": "centered",
+        "slots": {
+          "kicker": "信任边界",
+          "title": "从相信机构",
+          "subtitle": "到相信公开代码"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-bold"
+        }
+      }
+    }
+  ],
+  "orderHint": 5
+}

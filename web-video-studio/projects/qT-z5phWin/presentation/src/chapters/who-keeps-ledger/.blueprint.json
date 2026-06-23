@@ -1,0 +1,213 @@
+{
+  "chapterId": "who-keeps-ledger",
+  "title": "谁有资格记账",
+  "steps": [
+    {
+      "narration": "既然没有中心，全网这么多节点，到底由谁来记账？谁把交易打包成区块、拿到奖励？",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "variant": "centered",
+        "slots": {
+          "kicker": "核心问题",
+          "title": "谁来记账？"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-subtle"
+        }
+      }
+    },
+    {
+      "narration": "这就需要共识机制——让一群不认识、不信任的人，就「哪本账是真的」达成一致。最早也最出名的叫工作量证明，也就是挖矿。",
+      "layout": {
+        "mode": "composed",
+        "layout": "center",
+        "regions": {
+          "race": {
+            "content": [
+              {
+                "primitive": "NetworkGraph",
+                "params": {
+                  "nodes": [
+                    {
+                      "id": "m1",
+                      "label": "矿工 A",
+                      "highlight": true
+                    },
+                    {
+                      "id": "m2",
+                      "label": "矿工 B",
+                      "highlight": true
+                    },
+                    {
+                      "id": "m3",
+                      "label": "矿工 C",
+                      "highlight": true
+                    },
+                    {
+                      "id": "m4",
+                      "label": "矿工 D"
+                    },
+                    {
+                      "id": "m5",
+                      "label": "矿工 E"
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "from": "m1",
+                      "to": "m2",
+                      "label": "竞赛"
+                    },
+                    {
+                      "from": "m1",
+                      "to": "m3",
+                      "label": "竞赛"
+                    },
+                    {
+                      "from": "m2",
+                      "to": "m3",
+                      "label": "竞赛"
+                    },
+                    {
+                      "from": "m2",
+                      "to": "m4",
+                      "label": "竞赛"
+                    },
+                    {
+                      "from": "m3",
+                      "to": "m5",
+                      "label": "竞赛"
+                    }
+                  ],
+                  "visibleNodes": 5,
+                  "edgeColor": "var(--rule)",
+                  "accentColor": "var(--accent)"
+                }
+              }
+            ],
+            "gridArea": "1/1"
+          }
+        },
+        "animations": [
+          {
+            "target": "race",
+            "effect": "fadeIn",
+            "delay": 0,
+            "duration": 0.8
+          }
+        ]
+      }
+    },
+    {
+      "narration": "挖矿是节点们不断变换随机数做哈希运算，直到算出满足条件的哈希值。谁先碰上了，谁就获得记账权，赚到代币奖励。全网算力每秒尝试千万亿次。",
+      "layout": {
+        "mode": "composed",
+        "layout": "center",
+        "regions": {
+          "winner": {
+            "content": [
+              {
+                "primitive": "Counter",
+                "params": {
+                  "to": 3842000000000000,
+                  "unit": " 次/秒",
+                  "decimals": 0,
+                  "duration": 2.5
+                }
+              }
+            ],
+            "gridArea": "1/1"
+          }
+        },
+        "animations": [
+          {
+            "target": "winner",
+            "effect": "scaleIn",
+            "delay": 0,
+            "duration": 1
+          }
+        ]
+      }
+    },
+    {
+      "narration": "这个过程极其耗电。但它的逻辑是制造昂贵的壁垒——参与记账需要成本，反过来保护了网络安全。后来人们想出了更节能的机制：权益证明。",
+      "layout": {
+        "mode": "composed",
+        "layout": "split",
+        "regions": {
+          "pow": {
+            "content": [],
+            "gridArea": "left"
+          },
+          "pos": {
+            "content": [],
+            "gridArea": "right"
+          }
+        },
+        "animations": [
+          {
+            "target": "pow",
+            "effect": "slideLeft",
+            "delay": 0,
+            "duration": 0.6
+          },
+          {
+            "target": "pos",
+            "effect": "slideRight",
+            "delay": 0.3,
+            "duration": 0.6
+          }
+        ]
+      }
+    },
+    {
+      "narration": "权益证明不再是拼算力，而是根据你持有代币的数量和时间随机选验证者。持币越多，被选中概率越大。能耗大幅降低——以太坊等主流公链已经切换，运行稳定。能耗降低了99.95%。",
+      "layout": {
+        "mode": "composed",
+        "layout": "center",
+        "regions": {
+          "energy": {
+            "content": [
+              {
+                "primitive": "Counter",
+                "params": {
+                  "to": 99.95,
+                  "unit": "% 能耗降低",
+                  "decimals": 2,
+                  "duration": 2
+                }
+              }
+            ],
+            "gridArea": "1/1"
+          }
+        },
+        "animations": [
+          {
+            "target": "energy",
+            "effect": "scaleIn",
+            "delay": 0,
+            "duration": 1
+          }
+        ]
+      }
+    },
+    {
+      "narration": "共识机制就像一个国家的法律，定好透明的规则，所有人自发遵守。少数坏人捣乱，系统照样安全运行。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "variant": "centered",
+        "slots": {
+          "kicker": "本质",
+          "title": "共识 = 国家法律",
+          "subtitle": "透明规则让所有人自发遵守"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-bold"
+        }
+      }
+    }
+  ],
+  "orderHint": 4
+}

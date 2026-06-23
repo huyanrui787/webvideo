@@ -103,6 +103,12 @@ interface StateMachineSlice {
 
 export type ProjectStore = DevSlice & ScaffoldSlice & BuildSlice & PlaybackSlice & PreviewSlice & ProjectSlice & StateMachineSlice;
 
+const INITIAL_STATE_DATA: PreviewStateData = {
+  state: "idle", devPort: null, scaffoldProgress: null,
+  buildDoneChapters: 0, buildTotalChapters: 0,
+  lastError: null,
+};
+
 export const useProjectStore = create<ProjectStore>((set) => ({
   // ── Dev ──
   devPort: null, devStarting: false, devError: null, devCrashed: false, devDegraded: false,
@@ -154,17 +160,22 @@ export const useProjectStore = create<ProjectStore>((set) => ({
     previewMode: "preview", floating: false, wholePage: false, iframeKey: 0,
     isStreaming: false, aiReadyForPreview: false,
     previewState: "idle",
-    previewStateData: { state: "idle", devPort: null, scaffoldProgress: null, scaffoldRetries: 0, buildDoneChapters: 0, buildTotalChapters: 0, buildErrorCount: 0, lastError: null },
+    previewStateData: INITIAL_STATE_DATA,
   }),
 
   // ── State Machine ──
   previewState: "idle",
-  previewStateData: { state: "idle", devPort: null, scaffoldProgress: null, scaffoldRetries: 0, buildDoneChapters: 0, buildTotalChapters: 0, buildErrorCount: 0, lastError: null },
+  previewStateData: INITIAL_STATE_DATA,
   transition: (to, data) => {
     let accepted = false;
     set((s) => {
-      assertTransition(s.previewState, to);
-      accepted = true;
+      try {
+        assertTransition(s.previewState, to);
+        accepted = true;
+      } catch {
+        accepted = false;
+        return {};
+      }
       return {
         previewState: to,
         previewStateData: { ...s.previewStateData, ...data, state: to },
@@ -174,6 +185,6 @@ export const useProjectStore = create<ProjectStore>((set) => ({
   },
   resetStateMachine: () => set({
     previewState: "idle",
-    previewStateData: { state: "idle", devPort: null, scaffoldProgress: null, scaffoldRetries: 0, buildDoneChapters: 0, buildTotalChapters: 0, buildErrorCount: 0, lastError: null },
+    previewStateData: INITIAL_STATE_DATA,
   }),
 }));

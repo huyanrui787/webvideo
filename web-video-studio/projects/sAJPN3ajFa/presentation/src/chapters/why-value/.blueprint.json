@@ -1,0 +1,102 @@
+{
+  "chapterId": "why-value",
+  "title": "价值密码",
+  "steps": [
+    {
+      "narration": "那最核心的问题来了。一枚比特币，凭啥值几万美元？",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "title": "凭什么？",
+          "subtitle": "一枚比特币 · 几万美元"
+        }
+      }
+    },
+    {
+      "narration": "第一，总量锁死 2100 万枚。法币可以无限印，比特币不行。天然抗通胀。",
+      "layout": {
+        "mode": "template",
+        "template": "step-reveal",
+        "slots": {
+          "steps": [
+            {
+              "heading": "稀缺性",
+              "body": "总量永久锁死 2100 万枚"
+            },
+            {
+              "heading": "vs 法币",
+              "body": "无限印钞 · 持续贬值"
+            },
+            {
+              "heading": "数字黄金",
+              "body": "绝对稀缺 · 天然抗通胀"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "narration": "第二，无国界。你只要记住一串私钥，钱就真正属于你。任何政府冻结不了。",
+      "layout": {
+        "mode": "template",
+        "template": "step-reveal",
+        "slots": {
+          "steps": [
+            {
+              "heading": "无国界",
+              "body": "不受任何国家管制"
+            },
+            {
+              "heading": "私钥即所有权",
+              "body": "记住一串私钥 = 真正拥有"
+            },
+            {
+              "heading": "不可冻结",
+              "body": "任何政府无法查封没收"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "narration": "第三，共识。越多人信、越多人持有，价格就往上走。",
+      "layout": {
+        "mode": "template",
+        "template": "step-reveal",
+        "slots": {
+          "steps": [
+            {
+              "heading": "共识价值",
+              "body": "越多人持有 · 价格越高"
+            },
+            {
+              "heading": "机构入场",
+              "body": "MicroStrategy · Tesla · 萨尔瓦多"
+            },
+            {
+              "heading": "资产储备",
+              "body": "上市公司和国家纳入资产负债表"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "narration": "大机构、上市公司甚至国家都开始把它放进资产储备。三项合一，铸就了比特币的价值根基。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "title": "2100万 · 无国界 · 共识",
+          "subtitle": "三项合一 · 价值根基",
+          "tagline": "数字时代的稀缺资产"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-bold"
+        }
+      }
+    }
+  ],
+  "orderHint": 5
+}

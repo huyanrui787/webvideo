@@ -1,0 +1,129 @@
+{
+  "chapterId": "mining-war",
+  "title": "全球挖矿竞赛",
+  "steps": [
+    {
+      "narration": "那谁来打包这些区块呢？这就是挖矿。所有矿工一起抢一道数学题。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "title": "挖矿",
+          "subtitle": "全球矿工竞赛 · 暴力破解数学题",
+          "tagline": "谁先猜对，谁打包，拿走奖励"
+        }
+      }
+    },
+    {
+      "narration": "没有捷径，纯靠算力。一开始奖励 50 个比特币。每四年减半。",
+      "layout": {
+        "mode": "template",
+        "template": "data-spotlight",
+        "slots": {
+          "headline": "区块奖励减半曲线",
+          "primaryValue": "50 → 3.125",
+          "primaryLabel": "BTC / 区块",
+          "context": "2009: 50 → 2012: 25 → 2016: 12.5 → 2020: 6.25 → 2024: 3.125"
+        }
+      }
+    },
+    {
+      "narration": "现在只剩 3.125 个。听着像浪费电，但正是这个设计，给比特币铸上了价值根基。",
+      "layout": {
+        "mode": "template",
+        "template": "data-spotlight",
+        "slots": {
+          "headline": "当前区块奖励",
+          "primaryValue": "3.125",
+          "primaryLabel": "BTC",
+          "context": "每四年减半 · 总量锁死2100万枚 · 天然稀缺"
+        }
+      }
+    },
+    {
+      "narration": "全球矿场追着便宜电力跑。中国的水电站，美国德州的风电场，冰岛的地热能。",
+      "layout": {
+        "mode": "template",
+        "template": "grid-gallery",
+        "slots": {
+          "items": [
+            {
+              "title": "中国",
+              "desc": "水电站",
+              "media": {
+                "type": "image",
+                "src": ""
+              }
+            },
+            {
+              "title": "美国德州",
+              "desc": "风电场",
+              "media": {
+                "type": "image",
+                "src": ""
+              }
+            },
+            {
+              "title": "冰岛",
+              "desc": "地热能",
+              "media": {
+                "type": "image",
+                "src": ""
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "narration": "整个比特币网络年耗电量超过部分中等国家。",
+      "layout": {
+        "mode": "template",
+        "template": "data-spotlight",
+        "slots": {
+          "headline": "年耗电量",
+          "primaryValue": "≈ 中等国家",
+          "primaryLabel": "全网年耗电",
+          "context": "超过部分中等国家全年用电量 · 绿色能源转型中"
+        }
+      }
+    },
+    {
+      "narration": "想篡改？你得重新算从被改区块之后所有区块的题。成本远远超过收益。",
+      "layout": {
+        "mode": "template",
+        "template": "comparison-table",
+        "slots": {
+          "headers": [
+            "攻击成本",
+            "篡改收益"
+          ],
+          "rows": [
+            {
+              "label": "算力投入",
+              "values": [
+                "重新计算所有后续区块",
+                "修改几笔交易"
+              ]
+            },
+            {
+              "label": "电力消耗",
+              "values": [
+                "天文数字电力成本",
+                "微薄经济回报"
+              ]
+            },
+            {
+              "label": "结果",
+              "values": [
+                "全网节点立刻拒绝",
+                "篡改数据无法生效"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "orderHint": 4
+}

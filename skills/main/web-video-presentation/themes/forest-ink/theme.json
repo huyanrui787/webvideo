@@ -24,11 +24,31 @@
     "surface": "#f5f1e8",
     "text": "#1a2e1f",
     "accent": "#4d7a4d"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "medium",
     "description": "Measured editorial pace"
-  }
+  },
+  "tone": [
+    "grounded",
+    "literary",
+    "warm",
+    "patient"
+  ],
+  "formality": "medium-high",
+  "density": "medium",
+  "scheme": "light",
+  "avoidFor": [
+    "赛博朋克/科技",
+    "快时尚",
+    "金融交易",
+    "霓虹夜生活"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "森林绿当墨（绿色即字色本身）",
+    "Source Serif + Playfair Display",
+    "旧版国家地理沉稳文献感"
+  ]
 }

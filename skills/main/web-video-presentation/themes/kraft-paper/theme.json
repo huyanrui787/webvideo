@@ -24,11 +24,31 @@
     "surface": "#eedfc7",
     "text": "#2a1e13",
     "accent": "#a35b2a"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "medium",
     "description": "Measured editorial pace"
-  }
+  },
+  "tone": [
+    "warm",
+    "tactile",
+    "nostalgic",
+    "grounded"
+  ],
+  "formality": "medium",
+  "density": "medium",
+  "scheme": "light",
+  "avoidFor": [
+    "科技/未来主义",
+    "企业合规/法律",
+    "金融量化",
+    "现代主义设计"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "深棕当墨 + 牛皮米底",
+    "Fraunces serif + 紫铜accent",
+    "粗暖纸纹质感"
+  ]
 }

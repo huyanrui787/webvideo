@@ -19,13 +19,37 @@
     "未来主义产品",
     "赛博朋克 / 科幻话题"
   ],
+  "tone": [
+    "electric",
+    "futuristic",
+    "sharp",
+    "rebellious"
+  ],
+  "formality": "medium-low",
+  "density": "medium",
+  "scheme": "dark",
+  "avoidFor": [
+    "学术论文",
+    "企业年报",
+    "医疗健康",
+    "温馨家庭内容",
+    "传统行业"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "青色发光网格 + 双色霓虹描边",
+    "Clash Display + Satoshi",
+    "深海军底 + 电光青 + 玫红"
+  ],
+  "previewMd": "themes/neon-cyber/preview.md",
+  "designMd": "themes/neon-cyber/design.md",
+  "tokensCss": "themes/neon-cyber/tokens.css",
   "preview": {
     "shell": "#04060f",
     "surface": "#0a0f1c",
     "text": "#e8f4ff",
     "accent": "#00ffcc"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-snappy)",
     "duration": "fast",

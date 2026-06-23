@@ -73,6 +73,10 @@ export async function POST(req: Request) {
 
   ensureProjectDir(id);
 
+  // Auto-scaffold: start VIte + React project immediately in background
+  const { startScaffold } = await import("@/lib/scaffold");
+  startScaffold(id, "midnight-press", "landscape", resolvedType === "illustration-video" ? "video" : (projectFormat ?? "video"));
+
   // Write initial article content if provided
   if (initialContent) {
     const { writeProjectFile } = await import("@/lib/projects");

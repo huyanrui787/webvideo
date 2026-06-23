@@ -1,0 +1,194 @@
+[
+  {
+    "chapter": "dark-side",
+    "step": 1,
+    "text": "但它不是完美神话。早期暗网交易、勒索病毒都用它。但区块链公开可查，执法机构已能链上追踪。",
+    "audio": "dark-side/1.mp3"
+  },
+  {
+    "chapter": "dark-side",
+    "step": 2,
+    "text": "耗电量超过一些中等国家。但越来越多矿场转向绿色能源。一天涨跌百分之几十是家常便饭。",
+    "audio": "dark-side/2.mp3"
+  },
+  {
+    "chapter": "dark-side",
+    "step": 3,
+    "text": "有的国家把它捧上神坛，有的严厉禁止。它还在野蛮生长。",
+    "audio": "dark-side/3.mp3"
+  },
+  {
+    "chapter": "genesis",
+    "step": 1,
+    "text": "2008 年，金融危机，银行倒闭，政府疯狂印钱。一个叫中本聪的神秘人，在网上发了份九页白皮书。",
+    "audio": "genesis/1.mp3"
+  },
+  {
+    "chapter": "genesis",
+    "step": 2,
+    "text": "他说，要造一种不需要任何银行背书的货币。完全由代码来管。",
+    "audio": "genesis/2.mp3"
+  },
+  {
+    "chapter": "genesis",
+    "step": 3,
+    "text": "2009 年 1 月 3 号，比特币上线。第一个区块里刻了一句话：《泰晤士报》2009 年 1 月 3 日，财政大臣正处于银行第二轮救助的边缘。",
+    "audio": "genesis/3.mp3"
+  },
+  {
+    "chapter": "genesis",
+    "step": 4,
+    "text": "这东西后来涨到了万亿市值。那它到底是怎么运转的？",
+    "audio": "genesis/4.mp3"
+  },
+  {
+    "chapter": "iron-chain",
+    "step": 1,
+    "text": "这个机制叫分布式账本。没 CEO，没客服，没机房可以关。除非你把全世界互联网全断掉，否则它一直运行。",
+    "audio": "iron-chain/1.mp3"
+  },
+  {
+    "chapter": "iron-chain",
+    "step": 2,
+    "text": "支撑它的技术，就是区块链。名字听着唬人，其实很简单。就是一系列用密码学串起来的数据块。",
+    "audio": "iron-chain/2.mp3"
+  },
+  {
+    "chapter": "iron-chain",
+    "step": 3,
+    "text": "交易打包成区块，每个区块记录十分钟内的所有交易。记满了，用加密算法生成一个独一无二的指纹，叫哈希值。",
+    "audio": "iron-chain/3.mp3"
+  },
+  {
+    "chapter": "iron-chain",
+    "step": 4,
+    "text": "下一个区块把自己的头上刻上这个指纹，再打包新交易，再生成新指纹。你动历史上任何一个区块里的任意一笔，指纹就变了，后面全部对不上。像多米诺骨牌，动一个全塌。",
+    "audio": "iron-chain/4.mp3"
+  },
+  {
+    "chapter": "iron-chain",
+    "step": 5,
+    "text": "所以你看，过去依赖银行、公证处保证可信，现在一个数学结构直接做到了。",
+    "audio": "iron-chain/5.mp3"
+  },
+  {
+    "chapter": "mining-war",
+    "step": 1,
+    "text": "那谁来打包这些区块呢？这就是挖矿。所有矿工一起抢一道数学题。",
+    "audio": "mining-war/1.mp3"
+  },
+  {
+    "chapter": "mining-war",
+    "step": 2,
+    "text": "没有捷径，纯靠算力。一开始奖励 50 个比特币。每四年减半。",
+    "audio": "mining-war/2.mp3"
+  },
+  {
+    "chapter": "mining-war",
+    "step": 3,
+    "text": "现在只剩 3.125 个。听着像浪费电，但正是这个设计，给比特币铸上了价值根基。",
+    "audio": "mining-war/3.mp3"
+  },
+  {
+    "chapter": "mining-war",
+    "step": 4,
+    "text": "全球矿场追着便宜电力跑。中国的水电站，美国德州的风电场，冰岛的地热能。",
+    "audio": "mining-war/4.mp3"
+  },
+  {
+    "chapter": "mining-war",
+    "step": 5,
+    "text": "整个比特币网络年耗电量超过部分中等国家。",
+    "audio": "mining-war/5.mp3"
+  },
+  {
+    "chapter": "mining-war",
+    "step": 6,
+    "text": "想篡改？你得重新算从被改区块之后所有区块的题。成本远远超过收益。",
+    "audio": "mining-war/6.mp3"
+  },
+  {
+    "chapter": "never-stops",
+    "step": 1,
+    "text": "比特币才十几年。它是针对旧金融体系的叛逆产物，不是优雅方案。",
+    "audio": "never-stops/1.mp3"
+  },
+  {
+    "chapter": "never-stops",
+    "step": 2,
+    "text": "但它证明了一件事：在数字时代，信任可以重构，货币形态可能被重写。",
+    "audio": "never-stops/2.mp3"
+  },
+  {
+    "chapter": "never-stops",
+    "step": 3,
+    "text": "理解比特币，你就拿到了通往加密世界的钥匙。智能合约、DeFi、NFT，整个加密世界由此开启。",
+    "audio": "never-stops/3.mp3"
+  },
+  {
+    "chapter": "never-stops",
+    "step": 4,
+    "text": "而是运行在全球无数电脑上、永不停机的共识奇迹。",
+    "audio": "never-stops/4.mp3"
+  },
+  {
+    "chapter": "no-boss-ledger",
+    "step": 1,
+    "text": "你银行卡里的钱，背后是银行一个大账本。你转 100 块给朋友，银行在中央服务器里扣你 100，加给朋友 100。如果银行出错了、被黑了，你的钱说没就没。",
+    "audio": "no-boss-ledger/1.mp3"
+  },
+  {
+    "chapter": "no-boss-ledger",
+    "step": 2,
+    "text": "比特币不一样。它把账本从一家独享变成了全世界共享。千千万万台电脑同时记账，每一笔交易全网核对、同步更新。",
+    "audio": "no-boss-ledger/2.mp3"
+  },
+  {
+    "chapter": "no-boss-ledger",
+    "step": 3,
+    "text": "你想篡改一笔记录？得同时黑掉超过一半的参与者电脑。计算量上几乎不可能。信任由冰冷的数学和加密算法来保证。",
+    "audio": "no-boss-ledger/3.mp3"
+  },
+  {
+    "chapter": "no-boss-ledger",
+    "step": 4,
+    "text": "没 CEO，没客服，没机房可以关。除非把全世界互联网全断掉，否则比特币网络一直运行。",
+    "audio": "no-boss-ledger/4.mp3"
+  },
+  {
+    "chapter": "no-boss-ledger",
+    "step": 5,
+    "text": "这是人类历史上第一次，用纯技术手段让陌生人之间建立信任，完成价值转移，不需要任何中间人。",
+    "audio": "no-boss-ledger/5.mp3"
+  },
+  {
+    "chapter": "why-value",
+    "step": 1,
+    "text": "那最核心的问题来了。一枚比特币，凭啥值几万美元？",
+    "audio": "why-value/1.mp3"
+  },
+  {
+    "chapter": "why-value",
+    "step": 2,
+    "text": "第一，总量锁死 2100 万枚。法币可以无限印，比特币不行。天然抗通胀。",
+    "audio": "why-value/2.mp3"
+  },
+  {
+    "chapter": "why-value",
+    "step": 3,
+    "text": "第二，无国界。你只要记住一串私钥，钱就真正属于你。任何政府冻结不了。",
+    "audio": "why-value/3.mp3"
+  },
+  {
+    "chapter": "why-value",
+    "step": 4,
+    "text": "第三，共识。越多人信、越多人持有，价格就往上走。",
+    "audio": "why-value/4.mp3"
+  },
+  {
+    "chapter": "why-value",
+    "step": 5,
+    "text": "大机构、上市公司甚至国家都开始把它放进资产储备。三项合一，铸就了比特币的价值根基。",
+    "audio": "why-value/5.mp3"
+  }
+]

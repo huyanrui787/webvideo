@@ -24,11 +24,31 @@
     "surface": "#0e1830",
     "text": "#e6f0ff",
     "accent": "#5fc7e8"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "slow",
     "description": "Slow, dramatic reveals"
-  }
+  },
+  "tone": [
+    "precise",
+    "technical",
+    "methodical",
+    "serious"
+  ],
+  "formality": "medium-high",
+  "density": "high",
+  "scheme": "dark",
+  "avoidFor": [
+    "情感故事型内容",
+    "时尚生活方式",
+    "轻松娱乐",
+    "需要温暖感的品牌"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "2px虚线青色rule + 60px制图网格",
+    "IBM Plex Mono等宽全场",
+    "工程蓝图气质"
+  ]
 }

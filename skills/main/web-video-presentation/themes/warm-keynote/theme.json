@@ -23,11 +23,31 @@
     "surface": "#FFFFFF",
     "text": "#43302B",
     "accent": "#14B8A6"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-snappy)",
     "duration": "fast",
     "description": "Sharp, linear motion"
-  }
+  },
+  "tone": [
+    "polished",
+    "warm",
+    "modern",
+    "professional"
+  ],
+  "formality": "medium",
+  "density": "medium",
+  "scheme": "light",
+  "avoidFor": [
+    "暗黑/赛博美学",
+    "游戏/娱乐",
+    "手工艺/复古",
+    "文学/诗歌"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "大圆角glass slab + backdrop blur",
+    "奶油 + 棕褐墨 + 青绿accent",
+    "40px暖色网格 + 粗黑hero数字"
+  ]
 }

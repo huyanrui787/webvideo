@@ -36,14 +36,14 @@ function classifyStreamError(error: unknown): string {
   if (lower.includes("401") || lower.includes("unauthorized") || lower.includes("invalid api key"))
     return "AI 服务认证失败，请在设置中检查 API 密钥";
   if (lower.includes("429") || lower.includes("rate limit"))
-    return "AI 服务繁忙，请稍后再试";
+    return "AI 服务繁忙，请稍后再试。已生成的内容不会丢失。";
   if (lower.includes("timeout") || lower.includes("timed out") || lower.includes("abort"))
-    return "AI 服务响应超时，请重试";
+    return "AI 服务响应超时。刷新页面即可恢复，已生成的章节和文件不会丢失。";
   if (lower.includes("502") || lower.includes("503") || lower.includes("proxy") || lower.includes("gateway"))
-    return "AI 代理服务异常，请稍后重试";
+    return "AI 代理服务异常，请稍后重试。已生成的内容已保存。";
   if (lower.includes("context") && (lower.includes("too long") || lower.includes("exceed") || lower.includes("maximum")))
     return "对话上下文过长，请开始新对话";
-  return "连接中断，请重试";
+  return "连接中断 — 刷新页面即可恢复，已生成的内容不会丢失。";
 }
 
 // Anthropic base URL (from env for proxy support, defaults to api.anthropic.com)
@@ -61,7 +61,7 @@ function getModel(modelId: string) {
   return anthropic(modelId, { baseURL: anthropicBaseURL });
 }
 
-export const maxDuration = 600;
+export const maxDuration = 3600; // 1 hour — long writing+building flows need headroom
 
 export async function GET(
   req: Request,
@@ -77,12 +77,66 @@ export async function GET(
     .where(eq(chatMessages.projectId, id))
     .orderBy(asc(chatMessages.createdAt));
 
-  const messages = rows.map((r) => ({
-    id: r.id,
-    role: r.role,
-    parts: JSON.parse(r.parts),
-    createdAt: new Date(r.createdAt * 1000),
-  }));
+  const messages = rows.map((r) => {
+    let rawParts: any[] = [];
+    try {
+      const parsed = JSON.parse(r.parts);
+      rawParts = Array.isArray(parsed) ? parsed : [];
+    } catch { /* malformed → empty */ }
+
+    // ── Normalize parts to current SDK format ──────────────────────────
+    // Old SDK versions stored parts with unexpected fields (state on text parts,
+    // tool-<Name> types instead of tool-invocation, etc.). This breaks
+    // convertToModelMessages. Clean aggressively.
+    const parts = rawParts
+      .filter((p: any) => p != null && typeof p === "object")
+      .map((p: any) => {
+        const type: string = p.type ?? "";
+        // Normalize: any "tool-<Name>" type → "tool-invocation"
+        if (type.startsWith("tool-") && type !== "tool-invocation") {
+          return {
+            type: "tool-invocation",
+            toolName: p.toolName ?? type.replace("tool-", ""),
+            input: p.input ?? null,
+            state: p.state ?? "result",
+          };
+        }
+        // Normalize tool-invocation: keep only valid fields
+        if (type === "tool-invocation") {
+          return {
+            type: "tool-invocation",
+            toolName: p.toolName ?? "",
+            input: p.input ?? null,
+            state: p.state ?? "result",
+          };
+        }
+        // Text parts: strip non-text fields (state, toolCallId, etc.)
+        if (type === "text") {
+          return { type: "text", text: String(p.text ?? "") };
+        }
+        // Unknown types: try to preserve as text if it has text content
+        if (p.text) return { type: "text", text: String(p.text) };
+        return null;
+      })
+      .filter((p: any) => p != null && (p.type === "text" ? (p.text?.length ?? 0) > 0 : true));
+
+    return { id: r.id, role: r.role, parts, createdAt: new Date(r.createdAt * 1000) };
+  })
+    .filter((m) => m.parts.length > 0)
+    .filter((m) => {
+      // Drop tool-only assistant messages (no text content)
+      if (m.role === "assistant" && m.parts.every((p: any) => (p.type || "").startsWith("tool-"))) return false;
+      return true;
+    })
+    .filter((m, i, arr) => {
+      // Drop consecutive duplicate user messages
+      if (m.role !== "user" || i === 0) return true;
+      const prev = arr[i - 1];
+      if (prev?.role !== "user") return true;
+      const thisText = m.parts.filter((p: any) => p.type === "text").map((p: any) => p.text ?? "").join("");
+      const prevText = prev.parts.filter((p: any) => p.type === "text").map((p: any) => p.text ?? "").join("");
+      return thisText !== prevText;
+    });
 
   return Response.json({ messages });
 }
@@ -130,6 +184,8 @@ async function persistUsageBestEffort(
   result: any,
   projectId: string,
   model: string,
+  assistantMsgId: string,
+  accumulatedParts: Array<{ type: string; text?: string; toolName?: string; input?: unknown; state?: string }>,
 ) {
   try {
     const usage = await result.totalUsage;
@@ -154,34 +210,24 @@ async function persistUsageBestEffort(
     const lastStep = steps?.[steps.length - 1];
     const responseMessages = await result.response?.messages;
 
-    // Build full parts: text + tool invocations
-    const parts: Array<{ type: string; text?: string; toolName?: string; input?: unknown; state?: string }> = [];
-
-    // Add text content if present
-    const textContent = await result.text;
-    if (textContent) {
-      parts.push({ type: "text", text: textContent });
-    }
-
-    // Add tool calls from the last step (if any)
-    if (lastStep?.toolCalls) {
-      for (const tc of lastStep.toolCalls) {
-        parts.push({
-          type: "tool-invocation",
-          toolName: tc.toolName,
-          input: tc.input ?? tc.args,
-          state: "result",
-        });
+    // If nothing was saved incrementally, capture the final text + tools now
+    if (accumulatedParts.length === 0) {
+      const textContent = await result.text;
+      if (textContent) accumulatedParts.push({ type: "text", text: textContent });
+      if (lastStep?.toolCalls) {
+        for (const tc of lastStep.toolCalls) {
+          accumulatedParts.push({ type: "tool-invocation", toolName: tc.toolName, input: tc.input, state: "result" });
+        }
       }
     }
 
-    if (parts.length > 0) {
+    if (accumulatedParts.length > 0) {
       await db.insert(chatMessages).values({
-        id: nanoid(12),
+        id: assistantMsgId,
         projectId,
         role: "assistant",
-        parts: JSON.stringify(parts),
-      }).onConflictDoNothing();
+        parts: JSON.stringify(accumulatedParts),
+      }).onConflictDoUpdate({ target: chatMessages.id, set: { parts: JSON.stringify(accumulatedParts) } });
     }
   } catch (e) {
     logger.warn("Message persist failed", { projectId });
@@ -249,7 +295,27 @@ export async function POST(
       })
     : messages;
 
-  const modelMessages = await convertToModelMessages(prunedMessages);
+  // Single message ID for this AI response — incremental + final persistence share it
+  const assistantMsgId = nanoid(12);
+  // Accumulate full parts across all steps for upsert
+  const accumulatedParts: Array<{ type: string; text?: string; toolName?: string; input?: unknown; state?: string }> = [];
+
+  // DeepSeek provider does not support tool-call content blocks in message history.
+  // Strip tool-invocation parts before conversion — the tool results have already
+  // been executed and their effects are reflected in the conversation (files written,
+  // status changed). Keeping them in history causes AI_InvalidPromptError.
+  const supportsToolHistory = !model.startsWith("deepseek");
+  const cleanMessages = supportsToolHistory
+    ? prunedMessages
+    : prunedMessages.map((m: any) => ({
+        ...m,
+        parts: (m.parts || []).filter((p: any) => {
+          const t = p.type || "";
+          return t === "text" || t === "image" || t === "file";
+        }),
+      }));
+
+  const modelMessages = await convertToModelMessages(cleanMessages);
 
   const stream = createUIMessageStream({
     execute: async ({ writer }) => {
@@ -267,6 +333,23 @@ export async function POST(
             if (finishReason && finishReason !== "stop") {
               logger.debug("Step finished", { finishReason, toolCalls: toolCalls?.length ?? 0, textLen: text?.length ?? 0, projectId: id });
             }
+            // ── Incremental persistence: accumulate parts, upsert same message ID ──
+            // Each step appends to accumulatedParts, then upserts the full message.
+            // If the stream dies mid-response, the DB has all steps completed so far.
+            if (text) accumulatedParts.push({ type: "text", text });
+            if (toolCalls) {
+              for (const tc of toolCalls) {
+                accumulatedParts.push({ type: "tool-invocation", toolName: tc.toolName, input: tc.input, state: "result" });
+              }
+            }
+            if (accumulatedParts.length > 0) {
+              db.insert(chatMessages).values({
+                id: assistantMsgId,
+                projectId: id,
+                role: "assistant",
+                parts: JSON.stringify(accumulatedParts),
+              }).onConflictDoUpdate({ target: chatMessages.id, set: { parts: JSON.stringify(accumulatedParts) } }).catch(() => {});
+            }
           },
           onFinish: (event) => {
             const reason = event.finishReason;
@@ -281,10 +364,10 @@ export async function POST(
         writer.merge(result.toUIMessageStream());
 
         // DB writes are best-effort — they must not break the stream
-        persistUsageBestEffort(result, id, model);
+        persistUsageBestEffort(result, id, model, assistantMsgId, accumulatedParts);
       } catch (error) {
         logger.error("Stream execute failed", { projectId: id, model });
-        throw error; // re-throw so createUIMessageStream's onError handles it
+        throw error;
       }
     },
     onError: (error) => classifyStreamError(error),

@@ -19,13 +19,34 @@
     "大字宣言 / 标题片",
     "season hero / 主题营销"
   ],
+  "tone": [
+    "confident",
+    "impactful",
+    "urgent",
+    "heroic",
+    "cinematic"
+  ],
+  "formality": "medium",
+  "density": "medium",
+  "scheme": "dark",
+  "avoidFor": [
+    "学术/研究论文",
+    "温馨/柔和/慢生活",
+    "悼念/健康/医疗",
+    "古典文学/传统"
+  ],
+  "cjkCompatible": false,
+  "signatureElements": [
+    "对角线深色渐变舞台（左下→右上）",
+    "超大直角橙色焦点色卡",
+    "发光橙色 hero 数字（制表数编号）"
+  ],
   "preview": {
     "shell": "#0c0c0c",
     "surface": "#1a1a1a",
     "text": "#f5f5f5",
     "accent": "#ff5722"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "slow",

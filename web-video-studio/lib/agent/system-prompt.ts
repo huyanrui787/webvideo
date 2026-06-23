@@ -36,6 +36,68 @@ function readRef(skillId: string, filename: string): string {
   return readSkillRef(skillId, filename);
 }
 
+/** 项目状态摘要 — 告诉 AI 已经完成了什么，还有什么待做 */
+async function buildProjectStateSummary(project: Project): Promise<string> {
+  const projDir = projectDir(project.id);
+  const presDir = path.join(projDir, "presentation");
+  const chaptersDir = path.join(presDir, "src", "chapters");
+
+  const checks: string[] = [];
+
+  // Writing phase
+  const hasArticle = fs.existsSync(path.join(projDir, "article.md"));
+  const hasScript = fs.existsSync(path.join(projDir, "script.md"));
+  const hasOutline = fs.existsSync(path.join(projDir, "outline.md"));
+  const writingDone = hasArticle && hasScript && hasOutline;
+  checks.push(`写作阶段: ${writingDone ? "✅ 已完成" : "❌ 未完成"}`
+    + (!writingDone ? ` [${!hasArticle ? "缺article " : ""}${!hasScript ? "缺script " : ""}${!hasOutline ? "缺outline" : ""}]` : ""));
+
+  // Building phase
+  let builtCount = 0;
+  let outlineCount = 0;
+  if (hasOutline) {
+    try {
+      const outline = fs.readFileSync(path.join(projDir, "outline.md"), "utf-8");
+      outlineCount = (outline.match(/^## \d+\./gm) || []).length;
+    } catch (err: any) { console.warn("[system-prompt] Failed to read outline:", err?.message ?? err); }
+  }
+  if (fs.existsSync(chaptersDir)) {
+    try {
+      const dirs = fs.readdirSync(chaptersDir).filter(d =>
+        !d.startsWith(".") && !d.startsWith("__") && d !== "01-example"
+      );
+      builtCount = dirs.length;
+    } catch (err: any) { console.warn("[system-prompt] Failed to read chapters dir:", err?.message ?? err); }
+  }
+  const buildingDone = outlineCount > 0 && builtCount >= outlineCount;
+  checks.push(`构建阶段: ${buildingDone ? `✅ 已完成 (${builtCount}/${outlineCount}章)` : builtCount > 0 ? `🔄 进行中 (${builtCount}/${outlineCount}章)` : "⬜ 未开始"}`);
+
+  // Audio phase
+  const hasAudio = fs.existsSync(path.join(presDir, "public", "audio"));
+  const hasAudioSegments = fs.existsSync(path.join(presDir, "audio-segments.json"));
+  const audioDone = hasAudio || hasAudioSegments;
+  checks.push(`音频合成: ${audioDone ? "✅ 已完成" : "⬜ 未开始"}`);
+
+  // Render phase
+  const hasRender = fs.existsSync(path.join(projDir, "render.mp4"));
+  checks.push(`渲染: ${hasRender ? "✅ 已完成" : "⬜ 未开始"}`);
+
+  const summary = `## 📊 项目进度
+
+${checks.join("\n")}
+
+**当前阶段**: ${project.status === "done" ? "已完成 — 系统已自动标记完成。你可以修改内容、回答提问、建议录制视频，但不要重建已有章节。" : project.status === "building" ? "构建中 — " + (buildingDone ? "所有章节已构建，系统将自动标记为 done。" : `继续为 outline 中的剩余章节生成 Blueprint（${builtCount}/${outlineCount} 已完成）。`) : project.status === "plan_checkpoint" ? "等待用户确认 — 用户在审阅章节计划，确认后系统会自动进入构建阶段。" : project.status === "writing" ? "写作中 — 产出 rhythm.md / script.md / outline.md。完成后输出 plan_checkpoint JSON 等待用户确认。" : project.status}
+
+**自动流程**:
+- 写作完成后 → 调用 ProjectSetStatus("building") → ⚡系统自动触发脚手架 → 进入构建阶段
+- 所有章节构建完毕 → ⚡系统自动标记 done（不需要你手动调）
+- 你的职责：写作完成后调 ProjectSetStatus("building")；构建时提交 Blueprint；构建完成后的 done 由系统自动设置
+
+**重要原则**: 对比「项目进度」与对话历史——如果进度显示已完成但对话显示刚做完，说明这之前的工作已经完成，不要重复执行。直接告知用户当前状态并等待指令。`;
+
+  return summary;
+}
+
 /** 写作阶段参考文件 — RHYTHM-DESIGN 内联（格式核心），其余路径引用 */
 function buildWritingRefs(skillId: string): string {
   const skillPath = resolveSkillPath(skillId);
@@ -267,6 +329,9 @@ export async function buildSystemPrompt(project: Project, enabledSkills: string[
       if (u) illustrationsEnabled = u.illustrationsEnabled !== "false";
     } catch { /* keep default */ }
   }
+
+  // ── Project state summary: tell AI what's done vs pending ──────────
+  const stateSummary = await buildProjectStateSummary(project);
 
   const writingRules = isWriting ? `
 ## 口播稿规则
@@ -568,7 +633,7 @@ shotList 为空的简写：\`{"type":"illustration_checkpoint","data":{"shotList
             ? `**你当前处于写作阶段。专注产出 rhythm.md / script.md / outline.md${isIllustMode ? "。不要写代码——后续进入绘图阶段" : "。不要写任何代码"}。**`
             : `**项目当前处于 ${project.status} 阶段。按下方阶段指南执行。**`;
 
-  const identityAndToolsFinal = identityAndTools + "\n\n" + phaseIdentity;
+  const identityAndToolsFinal = identityAndTools + "\n\n" + stateSummary + "\n\n" + phaseIdentity;
 
   // Rest of Block A (file naming conventions, etc.) — this was part of the
   // original identityAndTools template literal and follows the tools section.
@@ -733,10 +798,10 @@ function getStatusGuidance(
 2. 根据文章类型选情绪弧模板（上方「RHYTHM-DESIGN.md」），ProjectWrite("rhythm.md", content)
 3. 生成口播稿，ProjectWrite("script.md", content)
 4. 生成 outline，ProjectWrite("outline.md", content)
-5. **完成后调用 ProjectSetStatus("building") 进入构建阶段**。你将在 building 阶段通过 ProjectSetChapter 逐章生成蓝图并自动编译为代码。不需要规划插图，不需要输出 illustration_checkpoint JSON。
+5. **完成后调用 ProjectSetStatus("building")** → ⚡系统自动触发脚手架，然后你进入构建阶段通过 ProjectSetChapters 批量生成蓝图并编译为代码。
 
 **如果所有文件（script.md + outline.md）都已存在**：不要重写、不要反问、不要提议修改。
-只需调用 ProjectSetStatus("building")，然后简短回复「文件已就绪，进入构建阶段。」然后立即停止。
+调用 ProjectSetStatus("building")，简短回复「文件已就绪，进入构建阶段。」然后立即停止。系统会自动触发脚手架。
 
 ## ⛔ 写作阶段红线（违反会被系统拦截）
 - ❌ **绝对禁止写 presentation/src/chapters/ 下的任何 .tsx / .css 文件**

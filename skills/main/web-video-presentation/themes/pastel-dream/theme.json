@@ -24,11 +24,31 @@
     "surface": "#faf9f7",
     "text": "#1f2429",
     "accent": "#5a7c6a"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-smooth)",
     "duration": "slow",
     "description": "Gentle, organic flow"
-  }
+  },
+  "tone": [
+    "gentle",
+    "welcoming",
+    "soft",
+    "encouraging"
+  ],
+  "formality": "medium-low",
+  "density": "medium",
+  "scheme": "light",
+  "avoidFor": [
+    "硬核技术",
+    "投资人路演",
+    "法律/合规",
+    "赛博朋克"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "单边多色pill色条",
+    "Plus Jakarta Sans + 鼠尾草绿",
+    "大圆角 + soft springy动效"
+  ]
 }

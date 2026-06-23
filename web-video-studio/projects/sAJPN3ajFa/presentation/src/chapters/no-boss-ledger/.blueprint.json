@@ -1,0 +1,94 @@
+{
+  "chapterId": "no-boss-ledger",
+  "title": "没有老板的账本",
+  "steps": [
+    {
+      "narration": "你银行卡里的钱，背后是银行一个大账本。你转 100 块给朋友，银行在中央服务器里扣你 100，加给朋友 100。如果银行出错了、被黑了，你的钱说没就没。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "kicker": "传统银行",
+          "title": "中央大账本",
+          "subtitle": "一家独管 · 说没就没"
+        },
+        "overrides": {
+          "backgroundStyle": "solid"
+        }
+      }
+    },
+    {
+      "narration": "比特币不一样。它把账本从一家独享变成了全世界共享。千千万万台电脑同时记账，每一笔交易全网核对、同步更新。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "kicker": "分布式账本",
+          "title": "全世界共享的账本",
+          "subtitle": "千千万万台电脑同时记账 · 全网同步"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-subtle"
+        }
+      }
+    },
+    {
+      "narration": "你想篡改一笔记录？得同时黑掉超过一半的参与者电脑。计算量上几乎不可能。信任由冰冷的数学和加密算法来保证。",
+      "layout": {
+        "mode": "template",
+        "template": "step-reveal",
+        "variant": "numbered",
+        "slots": {
+          "steps": [
+            {
+              "heading": "篡改银行",
+              "body": "攻破一台服务器即可"
+            },
+            {
+              "heading": "篡改比特币",
+              "body": "需黑掉 50%+ 节点 · 几乎不可能"
+            },
+            {
+              "heading": "信任重构",
+              "body": "数学 + 加密算法 = 信任"
+            }
+          ]
+        },
+        "overrides": {
+          "backgroundStyle": "solid"
+        }
+      }
+    },
+    {
+      "narration": "没 CEO，没客服，没机房可以关。除非把全世界互联网全断掉，否则比特币网络一直运行。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "kicker": "永不停机",
+          "title": "没有老板的网络",
+          "subtitle": "无 CEO · 无客服 · 无机房 · 永不关停"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-subtle"
+        }
+      }
+    },
+    {
+      "narration": "这是人类历史上第一次，用纯技术手段让陌生人之间建立信任，完成价值转移，不需要任何中间人。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "kicker": "历史首次",
+          "title": "数学 = 信任",
+          "subtitle": "陌生人之间 · 无需中间人 · 纯技术保证"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-bold"
+        }
+      }
+    }
+  ],
+  "orderHint": 3
+}

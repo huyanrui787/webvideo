@@ -24,11 +24,31 @@
     "surface": "#fbe8d3",
     "text": "#2a1c12",
     "accent": "#e6386b"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-spring)",
     "duration": "medium",
     "description": "Playful, bouncy motion"
-  }
+  },
+  "tone": [
+    "scrappy",
+    "warm",
+    "expressive",
+    "indie"
+  ],
+  "formality": "medium-low",
+  "density": "medium",
+  "scheme": "light",
+  "avoidFor": [
+    "企业正式汇报",
+    "学术论文",
+    "B2B销售",
+    "政府机构"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "虚线剪贴线 + 偏移桃色阴影",
+    "Fraunces厚体serif + riso洋红",
+    "粗riso纸纹 + 弹簧overshoot"
+  ]
 }

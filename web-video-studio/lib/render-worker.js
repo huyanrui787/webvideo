@@ -3,12 +3,12 @@
  * Writes status to <projectDir>/.render-status.json so the API
  * can poll it without keeping the process in memory.
  *
- * Strategy (v2 — Playwright native recording, ~5-8x faster than screenshot loop):
+ * Strategy (v3 — seek + screenshot + ffmpeg concat, ~5-10x faster than v2):
  *   1. Read audio-segments.json → build timeline (MP3 durations + silent step estimates)
  *   2. Patch chapters.ts stepDurations so the presentation's internal clock matches audio
  *   3. Concat all MP3s + anullsrc silence gaps → merged.aac audio track
- *   4. Playwright recordVideo: open ?render=1&auto=1, wait for __presentationDone
- *   5. ffmpeg: webm (video) + merged.aac (audio) → final mp4
+ *   4. For each step: seekToTime → screenshot → save frame PNG
+ *   5. ffmpeg: concat frames @ duration → video + merged.aac → final mp4
  *
  * Usage: node render-worker.js <projectId> <port> <projectsRoot>
  */
@@ -30,8 +30,15 @@ const audioDir = path.join(presDir, "public/audio");
 const statusFile = path.join(projDir, ".render-status.json");
 const audioListFile = path.join(projDir, ".render-audio-list.txt");
 const mergedAudio = path.join(projDir, ".render-audio.aac");
+const framesDir = path.join(projDir, ".render-frames");
+const concatFile = path.join(projDir, ".render-concat.txt");
 const outputFile = "render.mp4";
 const outputPath = path.join(projDir, outputFile);
+
+// How many seconds between frames within a single step.
+// 0 = one frame per step (fastest, good for static slides).
+// >0 captures intermediate animation states.
+const FRAME_INTERVAL_S = 0.4;
 
 function writeStatus(obj) {
   fs.writeFileSync(statusFile, JSON.stringify({ ...obj, updatedAt: Date.now() }));
@@ -42,7 +49,6 @@ function writeStatus(obj) {
 function getMp3Duration(filePath) {
   return new Promise((resolve) => {
     try {
-      // Primary: ffprobe JSON (structured, reliable)
       try {
         const { execFileSync } = require("child_process");
         const ffprobePath = path.join(path.dirname(ffmpegInstaller.path), "ffprobe");
@@ -54,7 +60,6 @@ function getMp3Duration(filePath) {
         if (d > 0) { resolve(d); return; }
       } catch { /* fall through */ }
 
-      // Fallback: parse ffmpeg stderr Duration line
       let stderr = "";
       try {
         require("child_process").execFileSync(
@@ -79,19 +84,6 @@ function getMp3Duration(filePath) {
 
 // ─── Timeline builder ─────────────────────────────────────────────────────────
 
-/**
- * Calculate silent-step fallback duration with language-aware estimation.
- * MUST stay in sync with the presentation's own estimate so stepDurations
- * and the browser's internal clock agree.
- *
- * Reading speed model (calibrated for narration at ~160 chars/min Chinese, ~150 wpm English):
- *   - Chinese chars: ~250ms each
- *   - English words:  ~300ms each
- *   - Numbers/digits: ~400ms each (slower to process)
- *   - Punctuation pauses: ~200ms for natural breaks (，。！？、；：,.!?;:)
- *   - Line breaks: ~500ms (paragraph pause)
- *   - Floor: 1500ms minimum
- */
 function estimateSilentDuration(narrationText) {
   if (!narrationText) return 1.5;
   const text = String(narrationText);
@@ -108,15 +100,11 @@ function estimateSilentDuration(narrationText) {
     numbers * 400 +
     pauses * 200 +
     lineBreaks * 500 +
-    Math.max(0, otherChars) * 100; // remaining characters at 100ms each
+    Math.max(0, otherChars) * 100;
 
   return Math.max(1500, ms) / 1000;
 }
 
-/**
- * Build timeline from audio-segments.json (preferred) or audio/ dir scan.
- * Returns: Array<{ chapterId, stepIdx, narration, duration, mp3Path|null }>
- */
 async function buildTimeline() {
   const segmentsPath = path.join(presDir, "audio-segments.json");
   if (fs.existsSync(segmentsPath)) {
@@ -137,7 +125,7 @@ async function buildTimeline() {
     }));
   }
 
-  // Fallback: scan audio/ subdirs (no narration text available → use 1.5s)
+  // Fallback: scan audio/ subdirs
   if (fs.existsSync(audioDir)) {
     const timeline = [];
     const chapterDirs = fs.readdirSync(audioDir)
@@ -161,17 +149,14 @@ async function buildTimeline() {
     if (timeline.length > 0) return timeline;
   }
 
-  // Final fallback: build timeline from chapter narrations (no audio needed)
-  // Parse chapters.ts to get chapter IDs in display order
+  // Final fallback: chapters narrations (no audio)
   const chaptersFile = path.join(presDir, "src/registry/chapters.ts");
   if (fs.existsSync(chaptersFile)) {
     const src = fs.readFileSync(chaptersFile, "utf-8");
-    // Extract chapter IDs from the CHAPTERS array entries: { id: "...", ... }
     const idRe = /\{\s*id:\s*"([^"]+)"/g;
     const chapterIds = [];
     let m;
     while ((m = idRe.exec(src)) !== null) chapterIds.push(m[1]);
-
     if (chapterIds.length > 0) {
       writeStatus({ status: "running", progress: `未找到音频，从 ${chapterIds.length} 章口播稿估算时间轴…` });
       const timeline = [];
@@ -179,7 +164,6 @@ async function buildTimeline() {
         const narrFile = path.join(presDir, "src/chapters", chId, "narrations.ts");
         if (!fs.existsSync(narrFile)) continue;
         const narrSrc = fs.readFileSync(narrFile, "utf-8");
-        // Extract string literals (all quote styles) from the narrations array
         const strRe = /["'\`]((?:[^"'`\\]|\\.)*)["'\`]/g;
         let stepIdx = 0;
         while ((m = strRe.exec(narrSrc)) !== null) {
@@ -205,16 +189,13 @@ async function buildTimeline() {
 function patchStepDurations(chaptersFile, timeline) {
   if (!fs.existsSync(chaptersFile)) return;
   let src = fs.readFileSync(chaptersFile, "utf-8");
-
   const byChapter = new Map();
   for (const seg of timeline) {
     if (!byChapter.has(seg.chapterId)) byChapter.set(seg.chapterId, []);
     byChapter.get(seg.chapterId).push(seg.duration);
   }
-
   for (const [chId, durations] of byChapter) {
     const arr = "[" + durations.map((d) => d.toFixed(3)).join(", ") + "]";
-    // Escape regex-special characters in chapter ID (e.g. `.` `?` `[` `(`)
     const escId = chId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const replaceRe = new RegExp(
       `(id:\\s*["']${escId}["'][\\s\\S]*?stepDurations:\\s*)\\[[^\\]]*\\]`, "m"
@@ -228,19 +209,16 @@ function patchStepDurations(chaptersFile, timeline) {
       src = src.replace(insertRe, `$1\n    stepDurations: ${arr},`);
     }
   }
-
   fs.writeFileSync(chaptersFile, src, "utf-8");
 }
 
-// ─── Audio track: concat MP3s + fill silent steps with anullsrc ──────────────
+// ─── Audio track ─────────────────────────────────────────────────────────────
 
 function concatAudioWithSilence(timeline, outPath) {
   const tmpDir = path.join(projDir, ".render-audio-tmp");
   fs.mkdirSync(tmpDir, { recursive: true });
-
   return new Promise(async (resolve, reject) => {
     try {
-      // Generate a silence file for each unique silent duration needed
       const silenceCache = new Map();
       async function getSilenceFile(duration) {
         const key = duration.toFixed(3);
@@ -262,7 +240,6 @@ function concatAudioWithSilence(timeline, outPath) {
         return silPath;
       }
 
-      // Build list of audio segments (MP3 or silence)
       const segFiles = [];
       for (const seg of timeline) {
         if (seg.mp3Path) {
@@ -272,25 +249,17 @@ function concatAudioWithSilence(timeline, outPath) {
         }
       }
 
-      // Write concat list
       const lines = segFiles.map((f) => `file '${f.replace(/\\/g, "/").replace(/'/g, "\\'")}'`);
       fs.writeFileSync(audioListFile, lines.join("\n") + "\n");
 
-      // Concat all segments
       Ffmpeg()
         .input(audioListFile)
         .inputOptions(["-f concat", "-safe 0"])
         .audioCodec("aac")
         .audioBitrate("192k")
         .output(outPath)
-        .on("end", () => {
-          fs.rmSync(tmpDir, { recursive: true, force: true });
-          resolve();
-        })
-        .on("error", (err) => {
-          fs.rmSync(tmpDir, { recursive: true, force: true });
-          reject(err);
-        })
+        .on("end", () => { fs.rmSync(tmpDir, { recursive: true, force: true }); resolve(); })
+        .on("error", (err) => { fs.rmSync(tmpDir, { recursive: true, force: true }); reject(err); })
         .run();
     } catch (err) {
       fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -299,162 +268,143 @@ function concatAudioWithSilence(timeline, outPath) {
   });
 }
 
-// ─── Playwright recording ─────────────────────────────────────────────────────
+// ─── Seek + screenshot capture (replaces recordVideo) ─────────────────────────
 
-async function recordPresentation(totalDuration) {
-  const recordDir = path.join(projDir, ".render-video-tmp");
-  fs.mkdirSync(recordDir, { recursive: true });
+/**
+ * Determine how many frames to capture for a step.
+ * Static text → 1 frame. Animated step → multiple frames at FRAME_INTERVAL_S.
+ * We use a heuristic: steps with duration > 2s likely have animation.
+ */
+function frameCountForStep(duration) {
+  if (duration <= 2.0) return 1;                // short step: 1 frame
+  if (duration <= 5.0) return 2;                // medium: start + end
+  return Math.min(Math.ceil(duration / FRAME_INTERVAL_S), 30); // long: every 400ms, max 30
+}
+
+async function captureFrames(timeline) {
+  fs.mkdirSync(framesDir, { recursive: true });
+  const frameList = []; // { file: string, duration: number }
 
   const browser = await chromium.launch({
     headless: true,
     args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
+      "--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage",
       "--autoplay-policy=no-user-gesture-required",
-      "--use-gl=egl",
-      "--enable-gpu-rasterization",
-      "--enable-accelerated-2d-canvas",
-      "--enable-accelerated-video-decode",
-      "--disable-background-timer-throttling",
-      "--disable-renderer-backgrounding",
+      "--use-gl=egl", "--enable-gpu-rasterization",
+      "--disable-background-timer-throttling", "--disable-renderer-backgrounding",
       "--disable-hang-monitor",
-      "--disable-sync",
-      "--disable-default-apps",
-      "--disable-extensions",
-      "--disable-translate",
-      "--disable-features=TranslateUI,AudioServiceOutOfProcess",
-      "--font-render-hinting=none",
-      "--disable-lcd-text",
     ],
   });
 
-  let context = null;
   let page = null;
   try {
-    context = await browser.newContext({
-      viewport: { width: 1920, height: 1080 },
-      recordVideo: {
-        dir: recordDir,
-        size: { width: 1920, height: 1080 },
-      },
-    });
-    context.setDefaultTimeout(7200000); // 2 hours max
+    page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+    page.setDefaultTimeout(120000);
 
-    page = await context.newPage();
-
-    // Inject script before page load: unlock audio autoplay for headless Chromium
-    await page.addInitScript(() => {
-      try {
-        const ctx = new AudioContext();
-        ctx.resume();
-      } catch {}
-    });
-
-    // Health check: verify dev server is reachable before starting 2hr render
-    const pageUrl = `http://localhost:${port}/?render=1&auto=1`;
+    // Health check
+    const pageUrl = `http://localhost:${port}/?render=1`;
     let serverOk = false;
     for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const res = await fetch(pageUrl, { method: "HEAD" });
-        if (res.ok) { serverOk = true; break; }
-      } catch {}
+      try { const res = await fetch(pageUrl, { method: "HEAD" }); if (res.ok) { serverOk = true; break; } } catch {}
       await new Promise(r => setTimeout(r, 3000));
     }
-    if (!serverOk) throw new Error(`Dev server not reachable at http://localhost:${port} after 3 retries`);
+    if (!serverOk) throw new Error(`Dev server not reachable at http://localhost:${port}`);
 
-    // Load with render+auto mode: bypasses AutoStartGate, auto-advances each step
-    await page.goto(pageUrl, {
-      waitUntil: "networkidle",
-      timeout: 60000,
-    });
-
-    // Wait for fonts to fully load (prevents FOUT on first few frames)
+    // Load initial page with render mode
+    const baseUrl = `http://localhost:${port}/?render=1`;
+    await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 60000 });
     await page.evaluate(() => document.fonts.ready).catch(() => {});
-
-    // Small settle time for React hydration + first paint
     await new Promise((r) => setTimeout(r, 1000));
 
-    // Capture first frame as poster
+    // Poster frame (t=0)
     try {
       const posterDir = path.join(projDir, "assets");
       fs.mkdirSync(posterDir, { recursive: true });
-      await page.screenshot({
-        path: path.join(posterDir, "poster.jpg"),
-        type: "jpeg",
-        quality: 85,
-      });
+      await page.screenshot({ path: path.join(posterDir, "poster.jpg"), type: "jpeg", quality: 85 });
     } catch { /* poster is non-critical */ }
 
-    writeStatus({ status: "running", progress: "录制中…", totalDuration });
+    const totalSteps = timeline.length;
+    let cursor = 0; // current time position in seconds
+    let frameIdx = 0;
 
-    // ── Progress watchdog: fail fast if presentation gets stuck ──────
-    let lastStep = -1;
-    let stuckChecks = 0;
-    const STUCK_THRESHOLD = 6; // 3 minutes without progress = stuck
-    const watchdog = setInterval(async () => {
-      try {
-        const currentStep = await page.evaluate(() => (window).__currentStep ?? -1);
-        if (currentStep === lastStep) {
-          stuckChecks++;
-          if (stuckChecks >= STUCK_THRESHOLD) {
-            console.error(`[render-worker] Presentation stuck at step ${currentStep} for ${STUCK_THRESHOLD * 30}s — aborting`);
-            await page.evaluate(() => { (window).__presentationDone = true; });
-          }
-        } else {
-          lastStep = currentStep;
-          stuckChecks = 0;
-        }
-      } catch { /* page may close */ }
-    }, 30000);
+    for (let si = 0; si < totalSteps; si++) {
+      const seg = timeline[si];
+      const nFrames = frameCountForStep(seg.duration);
+      const interval = nFrames > 1 ? seg.duration / (nFrames - 1) : 0;
 
-    // Wait for presentation to finish
-    const timeoutMs = Math.ceil(totalDuration * 2000) + 120000;
-    await page.waitForFunction(
-      () => (window).__presentationDone === true,
-      { timeout: timeoutMs, polling: 1000 }
-    );
-    clearInterval(watchdog);
+      for (let fi = 0; fi < nFrames; fi++) {
+        const t = cursor + fi * interval;
 
-    // Small buffer to let the last frame render fully
-    await new Promise((r) => setTimeout(r, 1500));
+        // Seek by reloading page with ?t= parameter (CSS seek mode)
+        // Only reload if time changed significantly (>50ms) from current
+        const seekUrl = `${baseUrl}&t=${t.toFixed(2)}`;
+        await page.goto(seekUrl, { waitUntil: "domcontentloaded", timeout: 10000 });
+        // Wait for CSS seek to finish + font rendering
+        await new Promise(r => setTimeout(r, 250));
 
-    const video = page.video();
-    await page.close();
-    page = null;
-    await context.close();
-    context = null;
+        const filename = `frame_${String(frameIdx).padStart(6, "0")}.png`;
+        const filepath = path.join(framesDir, filename);
+        await page.screenshot({ path: filepath, type: "png" });
 
-    const webmPath = await video?.path();
-    if (!webmPath || !fs.existsSync(webmPath)) {
-      throw new Error("Playwright did not produce a video file");
+        const nextT = (fi < nFrames - 1) ? cursor + (fi + 1) * interval : cursor + seg.duration;
+        const holdDuration = nextT - t;
+        frameList.push({ file: filename, duration: Math.max(0.033, holdDuration) });
+        frameIdx++;
+      }
+
+      cursor += seg.duration;
+
+      if (si % 5 === 0 || si === totalSteps - 1) {
+        writeStatus({
+          status: "running",
+          progress: `截屏中… ${si + 1}/${totalSteps} 步 (${frameIdx} 帧)`,
+          totalDuration: cursor,
+          frameCount: frameIdx,
+        });
+      }
     }
-    return webmPath;
+
+    writeStatus({ status: "running", progress: `截屏完成，共 ${frameIdx} 帧`, frameCount: frameIdx });
+    return frameList;
   } finally {
-    // Always clean up — prevent Chromium process leaks
     try { if (page) await page.close().catch(() => {}); } catch {}
-    try { if (context) await context.close().catch(() => {}); } catch {}
     try { await browser.close(); } catch {}
   }
 }
 
-// ─── ffmpeg merge video + audio → mp4 ────────────────────────────────────────
+// ─── Frames + audio → mp4 ────────────────────────────────────────────────────
 
-function mergeVideoAudio(webmPath, audioPath, outPath) {
+function framesToVideo(frameList, audioPath, outPath, totalDuration) {
   return new Promise((resolve, reject) => {
-    let cmd = Ffmpeg().input(webmPath);
-    const hasAudio = audioPath && fs.existsSync(audioPath);
-    if (hasAudio) cmd = cmd.input(audioPath);
+    // Write ffmpeg concat file with per-frame durations
+    const lines = [];
+    for (const f of frameList) {
+      lines.push(`file '${path.join(framesDir, f.file).replace(/'/g, "\\'")}'`);
+      lines.push(`duration ${f.duration.toFixed(3)}`);
+    }
+    // Last frame needs to be listed twice for concat demuxer
+    const lastFrame = frameList[frameList.length - 1];
+    lines.push(`file '${path.join(framesDir, lastFrame.file).replace(/'/g, "\\'")}'`);
+    fs.writeFileSync(concatFile, lines.join("\n") + "\n");
 
-    cmd
+    let cmd = Ffmpeg()
+      .input(concatFile)
+      .inputOptions(["-f concat", "-safe 0", "-framerate 30"])
       .videoCodec("libx264")
       .outputOptions([
         "-crf 18",
         "-preset fast",
         "-pix_fmt yuv420p",
         "-movflags +faststart",
-        ...(hasAudio ? ["-c:a aac", "-map 0:v:0", "-map 1:a:0", "-shortest"] : []),
-      ])
+      ]);
+
+    const hasAudio = audioPath && fs.existsSync(audioPath);
+    if (hasAudio) {
+      cmd = cmd.input(audioPath);
+      cmd = cmd.outputOptions(["-c:a aac", "-map 0:v:0", "-map 1:a:0", "-shortest"]);
+    }
+
+    cmd
       .output(outPath)
       .on("end", resolve)
       .on("error", (err) => reject(new Error(`ffmpeg 失败: ${err.message}`)))
@@ -462,7 +412,7 @@ function mergeVideoAudio(webmPath, audioPath, outPath) {
   });
 }
 
-// ─── Narrations loader + SRT builder (unchanged) ─────────────────────────────
+// ─── Narrations + SRT ────────────────────────────────────────────────────────
 
 function loadNarrations() {
   const chaptersDir = path.join(presDir, "src/chapters");
@@ -505,7 +455,6 @@ function buildSrt(timeline, narrations) {
   if (narrations.length === 0) return null;
   const lookup = new Map();
   for (const n of narrations) lookup.set(`${n.chapterId}::${n.stepIdx}`, n.text);
-
   const srtPath = path.join(projDir, ".render-subtitles.srt");
   const lines = [];
   let cursor = 0, idx = 1;
@@ -526,12 +475,11 @@ function buildSrt(timeline, narrations) {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-const MAX_RENDER_RETRIES = 2;
-const RETRY_DELAY_MS = 5000;
-
 function cleanupTempFiles() {
   const temps = [
     path.join(projDir, ".render-video-tmp"),
+    path.join(projDir, ".render-frames"),
+    path.join(projDir, ".render-concat.txt"),
     path.join(projDir, ".render-audio.aac"),
     path.join(projDir, ".render-audio-list.txt"),
     path.join(projDir, ".render-subtitles.srt"),
@@ -551,91 +499,44 @@ async function run() {
   try {
     writeStatus({ status: "running", progress: "分析音频时间轴…" });
 
-  // 1. Build timeline
-  const timeline = await buildTimeline();
-  if (timeline.length === 0) {
-    writeStatus({ status: "error", error: "未找到音频文件或 audio-segments.json", progress: "时间轴为空" });
-    return;
-  }
-
-  const totalDuration = timeline.reduce((s, t) => s + t.duration, 0);
-  writeStatus({ status: "running", progress: `时间轴就绪，共 ${timeline.length} 步，总时长 ${totalDuration.toFixed(1)}s`, totalDuration });
-
-  // 2. BGM beat sync: snap step boundaries to musical beats if BPM is configured
-  const bgmConfigPath = path.join(presDir, "bgm-config.json");
-  if (fs.existsSync(bgmConfigPath)) {
-    try {
-      const bgmConfig = JSON.parse(fs.readFileSync(bgmConfigPath, "utf-8"));
-      if (bgmConfig.bpm && bgmConfig.beatAlign !== "off") {
-        writeStatus({ status: "running", progress: `BGM 节拍对齐: ${bgmConfig.bpm} BPM…`, totalDuration });
-        const beatSec = 60 / bgmConfig.bpm;
-        let cursor = 0;
-        for (const seg of timeline) {
-          if (bgmConfig.beatAlign === "step" || bgmConfig.beatAlign === "chapter") {
-            const snapped = Math.round(cursor / beatSec) * beatSec;
-            if (Math.abs(snapped - cursor) < beatSec * 1.5) {
-              cursor = snapped;
-            }
-          }
-          seg._snappedStart = cursor;
-          cursor += seg.duration;
-        }
-      }
-    } catch (err) {
-      console.warn("[render-worker] BGM sync failed (continuing):", err.message);
+    // 1. Build timeline
+    const timeline = await buildTimeline();
+    if (timeline.length === 0) {
+      writeStatus({ status: "error", error: "未找到音频文件或 audio-segments.json", progress: "时间轴为空" });
+      return;
     }
-  }
 
-  // 3. Patch stepDurations in chapters.ts so the presentation clock matches audio
-  const chaptersFile = path.join(presDir, "src/registry/chapters.ts");
-  writeStatus({ status: "running", progress: "同步时间轴到 chapters.ts…", totalDuration });
-  patchStepDurations(chaptersFile, timeline);
+    const totalDuration = timeline.reduce((s, t) => s + t.duration, 0);
+    writeStatus({ status: "running", progress: `时间轴就绪，共 ${timeline.length} 步，总时长 ${totalDuration.toFixed(1)}s`, totalDuration });
 
-  // Give Vite HMR a moment to pick up the chapters.ts change
-  await new Promise((r) => setTimeout(r, 2500));
+    // 2. Patch stepDurations
+    const chaptersFile = path.join(presDir, "src/registry/chapters.ts");
+    writeStatus({ status: "running", progress: "同步时间轴到 chapters.ts…", totalDuration });
+    patchStepDurations(chaptersFile, timeline);
+    await new Promise((r) => setTimeout(r, 2500));
 
-  // 3. Build audio track (MP3s + silence gaps)
-  writeStatus({ status: "running", progress: "拼接音轨…", totalDuration });
-  const hasAnyAudio = timeline.some((s) => s.mp3Path);
-  if (hasAnyAudio) {
-    await concatAudioWithSilence(timeline, mergedAudio);
-  }
-
-  // 4-5. Record + merge with retry
-  let lastError = null;
-  for (let attempt = 1; attempt <= MAX_RENDER_RETRIES; attempt++) {
-    try {
-      const label = attempt > 1 ? `（重试 ${attempt}/${MAX_RENDER_RETRIES}）` : "";
-      writeStatus({ status: "running", progress: `开始录制（预计 ${Math.ceil(totalDuration / 60)} 分钟）…${label}`, totalDuration });
-      const webmPath = await recordPresentation(totalDuration);
-
-      writeStatus({ status: "running", progress: "合成 MP4…", totalDuration });
-      await mergeVideoAudio(webmPath, hasAnyAudio ? mergedAudio : null, outputPath);
-
-      // Cleanup
-      const videoTmpDir = path.dirname(webmPath);
-      fs.rmSync(videoTmpDir, { recursive: true, force: true });
-
-      // Success — break out of retry loop
-      lastError = null;
-      break;
-    } catch (err) {
-      lastError = err;
-      if (attempt < MAX_RENDER_RETRIES) {
-        writeStatus({ status: "running", progress: `录制失败：${err.message?.slice(0, 60)} — ${RETRY_DELAY_MS/1000}s 后重试…`, totalDuration });
-        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
-      }
+    // 3. Build audio track
+    writeStatus({ status: "running", progress: "拼接音轨…", totalDuration });
+    const hasAnyAudio = timeline.some((s) => s.mp3Path);
+    if (hasAnyAudio) {
+      await concatAudioWithSilence(timeline, mergedAudio);
     }
-  }
 
-  if (lastError) throw lastError;
+    // 4. Capture frames (seek + screenshot)
+    writeStatus({ status: "running", progress: "截屏中…", totalDuration });
+    const frameList = await captureFrames(timeline);
 
-  writeStatus({
-    status: "done",
-    progress: `完成 (${totalDuration.toFixed(1)}s，${timeline.length} 步${hasAnyAudio ? "，含音频" : "，无音频"})`,
-    outputFile,
-    totalDuration,
-  });
+    // 5. Frames + audio → mp4
+    writeStatus({ status: "running", progress: `合成 MP4 (${frameList.length} 帧)…`, totalDuration });
+    await framesToVideo(frameList, hasAnyAudio ? mergedAudio : null, outputPath, totalDuration);
+
+    writeStatus({
+      status: "done",
+      progress: `完成 (${totalDuration.toFixed(1)}s，${timeline.length} 步，${frameList.length} 帧${hasAnyAudio ? "，含音频" : "，无音频"})`,
+      outputFile,
+      totalDuration,
+      frameCount: frameList.length,
+    });
   } finally {
     cleanupTempFiles();
   }

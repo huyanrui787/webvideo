@@ -23,11 +23,31 @@
     "surface": "#efe7d6",
     "text": "#1a1714",
     "accent": "#ff4a2b"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "medium",
     "description": "Measured editorial pace"
-  }
+  },
+  "tone": [
+    "literary",
+    "warm",
+    "approachable",
+    "polished"
+  ],
+  "formality": "medium",
+  "density": "medium",
+  "scheme": "light",
+  "avoidFor": [
+    "硬核技术deep dive",
+    "黑客/安全话题",
+    "赛博朋克美学",
+    "纯娱乐"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "暖奶油 + 纸纹 multiply blend",
+    "火热橙 accent (midnight-press白天版)",
+    "Instrument Serif italic + 斜体hero数字"
+  ]
 }

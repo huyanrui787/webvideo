@@ -1,7 +1,7 @@
 {
   "id": "newsroom",
   "name": "Newsroom",
-  "nameZh": "报社",
+  "nameZh": "新闻编辑室",
   "description": "Newsprint cream backdrop with ink-black serif type and a banner red accent. Old-school broadsheet / documentary feel — feels like a New York Times feature article.",
   "descriptionZh": "报纸奶油底 + 墨黑 serif + 报头红强调色. 老派大报 / 纪录片气质, 像一篇 NYT 特稿.",
   "mood": [
@@ -19,13 +19,33 @@
     "AI 产品分析",
     "热点解读"
   ],
+  "tone": [
+    "authoritative",
+    "journalistic",
+    "direct",
+    "warm"
+  ],
+  "formality": "medium-high",
+  "density": "high",
+  "scheme": "light",
+  "avoidFor": [
+    "轻松娱乐",
+    "品牌形象片",
+    "奢华/时尚",
+    "需要现代科技感的场景"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "Playfair Display + 0圆角（报纸不圆角）",
+    "报头红accent (NYT气质)",
+    "淡纸纹 + 安静印刷节奏"
+  ],
   "preview": {
     "shell": "#ebe5d6",
     "surface": "#f4ede0",
     "text": "#1a1a1a",
     "accent": "#c9302c"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "medium",

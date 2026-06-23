@@ -1,0 +1,328 @@
+{
+  "chapterId": "why-special",
+  "title": "这本账特殊在哪儿",
+  "steps": [
+    {
+      "narration": "传统记账，不管银行还是支付宝，背后都有一个中心机构在管。你的存款记录，全存在他们服务器里。但这种模式有两个硬伤——单点风险和权力集中。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "variant": "centered",
+        "slots": {
+          "kicker": "对比",
+          "title": "中心化 vs 去中心化",
+          "subtitle": "两种记账模式的根本差异"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-subtle"
+        }
+      }
+    },
+    {
+      "narration": "第一，单点风险——数据库坏了、被黑了，数据说没就没了。第二，权力集中——理论上他们可以冻结你、拒绝你的交易。",
+      "layout": {
+        "mode": "composed",
+        "layout": "split",
+        "regions": {
+          "left": {
+            "content": [],
+            "gridArea": "left"
+          },
+          "right": {
+            "content": [],
+            "gridArea": "right"
+          }
+        },
+        "animations": [
+          {
+            "target": "left",
+            "effect": "slideLeft",
+            "delay": 0,
+            "duration": 0.8
+          }
+        ]
+      }
+    },
+    {
+      "narration": "区块链的破局思路很简单——把权力还给群体。账本不存在某一台电脑上，而是存在于点对点网络里。成百上千个节点，每个都存着完整副本。",
+      "layout": {
+        "mode": "composed",
+        "layout": "center",
+        "regions": {
+          "p2p": {
+            "content": [
+              {
+                "primitive": "NetworkGraph",
+                "params": {
+                  "nodes": [
+                    {
+                      "id": "n1",
+                      "label": "节点 1"
+                    },
+                    {
+                      "id": "n2",
+                      "label": "节点 2"
+                    },
+                    {
+                      "id": "n3",
+                      "label": "节点 3"
+                    },
+                    {
+                      "id": "n4",
+                      "label": "节点 4"
+                    },
+                    {
+                      "id": "n5",
+                      "label": "节点 5"
+                    },
+                    {
+                      "id": "n6",
+                      "label": "节点 6"
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "from": "n1",
+                      "to": "n2"
+                    },
+                    {
+                      "from": "n1",
+                      "to": "n3"
+                    },
+                    {
+                      "from": "n2",
+                      "to": "n4"
+                    },
+                    {
+                      "from": "n3",
+                      "to": "n5"
+                    },
+                    {
+                      "from": "n4",
+                      "to": "n6"
+                    },
+                    {
+                      "from": "n5",
+                      "to": "n6"
+                    },
+                    {
+                      "from": "n2",
+                      "to": "n5"
+                    },
+                    {
+                      "from": "n3",
+                      "to": "n6"
+                    }
+                  ],
+                  "visibleNodes": 6,
+                  "edgeColor": "var(--rule)",
+                  "accentColor": "var(--accent)"
+                }
+              }
+            ],
+            "gridArea": "1/1"
+          }
+        },
+        "animations": [
+          {
+            "target": "p2p",
+            "effect": "fadeIn",
+            "delay": 0,
+            "duration": 1
+          }
+        ]
+      }
+    },
+    {
+      "narration": "一笔新交易，不是直接写入账本。先广播到全网，各节点验证余额和签名，通过了才打包进区块，链接到账本末尾。",
+      "layout": {
+        "mode": "composed",
+        "layout": "center",
+        "regions": {
+          "flow": {
+            "content": [
+              {
+                "primitive": "NetworkGraph",
+                "params": {
+                  "nodes": [
+                    {
+                      "id": "tx",
+                      "label": "交易",
+                      "highlight": true
+                    },
+                    {
+                      "id": "n1",
+                      "label": "验证"
+                    },
+                    {
+                      "id": "n2",
+                      "label": "验证"
+                    },
+                    {
+                      "id": "n3",
+                      "label": "验证"
+                    },
+                    {
+                      "id": "block",
+                      "label": "打包",
+                      "highlight": true
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "from": "tx",
+                      "to": "n1"
+                    },
+                    {
+                      "from": "tx",
+                      "to": "n2"
+                    },
+                    {
+                      "from": "tx",
+                      "to": "n3"
+                    },
+                    {
+                      "from": "n1",
+                      "to": "block"
+                    },
+                    {
+                      "from": "n2",
+                      "to": "block"
+                    },
+                    {
+                      "from": "n3",
+                      "to": "block"
+                    }
+                  ],
+                  "visibleNodes": 5,
+                  "edgeColor": "var(--accent)",
+                  "accentColor": "var(--accent)"
+                }
+              }
+            ],
+            "gridArea": "1/1"
+          }
+        },
+        "animations": [
+          {
+            "target": "flow",
+            "effect": "fadeIn",
+            "delay": 0,
+            "duration": 0.8
+          }
+        ]
+      }
+    },
+    {
+      "narration": "哪怕关掉网络里一半的节点，剩下的节点依然能让整个系统正常运转。",
+      "layout": {
+        "mode": "composed",
+        "layout": "center",
+        "regions": {
+          "resilient": {
+            "content": [
+              {
+                "primitive": "NetworkGraph",
+                "params": {
+                  "nodes": [
+                    {
+                      "id": "n1",
+                      "label": "在线"
+                    },
+                    {
+                      "id": "n2",
+                      "label": "在线"
+                    },
+                    {
+                      "id": "n3",
+                      "label": "离线"
+                    },
+                    {
+                      "id": "n4",
+                      "label": "在线"
+                    },
+                    {
+                      "id": "n5",
+                      "label": "离线"
+                    },
+                    {
+                      "id": "n6",
+                      "label": "在线"
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "from": "n1",
+                      "to": "n2"
+                    },
+                    {
+                      "from": "n2",
+                      "to": "n4"
+                    },
+                    {
+                      "from": "n4",
+                      "to": "n6"
+                    },
+                    {
+                      "from": "n1",
+                      "to": "n6"
+                    }
+                  ],
+                  "visibleNodes": 6,
+                  "edgeColor": "var(--rule)",
+                  "accentColor": "var(--accent)"
+                }
+              }
+            ],
+            "gridArea": "1/1"
+          }
+        },
+        "animations": [
+          {
+            "target": "resilient",
+            "effect": "fadeIn",
+            "delay": 0,
+            "duration": 0.8
+          }
+        ]
+      }
+    },
+    {
+      "narration": "再也没有一个中央管理者能叫停交易。",
+      "layout": {
+        "mode": "composed",
+        "layout": "center",
+        "regions": {
+          "nocenter": {
+            "content": [],
+            "gridArea": "1/1"
+          }
+        },
+        "animations": [
+          {
+            "target": "nocenter",
+            "effect": "scaleIn",
+            "delay": 0,
+            "duration": 0.6
+          }
+        ]
+      }
+    },
+    {
+      "narration": "这就是去中心化的力量。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "variant": "centered",
+        "slots": {
+          "kicker": "核心洞察",
+          "title": "去中心化的力量"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-bold"
+        }
+      }
+    }
+  ],
+  "orderHint": 2
+}

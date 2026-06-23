@@ -4,7 +4,15 @@
 打断视频的视觉连贯性，录屏时看起来像很硬的剪辑。如果想要"暗一点的氛围"
 段落，请在**同一调色板内**降对比、收聚光，而不是翻转表面色。
 
-主题 = 一组 CSS 设计 token + 一个 `theme.json` 元数据。
+主题 = 一组 CSS 设计 token + 一个 `theme.json` 元数据 + **三个渐进式加载文件**：
+
+| 文件 | 用途 | 何时读 |
+|------|------|--------|
+| `selection-index.json` | 23 主题 × 7 维紧凑元数据（L1 索引） | Checkpoint Plan 第一步 |
+| `<id>/theme.json` | 单主题元数据 + 预览色 | 了解具体主题时 |
+| `<id>/preview.md` | 轻量风格卡片（~30 行） | 生成视觉预览时（仅 shortlisted） |
+| `<id>/design.md` | 完整设计系统文档（~200 行） | 用户选定主题后（仅 1 个） |
+| `<id>/tokens.css` | CSS 自定义属性值 | 脚手架时拷贝 |
 
 **章节对 token 的消费分两层**：
 
@@ -297,9 +305,24 @@ cp -r monochrome-print my-theme
 |---|---|---|---|
 | `id` / `name` / `nameZh` | ✓ | 字符串 | 主题标识 |
 | `description` / `descriptionZh` | ✓ | 一句话 | Checkpoint Plan 列清单时的简介 |
-| `mood` | ✓ | 标签数组 | 模糊匹配用 |
-| `bestFor` | ✓ | 场景数组 | Checkpoint Plan 智能推荐时的命中点 |
-| `preview` | ✓ | 4 色对象 | Checkpoint Plan 列清单时的视觉预览 |
+| `mood` | ✓ | 标签数组（3-6 个） | 情绪基调：观众看完后的感受 |
+| `tone` | 新增 | 标签数组（3-5 个） | 设计「说话」的方式（confident / literary / punchy / sober…） |
+| `formality` | 新增 | high / medium-high / medium / medium-low / low | 字体选择范围、装饰密度、动画风格 |
+| `density` | 新增 | low / medium / high | 每步信息量、留白比例、字号层级偏好 |
+| `scheme` | 新增 | dark / light / mixed | 明暗方案 |
+| `bestFor` | ✓ | 场景数组（5-8 个） | 正向匹配信号 |
+| `avoidFor` | 新增 | 场景数组（2-4 个） | **反向过滤信号** —— 防止灾难性误配 |
+| `cjkCompatible` | 新增 | boolean | 中文字体排版是否开箱即用 |
+| `signatureElements` | 新增 | 字符串数组（2-3 个） | 最具辨识度的视觉签名 |
+| `preview` | ✓ | 4 色对象 | 快速视觉预览 |
+
+**新增字段详解**：
+
+- **`tone`**：设计的语气。`mood` 是「观众的感受」，`tone` 是「设计怎么说话」。例如 `midnight-press` 的 mood 是 cinematic/warm，tone 是 literary/sober/polished。
+- **`formality`**：正式度影响字体选择（高正式度 → 衬线 serif，低正式度 → 手写/等宽/几何无衬线）、装饰元素密度、动画风格。
+- **`density`**：影响 agent 的布局决策。低密度主题天然适合 hero-title/quote-card 布局，高密度主题适合 comparison-table/grid-gallery。
+- **`scheme`**：dark/light/mixed。mixed 主题（如 forest-ink、kraft-paper）可以在章节间切换明暗面而不违反「同一主题」原则。
+- **`avoidFor`**：**这是最重要的新字段**。正向匹配只能找到「适合的」，反向过滤防止「灾难性的」。例如 `neon-cyber` 的 avoidFor 包含「学术论文」—— 赛博朋克霓虹会完全破坏学术内容的可信度。
 
 > **主题不再约束动画选型 / 时长 / 字号 / emoji**。视觉风格由 `tokens.css`
 > 的颜色 / 字体 / 字号 token 决定，动画 / 节奏 / 视觉演示完全交给 chapter

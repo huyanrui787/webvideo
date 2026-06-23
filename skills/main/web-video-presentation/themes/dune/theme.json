@@ -24,11 +24,31 @@
     "surface": "#f0e6d2",
     "text": "#1f1a14",
     "accent": "#8c6a48"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-smooth)",
     "duration": "slow",
     "description": "Gentle, organic flow"
-  }
+  },
+  "tone": [
+    "quiet",
+    "refined",
+    "restrained",
+    "aesthetic"
+  ],
+  "formality": "high",
+  "density": "low",
+  "scheme": "light",
+  "avoidFor": [
+    "快节奏科技新闻",
+    "游戏/娱乐",
+    "促销/营销",
+    "需要视觉冲击力的内容"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "几乎无accent的极致克制",
+    "炭褐当墨 + 沙底",
+    "极宽padding + 最慢节奏"
+  ]
 }

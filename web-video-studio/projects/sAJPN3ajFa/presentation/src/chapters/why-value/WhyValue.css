@@ -1,0 +1,31 @@
+/* ─────────────────────────────────────────────────────────────────────
+ * 价值密码
+ * Auto-generated from chapter blueprint. Edit the blueprint, not this file.
+ * ───────────────────────────────────────────────────────────────────── */
+
+.ch-why-value { color: var(--text); }
+
+.ch-hero { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: var(--space-5); padding: var(--stage-pad-y) var(--stage-pad-x); }
+.ch-hero--centered { align-items: center; text-align: center; }
+.ch-hero--left { align-items: flex-start; text-align: left; }
+.ch-hero--split { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: var(--space-9); }
+.ch-hero-title { font-size: var(--t-display-2); line-height: 1.05; margin: 0; max-width: 24ch; }
+.ch-hero-sub { font-family: var(--font-body); font-size: var(--t-body); color: var(--text-2); max-width: 56ch; margin: 0; }
+.ch-hero-bg { position: absolute; inset: 0; z-index: 0; opacity: 0.3; }
+.ch-hero-bg img, .ch-hero-bg video { width: 100%; height: 100%; object-fit: cover; }
+.ch-hero-logo { position: absolute; top: var(--space-6); right: var(--space-6); width: 64px; }
+
+.ch-steps { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: var(--stage-pad-y) var(--stage-pad-x); gap: var(--space-6); }
+.ch-steps-hook { margin-bottom: var(--space-5); }
+.ch-steps-hook-stat { font-size: var(--t-display-1); color: var(--accent); display: block; }
+.ch-steps-hook-quote { font-size: var(--t-h1); font-style: italic; display: block; }
+.ch-steps-hook-question { font-size: var(--t-h1); font-weight: 600; display: block; }
+.ch-steps-list { display: flex; flex-direction: column; gap: var(--space-5); }
+.ch-step-item { display: flex; gap: var(--space-5); align-items: flex-start; }
+.ch-step-num { font-family: var(--font-mono); font-size: var(--t-display-2); color: var(--accent); line-height: 0.9; min-width: 2ch; }
+.ch-step-body { flex: 1; display: flex; flex-direction: column; gap: var(--space-2); }
+.ch-step-badge { display: inline-block; padding: 2px var(--space-3); background: var(--accent); color: #fff; border-radius: 4px; font-size: var(--t-small); align-self: flex-start; }
+.ch-step-heading { font-size: var(--t-h2); margin: 0; }
+.ch-step-text { font-family: var(--font-body); font-size: var(--t-body); color: var(--text-2); max-width: 56ch; margin: 0; }
+.ch-step-media { flex-shrink: 0; margin-top: var(--space-2); }
+.ch-step-media img { border-radius: var(--radius-md); }

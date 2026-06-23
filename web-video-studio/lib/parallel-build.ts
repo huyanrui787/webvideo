@@ -4,6 +4,9 @@ import { spawn } from "child_process";
 import { projectDir, writeProjectFile } from "./projects";
 import type { Project } from "./db/schema";
 import { publishProjectEvent } from "@/lib/events";
+import { db } from "@/lib/db";
+import { projects as projectsTable } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import {
   validateBlueprint,
   compileChapter,
@@ -341,6 +344,7 @@ export function startParallelBuild(
 
         chapterStatuses[r.index].status = "done";
         chapterStatuses[r.index].finishedAt = Date.now();
+        publishProjectEvent(projectId, "chapter-built", { chapterId: generated.chapterId, title: bp.title });
         saveJobToDisk(projectId, job);
       }
 
@@ -364,6 +368,16 @@ export function startParallelBuild(
       if (allDone && tscResult.ok) {
         job.status = "done";
         job.assemblyStatus = "done";
+        // ── Auto-done: if all chapters built & tsc clean, auto-set project to done ──
+        try {
+          await db
+            .update(projectsTable)
+            .set({ status: "done", updatedAt: Math.floor(Date.now() / 1000) })
+            .where(eq(projectsTable.id, projectId));
+          publishProjectEvent(projectId, "status-change", { status: "done", auto: true });
+        } catch (err: any) {
+          console.warn("[parallel-build] Auto-done failed:", err?.message ?? err);
+        }
       } else {
         job.status = "partial";
         job.assemblyStatus = tscResult.ok ? "done" : "error";

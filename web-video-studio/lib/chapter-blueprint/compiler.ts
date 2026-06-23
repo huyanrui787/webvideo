@@ -415,6 +415,20 @@ function generateCSS(bp: ChapterBlueprint): string {
     }
   }
 
+  // Collect region CSS from composed layouts
+  for (const step of bp.steps) {
+    if (step.layout.mode === "composed" && step.layout.regions) {
+      for (const [name, region] of Object.entries(step.layout.regions)) {
+        if (region.style && Object.keys(region.style).length > 0) {
+          const props = Object.entries(region.style)
+            .map(([k, v]) => `  ${k}: ${v};`)
+            .join("\n");
+          cssBlocks.push(`.ch-composed-region--${name} {\n${props}\n}`);
+        }
+      }
+    }
+  }
+
   // Add CSS from all used templates via registry
   for (const cssBlock of collectTemplateCSS(usedTemplateIds)) {
     cssBlocks.push(cssBlock);

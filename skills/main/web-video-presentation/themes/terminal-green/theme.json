@@ -24,11 +24,32 @@
     "surface": "#0a0f0a",
     "text": "#d3f0d3",
     "accent": "#00ff88"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "slow",
     "description": "Slow, dramatic reveals"
-  }
+  },
+  "tone": [
+    "geeky",
+    "retro",
+    "precise",
+    "no-nonsense"
+  ],
+  "formality": "low",
+  "density": "medium",
+  "scheme": "dark",
+  "avoidFor": [
+    "正式商务",
+    "品牌营销",
+    "时尚/美妆",
+    "儿童/教育",
+    "非技术受众"
+  ],
+  "cjkCompatible": false,
+  "signatureElements": [
+    "JetBrains Mono全场等宽 + 0px直角",
+    "CRT扫描线 + 磷光text-shadow",
+    "纯黑底 + 磷光绿 —— Matrix/80s终端"
+  ]
 }

@@ -392,6 +392,28 @@ export function WysiwygOverlay({
           >
             ↺
           </button>
+
+          {/* ── Quick property controls ─────────────────────────── */}
+          {/* Opacity slider */}
+          <input
+            type="range" min="0" max="100" defaultValue="100"
+            title="透明度"
+            onChange={(e) => {
+              const val = parseInt(e.target.value) / 100;
+              onSendToIframe({ type: "apply-style", property: "opacity", value: String(val) });
+            }}
+            style={{ width: 40, cursor: "pointer", accentColor: "#6366f1" }}
+          />
+          {/* Scale buttons */}
+          <button title="放大" onClick={() => onSendToIframe({ type: "apply-style", property: "scale", value: "1.1", relative: true })}
+            style={{ background:"rgba(255,255,255,0.9)",color:"#374151",border:"1px solid #d1d5db",borderRadius:4,padding:"1px 5px",fontSize:11,cursor:"pointer",fontFamily:"monospace" }}>+</button>
+          <button title="缩小" onClick={() => onSendToIframe({ type: "apply-style", property: "scale", value: "0.9", relative: true })}
+            style={{ background:"rgba(255,255,255,0.9)",color:"#374151",border:"1px solid #d1d5db",borderRadius:4,padding:"1px 5px",fontSize:11,cursor:"pointer",fontFamily:"monospace" }}>−</button>
+          {/* Z-index */}
+          <button title="上移一层" onClick={() => onSendToIframe({ type: "apply-style", property: "zIndex", value: "+1", relative: true })}
+            style={{ background:"rgba(255,255,255,0.9)",color:"#374151",border:"1px solid #d1d5db",borderRadius:4,padding:"1px 5px",fontSize:11,cursor:"pointer",fontFamily:"monospace" }}>↑</button>
+          <button title="下移一层" onClick={() => onSendToIframe({ type: "apply-style", property: "zIndex", value: "-1", relative: true })}
+            style={{ background:"rgba(255,255,255,0.9)",color:"#374151",border:"1px solid #d1d5db",borderRadius:4,padding:"1px 5px",fontSize:11,cursor:"pointer",fontFamily:"monospace" }}>↓</button>
         </div>
       )}
     </div>

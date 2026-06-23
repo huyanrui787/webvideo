@@ -17,13 +17,33 @@
     "极客向产品介绍",
     "技术 deep dive"
   ],
+  "tone": [
+    "literary",
+    "sober",
+    "polished",
+    "warm"
+  ],
+  "formality": "medium-high",
+  "density": "medium",
+  "scheme": "dark",
+  "avoidFor": [
+    "儿童教育",
+    "轻松生活vlog",
+    "户外品牌",
+    "医疗健康"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "Instrument Serif italic vs Noto Serif SC",
+    "暖色espresso底（非纯黑）+ 火热橙",
+    "vignette电影感"
+  ],
   "preview": {
     "shell": "#0d0b09",
     "surface": "#1a1714",
     "text": "#f5f0e5",
     "accent": "#ff4a2b"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "slow",

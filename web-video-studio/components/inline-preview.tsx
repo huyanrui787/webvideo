@@ -314,35 +314,19 @@ export function InlinePreview({
         {/* Right: actions */}
         <div className="flex items-center gap-0.5 px-2 ml-auto">
           <PreviewLifecycleButton
-            {...({
-              scaffold: scaffoldStatus,
-              scaffoldProgress,
-              scaffoldError,
-              scaffoldRetries,
-              devPort,
-              devStarting: devServerStarting,
-              devError: devServerError ?? null,
-              devDegraded,
-              buildStatus,
-              buildDoneChapters,
-              buildTotalChapters,
-              buildErrorCount,
-              projectStatus: project.status,
-              isStreaming,
-              aiReadyForPreview,
-              scaffoldStale,
-              devCrashed,
-              onStartScaffold,
-              onStartDevServer,
-              onStopDevServer,
-              onRefreshPreview,
-              onRebuild,
-              onFullscreen,
-              onTakeManualControl,
-              onTryDegradedStart,
-              onViewScaffoldLogs,
-              variant: "titlebar" as const,
-            } as PreviewLifecycleButtonProps)}
+            scaffold={scaffoldStatus}
+            scaffoldProgress={scaffoldProgress}
+            devPort={devPort}
+            devStarting={devServerStarting}
+            devError={devServerError ?? null}
+            buildDoneChapters={buildDoneChapters}
+            buildTotalChapters={buildTotalChapters}
+            onStartScaffold={onStartScaffold}
+            onStartDevServer={onStartDevServer}
+            onStopDevServer={onStopDevServer}
+            onRefreshPreview={onRefreshPreview}
+            onFullscreen={onFullscreen}
+            variant="titlebar"
           />
           {onOpenFloating && (
             <button onClick={onOpenFloating} className="flex items-center gap-1 text-xs text-t2 hover:text-t1 hover:bg-surface2 px-2 py-1 rounded-md transition-all shrink-0" title="悬浮窗口"><span className="text-[11px]">⊞</span><span className="hidden sm:inline">悬浮</span></button>
@@ -572,37 +556,37 @@ export function InlinePreview({
                     手动
                   </button>
                   <button
-                    onClick={() => { if (!autoPlayMode) onToggleAutoPlayMode(); }}
+                    onClick={() => {
+                      console.log("[inline-preview] auto button clicked", { autoPlayMode, playbackState });
+                      if (!autoPlayMode) { console.log("→ onToggleAutoPlayMode"); onToggleAutoPlayMode(); return; }
+                      if (playbackState === "playing") { console.log("→ onPause"); onPause(); return; }
+                      console.log("→ onPlay"); onPlay();
+                    }}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
                       autoPlayMode
                         ? "bg-t1 text-base shadow-sm"
                         : "text-t3 hover:text-t2"
                     }`}
                   >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="3,1.5 10,6 3,10.5"/>
-                    </svg>
-                    自动
+                    {autoPlayMode && playbackState === "playing" ? (
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" stroke="currentColor" strokeWidth="0">
+                        <rect x="2" y="2" width="3" height="8" rx="0.5"/><rect x="7" y="2" width="3" height="8" rx="0.5"/>
+                      </svg>
+                    ) : (
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="3,1.5 10,6 3,10.5"/>
+                      </svg>
+                    )}
+                    {autoPlayMode && playbackState === "playing" ? "暂停" : "自动"}
                   </button>
                 </div>
               )}
 
               <div className="flex-1" />
 
-              {/* Play/Pause + Speed — only in auto mode */}
+              {/* Speed button */}
               {devPort && autoPlayMode && (
-                <>
-                  {playbackState === "playing" ? (
-                    <button onClick={onPause} className="text-xs bg-surface3 text-t2 border border-bd px-2.5 py-1 rounded-md font-medium hover:bg-surface2 shrink-0">⏸</button>
-                  ) : playbackState === "paused" ? (
-                    <button onClick={onPlay} className="text-xs bg-t1 text-base px-2.5 py-1 rounded-md font-medium hover:opacity-80 shrink-0">▶ 继续</button>
-                  ) : playbackState === "ended" ? (
-                    <button onClick={onPlay} className="text-xs bg-t1 text-base px-2.5 py-1 rounded-md font-medium hover:opacity-80 shrink-0">↺ 重播</button>
-                  ) : (
-                    <button onClick={onPlay} className="text-xs bg-t1 text-base px-2.5 py-1 rounded-md font-medium hover:opacity-80 shrink-0">▶ 播放</button>
-                  )}
-                  <SpeedButton speed={playbackSpeed} onChange={onSpeedChange} />
-                </>
+                <SpeedButton speed={playbackSpeed} onChange={onSpeedChange} />
               )}
 
               {/* 预览 / 编辑 toggle */}

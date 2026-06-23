@@ -1,0 +1,115 @@
+{
+  "chapterId": "dark-side",
+  "title": "暗面与争议",
+  "steps": [
+    {
+      "narration": "但它不是完美神话。早期暗网交易、勒索病毒都用它。但区块链公开可查，执法机构已能链上追踪。",
+      "layout": {
+        "mode": "template",
+        "template": "comparison-table",
+        "slots": {
+          "headers": [
+            "争议",
+            "事实"
+          ],
+          "rows": [
+            {
+              "label": "暗网交易",
+              "values": [
+                "丝绸之路 · 勒索病毒",
+                "区块链交易公开可查"
+              ]
+            },
+            {
+              "label": "匿名性",
+              "values": [
+                "曾被用于洗钱",
+                "执法机构链上追踪能力强"
+              ]
+            },
+            {
+              "label": "犯罪工具",
+              "values": [
+                "匿名犯罪印象",
+                "每笔交易永久留痕"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "narration": "耗电量超过一些中等国家。但越来越多矿场转向绿色能源。一天涨跌百分之几十是家常便饭。",
+      "layout": {
+        "mode": "template",
+        "template": "comparison-table",
+        "slots": {
+          "headers": [
+            "风险",
+            "进展"
+          ],
+          "rows": [
+            {
+              "label": "能源消耗",
+              "values": [
+                "年耗电 ≈ 中等国家",
+                "矿场转向绿色能源"
+              ]
+            },
+            {
+              "label": "价格波动",
+              "values": [
+                "日涨跌可达百分之几十",
+                "高风险数字资产"
+              ]
+            },
+            {
+              "label": "环保批评",
+              "values": [
+                "环保争议声浪",
+                "利用闲置电力 · 地热风能"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "narration": "有的国家把它捧上神坛，有的严厉禁止。它还在野蛮生长。",
+      "layout": {
+        "mode": "template",
+        "template": "comparison-table",
+        "slots": {
+          "headers": [
+            "支持",
+            "禁止"
+          ],
+          "rows": [
+            {
+              "label": "法定地位",
+              "values": [
+                "萨尔瓦多：法定货币",
+                "部分国家：严厉禁止"
+              ]
+            },
+            {
+              "label": "金融市场",
+              "values": [
+                "美国：ETF 获批",
+                "监管政策仍在剧烈变化"
+              ]
+            },
+            {
+              "label": "趋势",
+              "values": [
+                "机构持续买入",
+                "仍在野蛮生长阶段"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "orderHint": 6
+}

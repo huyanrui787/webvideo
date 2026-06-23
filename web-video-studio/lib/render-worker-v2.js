@@ -13,22 +13,12 @@
 
 const { chromium } = require("playwright");
 const { createHash } = require("crypto");
-const ffmpegInstaller = require("@ffmpeg-installer/ffmpeg");
-const Ffmpeg = require("fluent-ffmpeg");
 const path = require("path");
 const fs = require("fs");
-const os = require("os");
-
-Ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-
-// ── Resolution presets ─────────────────────────────────────────────────────
-
-const RESOLUTION_PRESETS = {
-  preview: { width: 1280, height: 720, crf: 23 },
-  standard: { width: 1920, height: 1080, crf: 18 },
-  high: { width: 2560, height: 1440, crf: 16 },
-  ultra: { width: 3840, height: 2160, crf: 14 },
-};
+const {
+  RESOLUTION_PRESETS, writeStatus, getChapterIds, launchChromium,
+  healthCheck, cleanupTempFiles, concatClips, mergeVideoAudio,
+} = require("./render-common");
 
 // ── Parse args ─────────────────────────────────────────────────────────────
 
@@ -45,15 +35,10 @@ const preset = RESOLUTION_PRESETS[resolution] || RESOLUTION_PRESETS.standard;
 
 const projDir = path.join(projectsRoot, projectId);
 const presDir = path.join(projDir, "presentation");
-const audioDir = path.join(presDir, "public/audio");
 const statusFile = path.join(projDir, ".render-status.json");
 const cacheDir = path.join(projDir, ".render-cache");
 const outputFile = "render.mp4";
 const outputPath = path.join(projDir, outputFile);
-
-function writeStatus(obj) {
-  fs.writeFileSync(statusFile, JSON.stringify({ ...obj, updatedAt: Date.now() }));
-}
 
 // ── Render cache ───────────────────────────────────────────────────────────
 
@@ -143,44 +128,23 @@ function saveToCache(chapterId, webmPath) {
 
 // ── Chapter list ───────────────────────────────────────────────────────────
 
-function getChapterIds() {
-  const chaptersFile = path.join(presDir, "src/registry/chapters.ts");
-  if (!fs.existsSync(chaptersFile)) return [];
-  const src = fs.readFileSync(chaptersFile, "utf-8");
-  const idRe = /\{\s*id:\s*"([^"]+)"/g;
-  const ids = [];
-  let m;
-  while ((m = idRe.exec(src)) !== null) ids.push(m[1]);
-  return ids;
-}
-
 // ── Record one chapter ─────────────────────────────────────────────────────
 
 async function recordChapter(chapterId, chapterIdx, totalChapters) {
   // ── Check render cache first ────────────────────────────────────────
   const cached = getCachedWebm(chapterId);
   if (cached) {
-    cacheHits++;
-    writeStatus({
+    writeStatus(statusFile, {
       status: "running",
       progress: `章节 ${chapterIdx + 1}/${totalChapters}: ${chapterId} (缓存命中)…`,
     });
-    return cached.path;
+    return { path: cached.path, cached: true };
   }
-  cacheMisses++;
 
   const tmpDir = path.join(projDir, ".render-chapter-tmp", chapterId);
   fs.mkdirSync(tmpDir, { recursive: true });
 
-  const browser = await chromium.launch({
-    headless: true,
-    args: [
-      "--no-sandbox", "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage", "--autoplay-policy=no-user-gesture-required",
-      "--use-gl=egl", "--enable-gpu-rasterization",
-      "--disable-background-timer-throttling",
-    ],
-  });
+  const browser = await launchChromium(chromium);
 
   try {
     const context = await browser.newContext({
@@ -197,23 +161,15 @@ async function recordChapter(chapterId, chapterIdx, totalChapters) {
     });
 
     // Health check before recording this chapter
+    await healthCheck(port, 2, 2000);
     const url = `http://localhost:${port}/?render=1&auto=1&chapter=${chapterId}`;
-    let serverOk = false;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await fetch(`http://localhost:${port}/`, { method: "HEAD" });
-        if (res.ok) { serverOk = true; break; }
-      } catch {}
-      await new Promise(r => setTimeout(r, 2000));
-    }
-    if (!serverOk) throw new Error(`Dev server not reachable at port ${port}`);
 
     // Load presentation scoped to this chapter
     await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
     await page.evaluate(() => document.fonts.ready).catch(() => {});
     await new Promise((r) => setTimeout(r, 1000));
 
-    writeStatus({
+    writeStatus(statusFile, {
       status: "running",
       progress: `录制章节 ${chapterIdx + 1}/${totalChapters}: ${chapterId}…`,
     });
@@ -242,12 +198,12 @@ async function recordChapter(chapterId, chapterIdx, totalChapters) {
     // Save to render cache for future runs
     saveToCache(chapterId, destPath);
 
-    writeStatus({
+    writeStatus(statusFile, {
       status: "running",
       progress: `完成章节 ${chapterIdx + 1}/${totalChapters}: ${chapterId}`,
     });
 
-    return destPath;
+    return { path: destPath, cached: false };
   } finally {
     await browser.close();
   }
@@ -256,12 +212,13 @@ async function recordChapter(chapterId, chapterIdx, totalChapters) {
 // ── Concat chapters ────────────────────────────────────────────────────────
 
 function concatChapters(chapterPaths, outPath) {
-  return new Promise((resolve, reject) => {
-    // Write concat list
-    const listPath = path.join(projDir, ".render-chapter-list.txt");
-    const lines = chapterPaths.map((f) => `file '${f.replace(/\\/g, "/")}'`);
-    fs.writeFileSync(listPath, lines.join("\n") + "\n");
+  // Final concat with h264 encoding for MP4 output (shared mergeVideoAudio for consistency)
+  const listPath = path.join(projDir, ".render-chapter-list.txt");
+  const lines = chapterPaths.map((f) => `file '${f.replace(/\\/g, "/")}'`);
+  fs.writeFileSync(listPath, lines.join("\n") + "\n");
 
+  const { Ffmpeg } = require("./render-common");
+  return new Promise((resolve, reject) => {
     Ffmpeg()
       .input(listPath)
       .inputOptions(["-f concat", "-safe 0"])
@@ -282,16 +239,16 @@ function concatChapters(chapterPaths, outPath) {
 // ── Main ───────────────────────────────────────────────────────────────────
 
 async function run() {
-  const chapterIds = getChapterIds();
+  const chapterIds = getChapterIds(presDir);
   if (chapterIds.length === 0) {
-    writeStatus({ status: "error", error: "No chapters found" });
+    writeStatus(statusFile, { status: "error", error: "No chapters found" });
     return;
   }
 
   let cacheHits = 0;
   let cacheMisses = 0;
 
-  writeStatus({ status: "running", progress: `开始分段录制 ${chapterIds.length} 章…` });
+  writeStatus(statusFile, { status: "running", progress: `开始分段录制 ${chapterIds.length} 章…` });
 
   // Record chapters sequentially (or in parallel batches)
   const chapterPaths = [];
@@ -302,18 +259,20 @@ async function run() {
     const results = await Promise.all(
       batch.map((id, j) => recordChapter(id, i + j, chapterIds.length))
     );
-    chapterPaths.push(...results);
+    for (const r of results) {
+      chapterPaths.push(r.path);
+      if (r.cached) cacheHits++; else cacheMisses++;
+    }
   }
 
   // Concat all chapters
-  writeStatus({ status: "running", progress: "拼接章节视频…" });
+  writeStatus(statusFile, { status: "running", progress: "拼接章节视频…" });
   await concatChapters(chapterPaths, outputPath);
 
   // Cleanup
-  const tmpDir = path.join(projDir, ".render-chapter-tmp");
-  fs.rmSync(tmpDir, { recursive: true, force: true });
+  cleanupTempFiles(projDir);
 
-  writeStatus({
+  writeStatus(statusFile, {
     status: "done",
     progress: `完成 (${chapterIds.length} 章, ${cacheHits} 缓存命中, ${cacheMisses} 录制, ${resolution})`,
     outputFile,
@@ -322,6 +281,6 @@ async function run() {
 }
 
 run().catch((err) => {
-  writeStatus({ status: "error", error: String(err?.message ?? err) });
+  writeStatus(statusFile, { status: "error", error: String(err?.message ?? err) });
   process.exit(1);
 });

@@ -19,13 +19,36 @@
     "行业研究 / 趋势报告",
     "企业咨询 / 培训"
   ],
+  "tone": [
+    "polished",
+    "professional",
+    "crisp",
+    "clear"
+  ],
+  "formality": "medium-high",
+  "density": "medium",
+  "scheme": "light",
+  "avoidFor": [
+    "创意/艺术",
+    "娱乐/游戏",
+    "个人vlog",
+    "温暖品牌故事"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "贴底4px电光蓝条",
+    "净白底 + 单一电蓝accent",
+    "Manrope全场企业自信"
+  ],
+  "previewMd": "themes/electric-studio/preview.md",
+  "designMd": "themes/electric-studio/design.md",
+  "tokensCss": "themes/electric-studio/tokens.css",
   "preview": {
     "shell": "#0a0a0a",
     "surface": "#ffffff",
     "text": "#0a0a0a",
     "accent": "#4361ee"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-spring)",
     "duration": "medium",

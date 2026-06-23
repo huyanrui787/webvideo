@@ -1,0 +1,113 @@
+{
+  "chapterId": "not-perfect",
+  "title": "还没完美",
+  "steps": [
+    {
+      "narration": "听完前面这些，你可能觉得区块链是人类信用的救星。但理智一点，它远未成熟。第一个问题：性能瓶颈。比特币每秒只能处理个位数交易，Visa理论上每秒能处理数万笔。",
+      "layout": {
+        "mode": "template",
+        "template": "data-spotlight",
+        "variant": "comparison",
+        "slots": {
+          "primaryValue": "7",
+          "primaryLabel": "BTC 每秒交易",
+          "context": "Visa：数万笔/秒"
+        },
+        "overrides": {
+          "backgroundStyle": "solid"
+        }
+      }
+    },
+    {
+      "narration": "第二个问题：能源争议。工作量证明的耗电已经超过某些中型国家。如果它不能带来同等社会价值，这种消耗就是严重的问题。好在行业正向低能耗方式迁移。",
+      "layout": {
+        "mode": "template",
+        "template": "data-spotlight",
+        "variant": "single-stat",
+        "slots": {
+          "primaryValue": "中型国家",
+          "primaryLabel": "PoW 耗电量",
+          "context": "超过某些中型国家总用电量"
+        },
+        "overrides": {
+          "backgroundStyle": "solid"
+        }
+      }
+    },
+    {
+      "narration": "第三个问题：监管与密钥。去中心化意味着没有明确责任主体，出了事找谁？你自己的私钥丢了，神仙也找不回来。你的钱就是你的钱，但你得对自己的钱负全部责任。没有客服热线可以打。",
+      "layout": {
+        "mode": "composed",
+        "layout": "stack",
+        "regions": {
+          "warn3": {
+            "content": [
+              {
+                "primitive": "Stagger",
+                "params": {
+                  "interval": 0.4,
+                  "from": "left"
+                }
+              }
+            ],
+            "gridArea": "1/1"
+          }
+        },
+        "animations": [
+          {
+            "target": "warn3",
+            "effect": "slideLeft",
+            "delay": 0,
+            "duration": 0.8
+          }
+        ]
+      }
+    },
+    {
+      "narration": "虽然有了闪电网络、分片这些扩容方案，行业正向低能耗迁移，监管也在逐步演化——但距离大规模商用还有距离。区块链还处在早期，就像九十年代的互联网。",
+      "layout": {
+        "mode": "composed",
+        "layout": "stack",
+        "regions": {
+          "hope": {
+            "content": [
+              {
+                "primitive": "Stagger",
+                "params": {
+                  "interval": 0.3,
+                  "from": "up"
+                }
+              }
+            ],
+            "gridArea": "1/1"
+          }
+        },
+        "animations": [
+          {
+            "target": "hope",
+            "effect": "slideUp",
+            "delay": 0,
+            "duration": 0.8
+          }
+        ]
+      }
+    },
+    {
+      "narration": "区块链不是万能药。它是一种新的信任工具。工具好不好，看你怎么用。机会很大，坑也不少。保持好奇，保持警惕，这就够了。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "variant": "centered",
+        "slots": {
+          "kicker": "最后的话",
+          "title": "保持好奇，保持警惕",
+          "subtitle": "像九十年代的互联网——机会很大，坑也不少"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-bold"
+        }
+      }
+    }
+  ],
+  "orderHint": 6
+}

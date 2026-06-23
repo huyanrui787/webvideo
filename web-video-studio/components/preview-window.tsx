@@ -412,28 +412,16 @@ export function PreviewWindow({
             <PreviewLifecycleButton
               scaffold={scaffoldStatus}
               scaffoldProgress={scaffoldProgress}
-              scaffoldRetries={scaffoldRetries ?? 0}
               devPort={devPort}
               devStarting={devServerStarting}
               devError={devServerError ?? null}
-              devDegraded={devDegraded}
-              buildStatus={buildStatus}
               buildDoneChapters={buildDoneChapters}
               buildTotalChapters={buildTotalChapters}
-              buildErrorCount={buildErrorCount}
-              projectStatus={project.status}
-              isStreaming={isStreaming}
-              aiReadyForPreview={aiReadyForPreview}
-              scaffoldStale={scaffoldStale}
-              devCrashed={devCrashed}
               onStartScaffold={onStartScaffold}
               onStartDevServer={onStartDevServer}
               onStopDevServer={onStopDevServer}
               onRefreshPreview={onRefreshPreview}
-              onRebuild={onRebuild}
               onFullscreen={onFullscreen}
-              onTakeManualControl={onTakeManualControl}
-              onTryDegradedStart={onTryDegradedStart}
               variant="titlebar"
             />
 

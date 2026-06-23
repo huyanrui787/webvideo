@@ -24,11 +24,31 @@
     "surface": "#f1f3f5",
     "text": "#0a1f3d",
     "accent": "#1e3a8a"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "medium",
     "description": "Measured editorial pace"
-  }
+  },
+  "tone": [
+    "scholarly",
+    "considered",
+    "intellectual",
+    "deep"
+  ],
+  "formality": "high",
+  "density": "medium",
+  "scheme": "light",
+  "avoidFor": [
+    "娱乐/游戏",
+    "促销/营销",
+    "快消品",
+    "轻松日常vlog"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "靛蓝当墨（字色本身而非accent）",
+    "Playfair Display italic + Noto Serif SC",
+    "瓷白纸 + 无装饰纯粹"
+  ]
 }

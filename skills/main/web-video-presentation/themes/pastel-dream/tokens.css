@@ -1,33 +1,71 @@
-/* ─── Standardized design token scales (v2) ─── */
-  /* Radius scale */
-  --radius-none: 0;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
-  --radius-full: 9999px;
+/* ─────────────────────────────────────────────────────────────────────
+ * Theme · pastel-dream
+ * ───────────────────────────────────────────────────────────────────── */
+:root {
+  /* ─── palette ─── */
+  --shell:        #c8d9e6;
+  --surface:      #faf9f7;
+  --surface-2:    rgb(242,241,239);
+  --surface-3:    rgb(230,229,227);
+  --surface-1:    #faf9f7;
+  --text:         #1f2429;
+  --text-2:       rgb(81,86,91);
+  --text-mute:    rgb(151,156,161);
+  --text-faint:   rgb(211,216,221);
+  --text-code:    #1f2429;
+  --text-sm:      14px;
+  --text-xs:      12px;
+  --text-hero:    88px;
+  --text-sub:     28px;
+  --text-data:    120px;
+  --text-kicker:  14px;
+  --text-quote:   48px;
+  --text-step:    20px;
+  --text-step-heading: 28px;
+  --text-step-num: 18px;
+  --rule:         #1f2429;
+  --accent:       #5a7c6a;
+  --accent-soft:  rgba(90, 124, 106, 0.12);
+  --accent-glow:  rgba(90, 124, 106, 0.35);
+  --accent-muted: rgba(90, 124, 106, 0.08);
+  --card-glass-bg: rgba(255,255,255,0.06);
+  --card-glass-border: rgba(255,255,255,0.12);
 
-  /* Shadow scale */
-  --shadow-none: none;
-  --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.08);
-  --shadow-lg: 0 10px 25px rgba(0,0,0,0.12);
-  --shadow-xl: 0 20px 50px rgba(0,0,0,0.18);
+  /* ─── fonts ─── */
+  --font-display-cn: "Noto Sans SC", sans-serif;
+  --font-display-en: "Inter", sans-serif;
+  --font-sans-cn:    "Noto Sans SC", sans-serif;
+  --font-serif-cn:   "Noto Serif SC", serif;
+  --font-body:       "Inter", sans-serif;
+  --font-mono:       "JetBrains Mono", monospace;
+  --font-features:   "tnum", "ss01";
 
-  /* Grid baseline (8px system) */
-  --grid: 8px;
-  --grid-2: 16px;
-  --grid-3: 24px;
-  --grid-4: 32px;
-  --grid-5: 40px;
-  --grid-6: 48px;
-  --grid-8: 64px;
-  --grid-12: 96px;
+  /* ─── motion ─── */
+  --ease-overshoot: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-quick:     400ms;
+  --dur-base:      800ms;
+  --dur-slow:      1200ms;
+  --dur-cinematic: 1800ms;
 
-  /* Motion easing presets */
-  --motion-snappy: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --motion-smooth: cubic-bezier(0.4, 0, 0.2, 1);
-  --motion-gentle: cubic-bezier(0.6, 0, 0.4, 1);
-  --motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --motion-linear: linear;
+  /* ─── design identity ─── */
+  --r-card:       8px;
+  --r-stage:      0;
+  --rule-w:       1px;
+  --rule-style:   solid;
+  --hero-num-font:    var(--font-display-en);
+  --hero-num-style:   italic;
+  --hero-num-weight:  400;
+  --hero-num-track:   -0.025em;
+  --stage-pad-x:   96px;
+  --stage-pad-y:   80px;
+  --card-shadow:   none;
+  --shadow-stage:  0 20px 60px rgba(0,0,0,0.12);
+  --stage-border:  none;
+  --surface-pattern:          none;
+  --surface-pattern-size:     auto;
+  --surface-pattern-blend:    normal;
+  --surface-pattern-opacity:  1;
+  --surface-vignette:         none;
+  --text-shadow:              none;
+  --avatar-size:              120px;
 }

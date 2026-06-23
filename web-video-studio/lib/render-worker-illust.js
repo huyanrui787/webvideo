@@ -12,13 +12,12 @@
  * Usage: node render-worker-illust.js <projectId> <projectsRoot>
  */
 
-const { execFileSync } = require("child_process");
-const ffmpegInstaller = require("@ffmpeg-installer/ffmpeg");
-const Ffmpeg = require("fluent-ffmpeg");
 const path = require("path");
 const fs = require("fs");
-
-Ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+const {
+  writeStatus, getMp3Duration, toSrtTime, buildSrt,
+  concatAudioWithSilence, concatClips, cleanupTempFiles,
+} = require("./render-common");
 
 const [, , projectId, projectsRoot] = process.argv;
 const projDir = path.join(projectsRoot, projectId);
@@ -32,38 +31,6 @@ const outputPath = path.join(projDir, "render.mp4");
 
 const FPS = 30;
 const DEFAULT_DURATION = 5.0;
-
-// ─── helpers ──────────────────────────────────────────────────────────────
-
-function writeStatus(obj) {
-  fs.writeFileSync(statusFile,
-    JSON.stringify({ ...obj, updatedAt: Date.now() }));
-}
-
-/** Get mp3 duration via ffmpeg -i stderr parse */
-function getMp3Duration(filePath) {
-  return new Promise((resolve) => {
-    try {
-      let stderr = "";
-      try {
-        execFileSync(ffmpegInstaller.path, ["-i", filePath],
-          { stdio: ["pipe", "pipe", "pipe"] });
-      } catch (e) { stderr = e.stderr?.toString() ?? ""; }
-      const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
-      resolve(m ? parseInt(m[1]) * 3600 + parseInt(m[2]) * 60 + parseFloat(m[3]) : DEFAULT_DURATION);
-    } catch { resolve(DEFAULT_DURATION); }
-  });
-}
-
-function toSrtTime(sec) {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = Math.floor(sec % 60);
-  const ms = Math.round((sec - Math.floor(sec)) * 1000);
-  return `${pad2(h)}:${pad2(m)}:${pad2(s)},${pad3(ms)}`;
-}
-function pad2(n) { return String(n).padStart(2, "0"); }
-function pad3(n) { return String(n).padStart(3, "0"); }
 
 // ─── Ken Burns zoompan filter ─────────────────────────────────────────────
 
@@ -251,7 +218,7 @@ function buildSrt(timeline) {
 async function run() {
   // 1. Read timeline
   if (!fs.existsSync(timelineFile)) {
-    writeStatus({ status: "error", error: "illust-timeline.json not found" });
+    writeStatus(statusFile, { status: "error", error: "illust-timeline.json not found" });
     process.exit(1);
   }
 
@@ -273,7 +240,7 @@ async function run() {
   }
 
   // 3. Merge timeline with real audio durations
-  writeStatus({ status: "running", progress: "分析音频时间轴…" });
+  writeStatus(statusFile, { status: "running", progress: "分析音频时间轴…" });
 
   const merged = await Promise.all(
     timeline.map(async (seg) => {
@@ -296,13 +263,13 @@ async function run() {
   const totalSegments = merged.length;
 
   if (totalSegments === 0) {
-    writeStatus({ status: "error", error: "时间轴为空" });
+    writeStatus(statusFile, { status: "error", error: "时间轴为空" });
     process.exit(1);
   }
 
   // 4. Render each image to a video clip
   fs.mkdirSync(clipsDir, { recursive: true });
-  writeStatus({
+  writeStatus(statusFile, {
     status: "running",
     progress: `渲染 ${totalSegments} 个片段 (预计 ${totalDuration.toFixed(1)}s)…`,
     totalDuration,
@@ -314,7 +281,7 @@ async function run() {
     const seg = merged[i];
     const imagePath = path.join(assetsDir, seg.illustration);
     if (!fs.existsSync(imagePath)) {
-      writeStatus({ status: "error", error: `图片不存在: ${seg.illustration}` });
+      writeStatus(statusFile, { status: "error", error: `图片不存在: ${seg.illustration}` });
       process.exit(1);
     }
 
@@ -322,14 +289,14 @@ async function run() {
     try {
       await imageToClip(imagePath, seg.durationSec, seg.kenBurns, clipPath);
     } catch (e) {
-      writeStatus({ status: "error", error: `片段 ${i + 1} 渲染失败: ${e.message}` });
+      writeStatus(statusFile, { status: "error", error: `片段 ${i + 1} 渲染失败: ${e.message}` });
       process.exit(1);
     }
     clipFiles.push(clipPath);
 
     if (i % 5 === 0 || i === merged.length - 1) {
       const pct = Math.round(((i + 1) / totalSegments) * 100);
-      writeStatus({
+      writeStatus(statusFile, {
         status: "running",
         progress: `渲染片段 ${i + 1}/${totalSegments} (${pct}%)…`,
         totalDuration,
@@ -340,7 +307,7 @@ async function run() {
   }
 
   // 5. Concat all clips
-  writeStatus({
+  writeStatus(statusFile, {
     status: "running",
     progress: "拼接视频片段…",
     totalDuration,
@@ -365,7 +332,7 @@ async function run() {
   }
 
   // 8. Final mux
-  writeStatus({
+  writeStatus(statusFile, {
     status: "running",
     progress: "合成最终视频…",
     totalDuration,
@@ -383,7 +350,7 @@ async function run() {
   if (fs.existsSync(concatenatedVideo)) fs.unlinkSync(concatenatedVideo);
   if (fs.existsSync(mergedAudio)) fs.unlinkSync(mergedAudio);
 
-  writeStatus({
+  writeStatus(statusFile, {
     status: "done",
     progress: `完成 (${totalDuration.toFixed(1)}s, ${totalSegments} 片段${hasAudio ? "，含音频" : ""})`,
     outputFile: "render.mp4",
@@ -393,7 +360,7 @@ async function run() {
 }
 
 run().catch((err) => {
-  writeStatus({
+  writeStatus(statusFile, {
     status: "error",
     error: String(err?.message ?? err),
     progress: String(err?.message ?? err),

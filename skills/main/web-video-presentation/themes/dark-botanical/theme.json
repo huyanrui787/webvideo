@@ -24,11 +24,31 @@
     "surface": "#141312",
     "text": "#e8e4df",
     "accent": "#d4a574"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "slow",
     "description": "Slow, dramatic reveals"
-  }
+  },
+  "tone": [
+    "literary",
+    "refined",
+    "warm",
+    "considered"
+  ],
+  "formality": "high",
+  "density": "low",
+  "scheme": "dark",
+  "avoidFor": [
+    "技术教程",
+    "工程/开发者内容",
+    "快节奏新闻",
+    "青少年娱乐"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "柔光晕染 blurred light pool",
+    "Cormorant italic + 暖陶/玫粉/鎏金",
+    "慢速电影感节奏"
+  ]
 }

@@ -24,11 +24,31 @@
     "surface": "#1e1e24",
     "text": "#f4f4f5",
     "accent": "#fde047"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-gentle)",
     "duration": "slow",
     "description": "Slow, dramatic reveals"
-  }
+  },
+  "tone": [
+    "friendly",
+    "informal",
+    "warm",
+    "encouraging"
+  ],
+  "formality": "low",
+  "density": "medium",
+  "scheme": "dark",
+  "avoidFor": [
+    "正式企业汇报",
+    "投资人路演",
+    "学术论文",
+    "高端奢侈品"
+  ],
+  "cjkCompatible": false,
+  "signatureElements": [
+    "Patrick Hand全场手写字体",
+    "2px虚线粉笔黄rule",
+    "黑板film grain质感"
+  ]
 }

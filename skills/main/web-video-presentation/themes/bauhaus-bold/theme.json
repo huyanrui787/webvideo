@@ -23,11 +23,31 @@
     "surface": "#fafaf7",
     "text": "#0a0a0a",
     "accent": "#1a4cdb"
-  }
-,
+  },
   "motionProfile": {
     "defaultEasing": "var(--motion-snappy)",
     "duration": "fast",
     "description": "Sharp, linear motion"
-  }
+  },
+  "tone": [
+    "confident",
+    "graphic",
+    "direct",
+    "architectural"
+  ],
+  "formality": "medium",
+  "density": "low",
+  "scheme": "light",
+  "avoidFor": [
+    "温暖柔软品牌",
+    "文学诗歌",
+    "古典传统话题",
+    "需要柔和感的场景"
+  ],
+  "cjkCompatible": true,
+  "signatureElements": [
+    "0圆角 + 4px厚边 + 偏移实色阴影",
+    "900 weight 巨字hero数字",
+    "4px黑色画框包住舞台"
+  ]
 }

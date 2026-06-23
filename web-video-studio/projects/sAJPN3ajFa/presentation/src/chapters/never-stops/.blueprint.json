@@ -1,0 +1,84 @@
+{
+  "chapterId": "never-stops",
+  "title": "永不停机的实验",
+  "steps": [
+    {
+      "narration": "比特币才十几年。它是针对旧金融体系的叛逆产物，不是优雅方案。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "title": "十几年",
+          "subtitle": "旧金融体系的叛逆产物",
+          "tagline": "不是优雅方案 · 而是愤怒的回应"
+        }
+      }
+    },
+    {
+      "narration": "但它证明了一件事：在数字时代，信任可以重构，货币形态可能被重写。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "title": "信任可以重构",
+          "subtitle": "货币形态可能被重写",
+          "tagline": "数字时代的核心证明"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-bold"
+        }
+      }
+    },
+    {
+      "narration": "理解比特币，你就拿到了通往加密世界的钥匙。智能合约、DeFi、NFT，整个加密世界由此开启。",
+      "layout": {
+        "mode": "template",
+        "template": "grid-gallery",
+        "slots": {
+          "items": [
+            {
+              "title": "智能合约",
+              "desc": "可编程货币",
+              "media": {
+                "type": "image",
+                "src": ""
+              }
+            },
+            {
+              "title": "DeFi",
+              "desc": "去中心化金融",
+              "media": {
+                "type": "image",
+                "src": ""
+              }
+            },
+            {
+              "title": "NFT",
+              "desc": "数字所有权",
+              "media": {
+                "type": "image",
+                "src": ""
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "narration": "而是运行在全球无数电脑上、永不停机的共识奇迹。",
+      "layout": {
+        "mode": "template",
+        "template": "hero-title",
+        "slots": {
+          "title": "永不停机",
+          "subtitle": "运行在全球无数电脑上",
+          "tagline": "一场没有终局的社会实验 · ₿"
+        },
+        "overrides": {
+          "backgroundStyle": "gradient-bold"
+        }
+      }
+    }
+  ],
+  "orderHint": 7
+}

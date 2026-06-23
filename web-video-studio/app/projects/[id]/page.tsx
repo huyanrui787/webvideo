@@ -42,6 +42,7 @@ export default function ProjectPage() {
   const prevDevPort = useRef<number | null>(null); // track devPort for crash detection
   const devStartingRef = useRef(false);          // track if user explicitly requested dev server
   const sseGotDevPort = useRef(false);           // SSE has delivered dev port → suppress polling
+  const audioSynthTriggered = useRef(false);      // prevent duplicate audio synthesis triggers
 
   const [pageState, setPageState] = useState<"loading" | "ready" | "error" | "notfound">("loading");
   const [errMsg, setErrMsg] = useState("");
@@ -191,9 +192,79 @@ export default function ProjectPage() {
     es.addEventListener("build", (e: MessageEvent) => {
       try { const d = JSON.parse(e.data); setBuildJob((prev) => prev ? { ...prev, ...d } : d); } catch {}
     });
+    es.addEventListener("status-change", (e: MessageEvent) => {
+      try {
+        const d = JSON.parse(e.data);
+        setProject((prev: any) => prev ? { ...prev, status: d.status } : prev);
+        if (d.status === "building" && d.auto) {
+          fetch(`/api/projects/${id}/scaffold`, { method: "POST" }).catch(() => {});
+        }
+        if (d.status === "done") {
+          setBuildJob((prev: any) => prev ? { ...prev, status: "done" } : null);
+          triggerAudioSynthesis();
+        }
+      } catch {}
+    });
+    // SSR event handler calls this — project is guaranteed loaded at this point
+    function triggerAudioSynthesis() {
+      if (audioSynthTriggered.current) return;
+      audioSynthTriggered.current = true;
+      const provider = project?.ttsProvider || DEFAULT_TTS_PROVIDER;
+      const voice = project?.ttsVoice || DEFAULT_TTS_VOICE;
+      fetch(`/api/projects/${id}/synthesize`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "extract", provider, voice }),
+      }).then(() => {
+        fetch(`/api/projects/${id}/synthesize`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider, voice }),
+        }).catch(() => {});
+      }).catch(() => {});
+    }
+    es.addEventListener("chapter-built", (e: MessageEvent) => {
+      try {
+        const d = JSON.parse(e.data);
+        setChapters((prev: any[]) => {
+          const next = [...(prev || [])];
+          const idx = next.findIndex((c: any) => c.id === d.chapterId);
+          if (idx >= 0) next[idx] = { ...next[idx], status: "done" as const };
+          else next.push({ id: d.chapterId, title: d.title || d.chapterId, status: "done" as const });
+          return next;
+        });
+      } catch {}
+    });
+    es.addEventListener("render", (e: MessageEvent) => {
+      try {
+        const d = JSON.parse(e.data);
+        setRenderSt(d.status as WS);
+        if (d.progress) setRenderProg(d.progress);
+      } catch {}
+    });
     es.onerror = () => { /* SSE reconnect is automatic */ };
     return () => es.close();
   }, [id]);
+
+  // ─── audio synthesis: trigger on page load when project is already done ──
+  // Separate effect because project loads async and SSE effect depends only on [id].
+  useEffect(() => {
+    if (project?.status !== "done") return;
+    if (project?.projectType === "illustration-video" || project?.projectType === "illustrated-article") return;
+    if (audioSynthTriggered.current) return;
+    audioSynthTriggered.current = true;
+    const provider = project?.ttsProvider || DEFAULT_TTS_PROVIDER;
+    const voice = project?.ttsVoice || DEFAULT_TTS_VOICE;
+    // Step 1: extract narrations → audio-segments.json (required by synthesize-audio)
+    fetch(`/api/projects/${id}/synthesize`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "extract", provider, voice }),
+    }).then(() => {
+      // Step 2: synthesize audio from extracted segments
+      fetch(`/api/projects/${id}/synthesize`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, voice }),
+      }).catch(() => {});
+    }).catch(() => {});
+  }, [project?.status, project?.projectType, project?.ttsProvider, project?.ttsVoice, id]);
 
   // ─── dev polling — immediate fetch + exponential backoff fallback ──────
   useEffect(() => {
@@ -243,7 +314,13 @@ export default function ProjectPage() {
     try {
       const r = await fetch(`/api/projects/${id}/dev-server`, { method: "POST" });
       if (serial !== startDevSerial.current) return; // stale — ignore
-      if (!r.ok && r.status !== 409) { const d = await r.json().catch(() => ({})); setDevError(d.error ?? "fail"); }
+      if (r.ok) {
+        const d = await r.json().catch(() => ({}));
+        if (serial === startDevSerial.current && d.port) { setDevPort(d.port); setDevStarting(false); }
+      } else if (r.status !== 409) {
+        const d = await r.json().catch(() => ({}));
+        if (serial === startDevSerial.current) setDevError(d.error ?? "fail");
+      }
     } catch {
       if (serial !== startDevSerial.current) return;
       setDevError("network");
@@ -277,29 +354,7 @@ export default function ProjectPage() {
     if (project?.status === "writing") userControlMode.current = false;
   }, [project?.status]);
 
-  // ── Auto-trigger TTS when a chapter is built ──────────────────────────
-  const handleChapterBuilt = useCallback(
-    (chapterIds: string[]) => {
-      if (
-        project?.projectType === "illustration-video" ||
-        project?.projectType === "illustrated-article"
-      )
-        return;
-
-      const provider = project?.ttsProvider || DEFAULT_TTS_PROVIDER;
-      const voice = project?.ttsVoice || DEFAULT_TTS_VOICE;
-
-      // Always use full synthesis — it processes all registered chapters sequentially,
-      // skipping already-synthesized mp3s. This avoids race conditions from concurrent
-      // per-chapter requests overwriting each other's segments.json.
-      fetch(`/api/projects/${id}/synthesize`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, voice }),
-      }).catch(() => {});
-    },
-    [id, project?.ttsVoice, project?.ttsProvider, project?.projectType]
-  );
+  // Audio synthesis is now auto-triggered by SSE chapter-built events (unified source of truth)
 
   // ─── Catch-up audio & bgm: detect already-built chapters missing audio ─
   // ─── Catch-up audio & bgm: detect already-built chapters missing audio ─
@@ -470,7 +525,7 @@ export default function ProjectPage() {
         else if (d.global.total > 0 && d.global.done === d.global.total) setAudioBtnStatus("done");
         else setAudioBtnStatus("idle");
       } catch { /* ignore */ }
-      if (ok) setTimeout(poll, 5000);
+      if (ok && polls < MAX_AUDIO_POLLS) setTimeout(poll, 5000);
     };
     poll();
     return () => { ok = false; };
@@ -524,12 +579,24 @@ export default function ProjectPage() {
     return () => { clearInterval(interval); };
   }, [id, loadFiles]);
 
-  // ─── autostart ──────────────────────────────────────────────────────
+  // ─── autostart: AI begins building ───────────────────────────────────
   useEffect(() => {
     if (sp.get("autostart") !== "1" || autoDone || pageState !== "ready") return;
     const t = setTimeout(() => { triggerRef.current?.("请读取 article.md 并开始制作视频"); setAutoDone(true); }, 1000);
     return () => clearTimeout(t);
   }, [sp, autoDone, pageState]);
+
+  // ─── auto-start dev server on mount if scaffold is done ──────────────
+  const autoStartedDev = useRef(false);
+  useEffect(() => {
+    if (autoStartedDev.current) return;
+    fetch(`/api/projects/${id}/scaffold`).then(r => r.json()).then(d => {
+      if (d.status === "done" && !autoStartedDev.current) {
+        autoStartedDev.current = true;
+        startDev();
+      }
+    }).catch(() => {});
+  }, [id, startDev]);
 
   // ─── floating ───────────────────────────────────────────────────────
   const openFloating = useCallback(() => setFloating(true), []);
@@ -580,7 +647,7 @@ export default function ProjectPage() {
 
   // ─── postMessage helper ──────────────────────────────────────────────
   const post = useCallback((msg: any) => {
-    iframeRef.current?.contentWindow?.postMessage(msg, window.location.origin);
+    iframeRef.current?.contentWindow?.postMessage(msg, "*");
   }, []);
 
   // ─── wysiwyg edit ────────────────────────────────────────────────────
@@ -613,14 +680,24 @@ export default function ProjectPage() {
   }, [id]);
 
   // ─── playback ───────────────────────────────────────────────────────
-  const play = useCallback(() => { setPlayState("playing"); post({ type: "start-auto" }); }, [post]);
-  const pause = useCallback(() => { setPlayState("paused"); post({ type: "pause" }); }, [post]);
+  const togglePlayback = useCallback(() => {
+    console.log("[page] togglePlayback", { playState, autoMode });
+    if (playState === "playing") { setPlayState("paused"); post({ type: "pause" }); }
+    else { setPlayState("playing"); post(autoMode ? { type: "start-auto" } : { type: "start-manual" }); }
+  }, [post, playState, autoMode]);
+  const pause = useCallback(() => { console.log("[page] pause"); setPlayState("paused"); post({ type: "pause" }); }, [post]);
   const prevCh = useCallback(() => { post({ type: "prev-chapter" }); }, [post]);
   const nextCh = useCallback(() => { post({ type: "next-chapter" }); }, [post]);
   const setSpeed = useCallback((rate: number) => { setPlaySpeed(rate); post({ type: "set-speed", rate }); }, [post]);
   const refresh = useCallback(() => bumpIframeKey(), [bumpIframeKey]);
   const fullscreen = useCallback(() => iframeRef.current?.requestFullscreen?.(), []);
   const seek = useCallback((ch: number, step: number) => { post({ type: "seek-to-step", chapter: ch, step }); }, [post]);
+  const toggleAutoMode = useCallback(() => {
+    const next = !autoMode;
+    console.log("[page] toggleAutoMode", { next });
+    setAutoMode(next);
+    post(next ? { type: "start-auto" } : { type: "start-manual" });
+  }, [post, autoMode, setAutoMode]);
 
   // ─── edit mode sync ──────────────────────────────────────────────────
   useEffect(() => {
@@ -631,7 +708,7 @@ export default function ProjectPage() {
   useEffect(() => {
     const fn = (e: MessageEvent) => {
       // Only accept messages from our own iframe (localhost with known port)
-      if (!e.origin.startsWith("http://localhost:")) return;
+      if (!e.origin.startsWith("http://localhost:") && !e.origin.startsWith("http://127.0.0.1:")) return;
       const d = e.data; if (!d || typeof d !== "object") return;
       switch (d.type) {
         case "step-changed": { const p = d.data ?? d; setPlayStep(p); break; }
@@ -652,8 +729,14 @@ export default function ProjectPage() {
   // ─── ckpt ───────────────────────────────────────────────────────────
   const onCkpt = useCallback(async (opts: { theme: string; devMode: "sequential" | "parallel"; orientation: "landscape" | "portrait" }) => {
     try {
+      // 1. Save project settings
       const r = await fetch(`/api/projects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(opts) });
       if (r.ok) { const u = await r.json(); setProject(u); setThemeName(opts.theme); }
+      // 2. Auto-transition to building — no longer depends on AI calling ProjectSetStatus
+      await fetch(`/api/projects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: "building" }) });
+      setProject((p: any) => p ? { ...p, status: "building" } : p);
+      // 3. Auto-trigger scaffold — one-click flow
+      fetch(`/api/projects/${id}/scaffold`, { method: "POST" }).catch(() => {});
     } catch {}
   }, [id]);
 
@@ -705,7 +788,7 @@ export default function ProjectPage() {
   if (pageState === "error") return <div className="h-screen bg-base flex items-center justify-center"><div className="text-center max-w-sm"><p className="text-red-500 text-sm mb-4">{errMsg}</p><button onClick={load} className="rounded-xl bg-accent px-6 py-2 text-sm font-medium text-white">重试</button></div></div>;
   if (!project) return null;
 
-  const hasPreview = devPort !== null && scaffold === "done";
+  const hasPreview = devPort !== null;
   const buildStatus: "idle" | "running" | "done" | "error" =
     buildJob?.status === "running" ? "running" :
     buildJob?.status === "done" ? "done" :
@@ -920,7 +1003,7 @@ export default function ProjectPage() {
           <div className="flex flex-col h-full">
             {hasPreview && displayChapters.length > 0 && (
               <PlaybackBar step={playStep} playbackState={playState} speed={playSpeed} totalChapters={chapters.length}
-                onPlay={play} onPause={pause} onPrevChapter={prevCh} onNextChapter={nextCh} onSpeedChange={setSpeed} />
+                onPlay={togglePlayback} onPause={pause} onPrevChapter={prevCh} onNextChapter={nextCh} onSpeedChange={setSpeed} />
             )}
             <div className="flex-1 overflow-hidden">
               <ChatPanel projectId={id} projectTitle={project.title} devPort={devPort}
@@ -944,7 +1027,6 @@ export default function ProjectPage() {
                   }
                 }}
                 onProjectDone={load} onAudioCheckpoint={load}
-                onChapterBuilt={handleChapterBuilt}
                 onIllustrationDone={load}
                 onRebuildChapter={() => { fetch(`/api/projects/${id}/build-parallel`, { method: "POST" }).catch(() => {}); }}
                 chapters={displayChapters} onChaptersChange={setChapters}
@@ -966,7 +1048,7 @@ export default function ProjectPage() {
             onTakeManualControl={takeManualControl} onTryDegradedStart={startDev}
             playbackState={playState} playbackStep={playStep} playbackSpeed={playSpeed}
             totalChapters={chapters.length} subtitleVisible={subVisible}
-            onPlay={play} onPause={pause} onPrevChapter={prevCh} onNextChapter={nextCh}
+            onPlay={togglePlayback} onPause={pause} onPrevChapter={prevCh} onNextChapter={nextCh}
             onSpeedChange={setSpeed} onSubtitleToggle={() => setSubVisible(v => !v)}
             onRefreshPreview={refresh} onStopDevServer={stopDev} onFullscreen={fullscreen}
             previewMode={previewMode} chapters={displayChapters} chapterStepCounts={chStepCounts}
@@ -974,7 +1056,7 @@ export default function ProjectPage() {
             onSeekToStep={seek} wholePageSelected={wholePage} onSelectWholePage={() => setWholePage(v => !v)}
             isDraggingAsset={dragAsset} dragOverIframe={dragOver} onDragOverIframe={setDragOver} onDropOnIframe={onDrop}
             cardIndex={0} cardTotal={1} onCardPrev={() => {}} onCardNext={() => {}} onExportCards={() => {}}
-            autoPlayMode={autoMode} onToggleAutoPlayMode={() => setAutoMode(v => !v)}
+            autoPlayMode={autoMode} onToggleAutoPlayMode={toggleAutoMode}
             renderStatus={renderSt} renderProgress={renderProg} buildStatus={buildStatus} publishStatus={pubSt}
             miaodaUrl={miaodaUrl} copied={copied} onShare={share}
             onStartRender={render} onStartBuild={build} onPublish={publish} onCopyLink={copy}
@@ -1019,29 +1101,16 @@ export default function ProjectPage() {
             <PreviewLifecycleButton
               scaffold={scaffold}
               scaffoldProgress={scaffoldProgress}
-              scaffoldError={scaffoldError}
-              scaffoldRetries={scaffoldRetries}
               devPort={devPort}
               devStarting={devStarting}
               devError={devError}
-              devDegraded={devDegraded}
-              buildStatus={buildStatus}
               buildDoneChapters={doneChapters}
               buildTotalChapters={totalChapters}
-              buildErrorCount={buildErrorChapters}
-              projectStatus={project?.status ?? "writing"}
-              isStreaming={isStreaming}
-              aiReadyForPreview={aiReadyForPreview}
-              scaffoldStale={scaffoldStale}
-              devCrashed={devCrashed}
               onStartScaffold={startScaffold}
               onStartDevServer={startDev}
               onStopDevServer={stopDev}
               onRefreshPreview={refresh}
-              onRebuild={() => { fetch(`/api/projects/${id}/build-parallel`, { method: "POST" }).catch(() => {}); }}
               onFullscreen={fullscreen}
-              onTakeManualControl={takeManualControl}
-              onTryDegradedStart={startDev}
               variant="placeholder"
             />
             {devError && <p className="text-xs text-red-500">{devError}</p>}
@@ -1112,7 +1181,7 @@ export default function ProjectPage() {
           playbackSpeed={playSpeed}
           totalChapters={chapters.length}
           subtitleVisible={subVisible}
-          onPlay={play}
+          onPlay={togglePlayback}
           onPause={pause}
           onPrevChapter={prevCh}
           onNextChapter={nextCh}

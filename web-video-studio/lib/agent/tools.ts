@@ -10,6 +10,7 @@ import {
   projectDir,
 } from "@/lib/projects";
 import { getManimVenvDir } from "@/lib/env";
+import { publishProjectEvent } from "@/lib/events";
 import { db } from "@/lib/db";
 import { projects } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -136,11 +137,12 @@ async function getCurrentStatus(projectId: string): Promise<string> {
   }
 }
 
-/** Soft cap for tool output — large outputs are truncated with notice */
-const TOOL_OUTPUT_CAP = 3_000; // ~750 tokens for mixed content — enough for context, low enough to not bloat
+/** Caps for tool output — file reads get a generous limit, shell/Python output stays tight */
+const FILE_READ_CAP = 60_000;  // ~15k tokens — covers article.md + outline.md + script.md combined
+const SHELL_OUTPUT_CAP = 3_000; // shell/Python output stays tight
 const TOOL_ERROR_CAP = 1_000;
 
-function capOutput(text: string, maxLen = TOOL_OUTPUT_CAP): string {
+function capOutput(text: string, maxLen = FILE_READ_CAP): string {
   if (text.length <= maxLen) return text;
   return text.slice(0, maxLen) + `\n\n[输出已截断，原长 ${text.length} chars。如需完整内容，用更精确的路径/命令重新请求。]`;
 }
@@ -173,7 +175,7 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
         // Relative path → project file
         const content = readProjectFile(projectId, filePath);
         if (content === null) return toolError(`File not found: ${filePath}`);
-        return { content: capOutput(content) };
+        return { content: capOutput(content, FILE_READ_CAP) };
       },
     }),
 
@@ -332,6 +334,15 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           recordValidationFailure(projectId, bp.chapterId, bp, bp.steps[0]?.layout?.template, result.issues);
           return { success: false, error: formatValidationResult(result), issues: result.issues };
         }
+        // Check for existing chapter before overwriting
+        const existingChapterDir = path.join(projectDir(projectId), "presentation", "src", "chapters", bp.chapterId);
+        if (fs.existsSync(existingChapterDir)) {
+          return {
+            success: false,
+            error: `章节 "${bp.chapterId}" 已存在（目录: ${existingChapterDir}）。如需重建请先手动删除该目录，或修改 chapterId 创建新章节。`,
+            existingChapter: true,
+          };
+        }
         let generated: GeneratedChapter;
         try { generated = compileChapter(validated!); }
         catch (err: any) {
@@ -344,6 +355,8 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
         writeProjectFile(projectId, `${chaptersDir}/narrations.ts`, generated.narrations);
         // Persist the blueprint JSON for telemetry, WYSIWYG backfill, and material planning
         writeProjectFile(projectId, `${chaptersDir}/.blueprint.json`, JSON.stringify(bp, null, 2));
+        // Notify frontend via SSE
+        publishProjectEvent(projectId, "chapter-built", { chapterId: bp.chapterId, title: bp.title });
         const regPath = "presentation/src/registry/chapters.ts";
         const regContent = regenerateRegistry(projectId);
         writeProjectFile(projectId, regPath, regContent);
@@ -391,6 +404,29 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           markResolved(bp.chapterId, hashBlueprint(bp), tscWarning ? `tsc warning fixed: ${tscWarning}` : undefined);
         }
 
+        // ── Completion check: if all outline chapters are now built + tsc clean → auto-done ──
+        let buildComplete = false;
+        if (!tscWarning) {
+          try {
+            const outlinePath = path.join(projectDir(projectId), "outline.md");
+            if (fs.existsSync(outlinePath)) {
+              const outline = fs.readFileSync(outlinePath, "utf-8");
+              const outlineCount = (outline.match(/^## \d+\./gm) || []).length;
+              const chaptersDir = path.join(projectDir(projectId), "presentation", "src", "chapters");
+              const builtCount = fs.existsSync(chaptersDir)
+                ? fs.readdirSync(chaptersDir).filter(d => !d.startsWith(".") && !d.startsWith("__") && d !== "01-example").length
+                : 0;
+              buildComplete = outlineCount > 0 && builtCount >= outlineCount;
+            }
+          } catch { /* best-effort */ }
+        }
+        if (buildComplete) {
+          try {
+            await db.update(projects).set({ status: "done" as ProjectStatus, updatedAt: Math.floor(Date.now() / 1000) }).where(eq(projects.id, projectId));
+            publishProjectEvent(projectId, "status-change", { status: "done", auto: true });
+          } catch (err: any) { console.warn("[ProjectSetChapter] Auto-done failed:", err?.message ?? err); }
+        }
+
         const baseMsg = `✅ ${bp.title} — 文件已生成，注册表已更新`;
         return {
           success: true,
@@ -399,6 +435,7 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           stepCount: generated.stepCount,
           message: tscWarning ? `${baseMsg}。${tscWarning}` : `${baseMsg}，tsc 通过`,
           ...(tscWarning ? { tscWarning } : {}),
+          ...(buildComplete ? { buildComplete: true, statusAutoSet: "done" } : {}),
         };
       },
     }),
@@ -482,6 +519,8 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           writeProjectFile(projectId, `${dir}/narrations.ts`, g.narrations);
           // Persist blueprint JSON
           writeProjectFile(projectId, `${dir}/.blueprint.json`, JSON.stringify(r.compiled, null, 2));
+          // Notify frontend
+          publishProjectEvent(projectId, "chapter-built", { chapterId: r.chapterId, title: r.title });
         }
 
         // ── Phase 4: Regenerate registry once (with verify + retry) ────
@@ -518,12 +557,49 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
         // ── Phase 6: Consolidated result ────────────────────────────────
         const built = results.filter(r => r.success);
         const failed = results.filter(r => !r.success);
+
+        // ── Completion detection: check if all outline chapters are built ──
+        let buildComplete = false;
+        if (failed.length === 0) {
+          try {
+            const outlinePath = path.join(projectDir(projectId), "outline.md");
+            if (fs.existsSync(outlinePath)) {
+              const outline = fs.readFileSync(outlinePath, "utf-8");
+              const outlineChapters = (outline.match(/^## \d+\./gm) || []).length;
+              const chaptersDir = path.join(projectDir(projectId), "presentation", "src", "chapters");
+              const builtDirs = fs.existsSync(chaptersDir)
+                ? fs.readdirSync(chaptersDir).filter(d => !d.startsWith(".") && !d.startsWith("__") && d !== "01-example")
+                : [];
+              buildComplete = outlineChapters > 0 && builtDirs.length >= outlineChapters;
+            }
+          } catch { /* best-effort */ }
+        }
+
+        // ── Auto-done: only if all chapters built AND tsc clean (safer) ──
+        const tscClean = !tscWarning;
+        if (buildComplete && tscClean) {
+          try {
+            await db
+              .update(projects)
+              .set({ status: "done" as ProjectStatus, updatedAt: Math.floor(Date.now() / 1000) })
+              .where(eq(projects.id, projectId));
+            publishProjectEvent(projectId, "status-change", { status: "done", auto: true });
+          } catch (err: any) {
+            console.warn("[ProjectSetChapters] Auto-done failed:", err?.message ?? err);
+          }
+        }
+
         return {
           success: failed.length === 0,
           summary: `已构建 ${built.length}/${results.length} 章` + (failed.length > 0 ? `，${failed.length} 章失败需修正` : ""),
           built: built.map(r => ({ chapterId: r.chapterId, title: r.title, steps: r.stepCount })),
           failed: failed.map(r => ({ chapterId: r.chapterId, title: r.title, error: r.error })),
           ...(tscWarning ? { tscWarning } : {}),
+          ...(buildComplete ? {
+            buildComplete: true,
+            statusAutoSet: "done",
+            message: "所有章节已构建完成。项目状态已自动设为 'done'。可以预览或录制视频了。",
+          } : {}),
         };
       },
     }),
@@ -722,6 +798,8 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
             updatedAt: Math.floor(Date.now() / 1000),
           })
           .where(eq(projects.id, projectId));
+        // Notify frontend via SSE so it can react to status changes immediately
+        publishProjectEvent(projectId, "status-change", { status });
         return { success: true, status };
       },
     }),
