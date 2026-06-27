@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+projects/
+src-tauri/target/
+.next/
+data/studio.db*
+node_modules/
