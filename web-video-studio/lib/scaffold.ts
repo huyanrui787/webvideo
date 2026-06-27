@@ -5,8 +5,137 @@ import { projectDir, writeProjectFile } from "@/lib/projects";
 import { loadBrandConfig, compileBrandIntro, compileBrandOutro, isBrandShellEnabled } from "@/lib/brand-shell";
 import { repairScaffold } from "@/lib/scaffold-repair";
 import { getSkill, MAIN_SKILL_ID } from "@/lib/skills";
-import { getMainSkillScriptsDir } from "@/lib/env";
+import { getMainSkillScriptsDir, getSkillsRoot } from "@/lib/env";
 import { publishProjectEvent } from "@/lib/events";
+
+// ─── Audio-only scaffold (for illustration projects) ──────────────
+// Copies TTS scripts + installs npm deps, but skips the full Vite template.
+
+const AUDIO_SCAFFOLD_SENTINEL = "scripts/synthesize-audio.sh";
+
+/** Sentinel check: true when audio scaffold is already set up. */
+export function isAudioScaffoldReady(projectId: string): boolean {
+  return fs.existsSync(path.join(projectDir(projectId), "presentation", AUDIO_SCAFFOLD_SENTINEL));
+}
+
+/**
+ * Synchronous (awaited) audio scaffold setup.
+ * Called by the synthesizer when it detects the scaffold is missing,
+ * and by startAudioScaffold for the background-job path.
+ */
+export async function ensureAudioScaffold(projectId: string): Promise<void> {
+  const pDir = projectDir(projectId);
+  const presDir = path.join(pDir, "presentation");
+  const scriptsDest = path.join(presDir, "scripts");
+  const pkgPath = path.join(presDir, "package.json");
+
+  // Already set up — nothing to do
+  if (isAudioScaffoldReady(projectId) && fs.existsSync(pkgPath) && fs.existsSync(path.join(presDir, "node_modules"))) {
+    return;
+  }
+
+  // Find the main skill to get template scripts path
+  const mainSkill = getSkill(MAIN_SKILL_ID);
+  const skillPath = mainSkill?.path ?? path.join(getSkillsRoot(), "main", MAIN_SKILL_ID);
+  const templateScriptsSrc = path.join(skillPath, "templates", "scripts");
+
+  // Ensure directories
+  fs.mkdirSync(scriptsDest, { recursive: true });
+  fs.mkdirSync(path.join(presDir, "public", "audio"), { recursive: true });
+
+  // Copy template scripts (extract-narrations.ts, synthesize-audio.sh, tts-providers/)
+  if (fs.existsSync(templateScriptsSrc)) {
+    copyDirSync(templateScriptsSrc, scriptsDest);
+  } else {
+    throw new Error(`Template scripts not found at ${templateScriptsSrc}`);
+  }
+
+  // Create minimal package.json with audio scripts
+  const pkg = {
+    name: "presentation-audio",
+    private: true,
+    scripts: {
+      "extract-narrations": "tsx scripts/extract-narrations.ts",
+      "synthesize-audio": "bash scripts/synthesize-audio.sh",
+    },
+    dependencies: {
+      tsx: "^4.0.0",
+    },
+  };
+  fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+
+  // npm install
+  await runNpmInstall(presDir, () => {});
+}
+
+export function startAudioScaffold(projectId: string) {
+  // Fast path: already ready
+  if (isAudioScaffoldReady(projectId)) {
+    publishProjectEvent(projectId, "scaffold", { status: "done" });
+    return;
+  }
+
+  const job: ScaffoldJob = { status: "running", output: "", startedAt: Date.now() };
+  jobs.set(projectId, job);
+  writeJobToDisk(projectId, job);
+  publishProjectEvent(projectId, "scaffold", { status: job.status });
+
+  // Run asynchronously — delegate to shared implementation
+  ensureAudioScaffold(projectId)
+    .then(() => {
+      job.status = "done";
+      job.finishedAt = Date.now();
+      writeJobToDisk(projectId, job);
+      publishProjectEvent(projectId, "scaffold", { status: job.status });
+      console.log(`[scaffold] Audio scaffold done for ${projectId}`);
+    })
+    .catch((err) => {
+      job.status = "error";
+      job.error = err instanceof Error ? err.message : String(err);
+      job.finishedAt = Date.now();
+      writeJobToDisk(projectId, job);
+      publishProjectEvent(projectId, "scaffold", { status: job.status, error: job.error });
+      console.error(`[scaffold] Audio scaffold failed for ${projectId}:`, job.error);
+    });
+}
+
+function copyDirSync(src: string, dest: string) {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, entry.name);
+    const d = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirSync(s, d);
+    } else {
+      fs.copyFileSync(s, d);
+    }
+  }
+}
+
+function runNpmInstall(cwd: string, onData: (line: string) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("npm", ["install", "--prefer-offline"], { cwd, stdio: ["ignore", "pipe", "pipe"] });
+
+    let stderrBuf = "";
+    const onLine = (line: string) => {
+      onData(line);
+      if (line.includes("ERR!")) stderrBuf += line + "\n";
+    };
+
+    proc.stdout?.on("data", (d: Buffer) => {
+      for (const line of d.toString().split("\n").filter(Boolean)) onLine(line);
+    });
+    proc.stderr?.on("data", (d: Buffer) => {
+      for (const line of d.toString().split("\n").filter(Boolean)) onLine(line);
+    });
+
+    proc.on("close", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(stderrBuf || `npm install exited with code ${code}`));
+    });
+    proc.on("error", reject);
+  });
+}
 
 interface ScaffoldJob {
   status: "running" | "done" | "error";
@@ -82,6 +211,8 @@ const SCAFFOLD_SENTINEL_FILES = [
   "node_modules/.bin/vite",
 ];
 
+// Audio-only scaffold sentinel checked via isAudioScaffoldReady()
+
 /** Check if real chapters (not example/placeholder) exist in the project */
 function hasRealChapters(projectId: string): boolean {
   const chaptersDir = path.join(projectDir(projectId), "presentation", "src", "chapters");
@@ -124,7 +255,11 @@ export function isScaffolded(projectId: string): boolean {
     );
     if (dirs.length > 0) return true;
   }
-  return SCAFFOLD_SENTINEL_FILES.every((f) => fs.existsSync(path.join(presDir, f)));
+  // Check for full Vite scaffold
+  if (SCAFFOLD_SENTINEL_FILES.every((f) => fs.existsSync(path.join(presDir, f)))) return true;
+  // Check for audio-only scaffold (illustration projects)
+  if (isAudioScaffoldReady(projectId)) return true;
+  return false;
 }
 
 function resolveScriptsDir(mainSkillId: string): string {
@@ -170,11 +305,16 @@ export function startScaffold(
   projectFormat: string = "video",
   mainSkillId: string = MAIN_SKILL_ID
 ): void {
-  // If already done, skip entirely — never re-scaffold a working presentation
+  // If already done with FULL scaffold, skip — never re-scaffold a working presentation
+  // BUT: audio-only scaffold (from TTS auto-trigger) does NOT count for video projects
   if (isScaffolded(projectId)) {
-    // Publish "done" status so frontend syncs immediately
-    publishProjectEvent(projectId, "scaffold", { status: "done" });
-    return;
+    const presDir = path.join(projectDir(projectId), "presentation");
+    const hasFullVite = SCAFFOLD_SENTINEL_FILES.every((f) => fs.existsSync(path.join(presDir, f)));
+    if (hasFullVite) {
+      publishProjectEvent(projectId, "scaffold", { status: "done" });
+      return;
+    }
+    // Audio-only scaffold exists but full Vite is missing — proceed with full scaffold
   }
 
   // ── Chapter protection: never overwrite existing real chapters ──────────
@@ -343,11 +483,24 @@ export function startScaffold(
     timedOut = true;
     proc.kill("SIGTERM"); // graceful first
     setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000); // force after 5s
-    // Clean up partial files so next attempt starts fresh
+    // Clean up partial scaffold files (node_modules, lock files) but NEVER delete chapters
     const presDir = path.join(projectDir(projectId), "presentation");
     try {
       if (fs.existsSync(presDir) && !isScaffolded(projectId)) {
-        fs.rmSync(presDir, { recursive: true, force: true });
+        const chaptersDir = path.join(presDir, "src/chapters");
+        const registryFile = path.join(presDir, "src/registry/chapters.ts");
+        // Save chapters if they exist
+        const hasChapters = fs.existsSync(chaptersDir) && fs.readdirSync(chaptersDir).length > 0;
+        // Only delete non-chapter scaffold artifacts
+        const toRemove = ["node_modules", "package-lock.json", ".vite", "dist"];
+        for (const item of toRemove) {
+          const p = path.join(presDir, item);
+          try { if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true }); } catch {}
+        }
+        if (!hasChapters) {
+          // No chapters yet — safe to remove the entire presentation
+          fs.rmSync(presDir, { recursive: true, force: true });
+        }
       }
     } catch { /* ignore */ }
     job.status = "error";
@@ -391,11 +544,17 @@ export function startScaffold(
       writeJobToDisk(projectId, job);
     publishProjectEvent(projectId, "scaffold", { status: job.status, error: structuredErr });
 
-      // Clean up incomplete dir so next attempt starts fresh
+      // Clean up incomplete scaffold artifacts but NEVER delete chapters
       const presDir = path.join(projectDir(projectId), "presentation");
       try {
         if (fs.existsSync(presDir) && !isScaffolded(projectId)) {
-          fs.rmSync(presDir, { recursive: true, force: true });
+          const cd = path.join(presDir, "src/chapters");
+          const hasChapters = fs.existsSync(cd) && fs.readdirSync(cd).length > 0;
+          for (const item of ["node_modules", "package-lock.json", ".vite", "dist"]) {
+            const p = path.join(presDir, item);
+            try { if (fs.existsSync(p)) fs.rmSync(p, { recursive: true, force: true }); } catch {}
+          }
+          if (!hasChapters) fs.rmSync(presDir, { recursive: true, force: true });
         }
       } catch { /* ignore */ }
 
@@ -412,15 +571,7 @@ export function startScaffold(
       return;
     }
 
-    // Video projects: remove example chapter directory
-    const exampleDir = path.join(presDir, "src/chapters/01-example");
-    if (fs.existsSync(exampleDir)) {
-      fs.rmSync(exampleDir, { recursive: true });
-    }
-
-    // Only reset chapters.ts to empty if it currently only has the example chapter
-    // (i.e., no real chapters have been built by the AI pipeline yet).
-    // This prevents scaffold restarts from wiping out existing chapter code.
+    // Prevent scaffold restarts from wiping out existing chapter code.
     const chaptersTs = path.join(presDir, "src/registry/chapters.ts");
     if (fs.existsSync(chaptersTs)) {
       const currentChapters = fs.readFileSync(chaptersTs, "utf-8");
@@ -486,7 +637,9 @@ export function startScaffold(
     const presDir = path.join(projectDir(projectId), "presentation");
     try {
       if (fs.existsSync(presDir) && !isScaffolded(projectId)) {
-        fs.rmSync(presDir, { recursive: true, force: true });
+        const cd = path.join(presDir, "src/chapters");
+        const hasChapters = fs.existsSync(cd) && fs.readdirSync(cd).length > 0;
+        if (!hasChapters) fs.rmSync(presDir, { recursive: true, force: true });
       }
     } catch { /* ignore */ }
   });

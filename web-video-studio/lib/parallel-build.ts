@@ -149,8 +149,11 @@ function assembleFromDisk(
   for (const c of chapters) {
     if (!existing.has(c.dirName)) continue;
     const dirPath = path.join(chaptersDir, c.dirName);
-    const tsx = fs.readdirSync(dirPath).find((f) => f.endsWith(".tsx"));
-    if (!tsx) continue;
+    const files = fs.readdirSync(dirPath);
+    const tsx = files.find((f) => f.endsWith(".tsx"));
+    const hasNarr = files.some((f) => f === "narrations.ts");
+    // Skip incomplete chapters: must have both TSX and narrations.ts
+    if (!tsx || !hasNarr) continue;
     valid.push({
       id: c.id,
       dirName: c.dirName,

@@ -1,10 +1,8 @@
 /**
- * Chapter Blueprint System
+ * Chapter Blueprint System v2
  *
- * Three-tier architecture for AI-generated video chapters:
- *   Tier 1 (template): Pick a template, fill content slots → 80% of use cases
- *   Tier 2 (composed): Assemble primitives → 15% of use cases
- *   Tier 3 (custom):   Hand-written JSX/CSS escape hatch → 5% of use cases
+ * Single-tier architecture: composed mode with 5 layouts × 42 primitives.
+ * AI outputs JSON Blueprints → compiler generates TSX/CSS/narrations.
  *
  * Usage:
  *   import { validateBlueprint, compileChapter } from "@/lib/chapter-blueprint";
@@ -19,55 +17,27 @@ export {
   ChapterBlueprint,
   ChapterStepDef,
   LayoutDef,
-  TemplateLayout,
-  ComposedLayout,
-  CustomLayout,
   StyleOverrides,
-  TEMPLATE_IDS,
   PRIMITIVE_IDS,
-  getSlotSchema,
+  PRIMITIVE_PARAMS,
+  PrimitiveCall,
+  RegionDef,
+  AnimationDef,
+  WRAPPER_PRIMS,
+  TEXT_PRIMS,
+  DECOR_PRIMS,
 } from "./types";
 
 export type {
   ChapterBlueprint as ChapterBlueprintType,
   ChapterStepDef as ChapterStepDefType,
-  TemplateId,
   PrimitiveId,
-  TemplateLayout as TemplateLayoutType,
-  ComposedLayout as ComposedLayoutType,
-  CustomLayout as CustomLayoutType,
-  HeroTitleSlots,
-  StepRevealSlots,
-  StepRevealItem,
-  DataSpotlightSlots,
-  SideBySideSlots,
-  SideBySidePanel,
-  FlowDiagramSlots,
-  FlowNode,
-  CodeShowcaseSlots,
-  CodeAnnotation,
-  QuoteCardSlots,
-  GridGallerySlots,
-  GridItem,
+  LayoutDef as LayoutDefType,
   MediaRef,
+  RegionDef as RegionDefType,
+  PrimitiveCall as PrimitiveCallType,
+  AnimationDef as AnimationDefType,
 } from "./types";
-
-// Template registry — public API for extensibility
-export {
-  getTemplate,
-  hasTemplate,
-  listTemplateIds,
-  listTemplates,
-  registerTemplate,
-  collectTemplateCSS,
-  getTemplateImports,
-} from "./templates/registry";
-
-export type {
-  TemplateDefinition,
-  TemplateContext,
-  TemplateOutput,
-} from "./templates/types";
 
 export {
   compileChapter,

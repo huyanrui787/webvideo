@@ -491,8 +491,40 @@ sqlite.exec(`
   )
 `);
 
+// Idempotent column additions for illustration_shots
+try { sqlite.exec("ALTER TABLE illustration_shots ADD COLUMN style_hint TEXT"); } catch { /* exists */ }
+
 sqlite.exec("CREATE INDEX IF NOT EXISTS idx_illustration_shots_project ON illustration_shots(project_id)");
 sqlite.exec("CREATE INDEX IF NOT EXISTS idx_illustration_shots_status ON illustration_shots(project_id, generation_status)");
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Animation Shots table (for animation-video mode — T2V generation)
+// ═══════════════════════════════════════════════════════════════════════════════
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS animation_shots (
+    id                TEXT PRIMARY KEY,
+    project_id        TEXT NOT NULL REFERENCES projects(id),
+    chapter_id        TEXT NOT NULL,
+    step_idx          INTEGER NOT NULL DEFAULT 0,
+    theme             TEXT NOT NULL,
+    structure_type    TEXT NOT NULL,
+    video_prompt      TEXT NOT NULL,
+    elements          TEXT NOT NULL DEFAULT '[]',
+    labels            TEXT NOT NULL DEFAULT '[]',
+    prompt_en         TEXT,
+    style_hint        TEXT,
+    video_style       TEXT,
+    asset_filename    TEXT,
+    asset_url         TEXT,
+    generation_status TEXT NOT NULL DEFAULT 'pending',
+    generation_error  TEXT,
+    sort_order        INTEGER NOT NULL DEFAULT 0,
+    created_at        INTEGER NOT NULL DEFAULT (unixepoch())
+  )
+`);
+
+sqlite.exec("CREATE INDEX IF NOT EXISTS idx_animation_shots_project ON animation_shots(project_id)");
+sqlite.exec("CREATE INDEX IF NOT EXISTS idx_animation_shots_status ON animation_shots(project_id, generation_status)");
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Article Layouts table (for illustrated-article mode — typesetting phase)

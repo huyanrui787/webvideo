@@ -1,10 +1,8 @@
 /**
- * Chapter Blueprint 类型系统
+ * Chapter Blueprint 类型系统 v2
  *
- * 三层架构：
- *   Tier 1 — 模板模式 (template)：选模板 + 填槽位 → 覆盖 80% 场景
- *   Tier 2 — 组合模式 (composed)：拼装 primitives → 覆盖 15% 场景
- *   Tier 3 — 自定义模式 (custom)：手写 JSX/CSS 兜底 → 覆盖 5% 场景
+ * 单层架构 — composed 模式（积木拼装）：
+ *   5 种布局 × 42 种 primitive × 嵌套区域 → 覆盖全部场景
  *
  * Blueprint 是纯 JSON 数据，不包含运行时代码。ChapterCompiler 负责
  * 将 blueprint 编译为可执行的 TSX / CSS / narrations.ts。
@@ -13,65 +11,120 @@
 import { z } from "zod";
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Template IDs
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export const TEMPLATE_IDS = [
-  "hero-title",
-  "step-reveal",
-  "data-spotlight",
-  "side-by-side",
-  "flow-diagram",
-  "code-showcase",
-  "quote-card",
-  "grid-gallery",
-  "timeline",
-  "comparison-table",
-  "before-after",
-  "anatomy",
-  "progress-bar",
-  "testimonial",
-] as const;
-
-export type TemplateId = (typeof TEMPLATE_IDS)[number];
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Primitive IDs (existing + new)
+// Primitive IDs — 42 种视觉积木
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const PRIMITIVE_IDS = [
+  // ── 文字 (6) ──
+  "Headline",
+  "Body",
+  "Kicker",
+  "PullQuote",
+  "Caption",
+  "TypeWriter",
+  // ── 数据 (7) ──
+  "Counter",
+  "StatCard",
+  "BigNumber",
+  "BarChart",
+  "LineChart",
+  "PieChart",
+  "Gauge",
+  // ── 媒体 (4) ──
+  "ImageFrame",
+  "VideoFrame",
+  "Avatar",
+  "LottiePlayer",
+  // ── 布局容器 (5) ──
+  "Grid",
+  "FlexRow",
+  "FlexCol",
+  "Split",
+  "Card",
+  // ── 装饰 (7) ──
+  "Divider",
+  "Badge",
+  "BorderBox",
+  "GradientBg",
+  "NoiseBg",
+  "PatternBg",
+  "GlowRing",
+  // ── 动画/SVG (7) ──
+  "DrawPath",
+  "ParticleField",
+  "WaveForm",
+  "MagneticField",
+  "CircuitFlow",
+  "TextGlow",
+  "SvgReveal",
+  // ── 图表/图示 (5) ──
+  "NetworkGraph",
+  "TimelineItem",
+  "ProcessArrow",
+  "VennDiagram",
+  "GeoGlobe",
+  // ── GSAP 动画 (18) ──
+  "StickMan",
+  "BarRace",
+  "FaceMorph",
+  "LiquidPour",
+  "PlantGrow",
+  "GearMechanism",
+  "CalendarFlip",
+  "Constellation",
+  "RocketLaunch",
+  "HandGesture",
+  "FunnelFilter",
+  "DominoEffect",
+  "Storm2Calm",
+  "Hourglass",
+  "PuzzleAssembly",
+  "PaperPlane",
+  "HologramReveal",
+  "Volcano",
+  "CowCharacter",
+  "MoonPhase",
+  "FlowChart",
+  "LineDraw",
+  "LoadingAnim",
+  "GameScene",
+  "Editorial",
+      // ── 包装器 (2，不计入 diversity) ──
   "Reveal",
   "Stagger",
-  "Counter",
-  "DrawPath",
-  "TypeWriter",
-  "ParticleField",
-  "NetworkGraph",
-  "WaveForm",
-  "MediaFrame",
-  "CodeBlock",
-  "DataChart",
 ] as const;
 
 export type PrimitiveId = (typeof PRIMITIVE_IDS)[number];
 
+/** 不计入信息密度计数的包装器 */
+export const WRAPPER_PRIMS = new Set<PrimitiveId>(["Reveal", "Stagger"]);
+
+/** 文字类 primitive */
+export const TEXT_PRIMS = new Set<PrimitiveId>([
+  "Headline", "Body", "Kicker", "PullQuote", "Caption", "TypeWriter",
+]);
+
+/** 装饰/动画类 primitive */
+export const DECOR_PRIMS = new Set<PrimitiveId>([
+  "Divider", "Badge", "BorderBox", "GradientBg", "NoiseBg", "PatternBg", "GlowRing",
+  "DrawPath", "ParticleField", "WaveForm", "MagneticField", "CircuitFlow",
+  "TextGlow", "SvgReveal",
+]);
+
 // ═══════════════════════════════════════════════════════════════════════════════
-// Shared slot value types
+// Shared types
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/** A reference to a project asset (image/video) */
 export const MediaRef = z.object({
   type: z.enum(["image", "video"]),
   src: z.string().describe("URL path, e.g. /api/projects/{id}/assets/hero.jpg"),
   alt: z.string().optional(),
   fit: z.enum(["contain", "cover"]).default("contain").optional(),
-  /** For illustration images: maintain 16:9 by setting width & height */
   width: z.number().optional(),
   height: z.number().optional(),
 });
 export type MediaRef = z.infer<typeof MediaRef>;
 
-/** A single content block — text, media, or data */
 export const ContentBlock = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("text"), text: z.string() }),
   z.object({ kind: z.literal("media"), media: MediaRef }),
@@ -84,324 +137,401 @@ export const ContentBlock = z.discriminatedUnion("kind", [
 ]);
 export type ContentBlock = z.infer<typeof ContentBlock>;
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Tier 1: Template mode — per-template slot schemas
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/** Shared style overrides applicable to any template layout */
 export const StyleOverrides = z.object({
   textAlign: z.enum(["left", "center", "right"]).optional(),
   accentColor: z.string().optional().describe("Override var(--accent) hue"),
   backgroundStyle: z
     .enum(["solid", "gradient-subtle", "gradient-bold", "noise"])
     .optional(),
-  /** CSS class names to append to the step wrapper */
   extraClasses: z.string().optional(),
-  /** Inline CSS custom properties to inject */
   customProperties: z.record(z.string(), z.string()).optional(),
 });
 export type StyleOverrides = z.infer<typeof StyleOverrides>;
 
-// ── hero-title ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// Primitive params schemas (type-safe params for each primitive)
+// ═══════════════════════════════════════════════════════════════════════════════
 
-export const HeroTitleSlots = z.object({
-  kicker: z.string().optional().describe("Small label above the title"),
-  title: z.string().describe("Main title text, supports <em> for emphasis"),
-  subtitle: z.string().optional().describe("Supporting text below title"),
-  background: MediaRef.optional().describe("Background image/video"),
-  logo: MediaRef.optional().describe("Small logo/icon"),
+// ── 文字 ──
+
+export const HeadlineParams = z.object({
+  text: z.string(),
+  scale: z.enum(["hero", "data", "quote", "sub", "body", "kicker"]).default("hero"),
 });
-export type HeroTitleSlots = z.infer<typeof HeroTitleSlots>;
-
-// ── step-reveal ───────────────────────────────────────────────────────────────
-
-export const StepRevealItem = z.object({
-  heading: z.string(),
-  body: z.string().optional(),
-  media: MediaRef.optional(),
-  /** Highlight color badge / tag */
-  badge: z.string().optional(),
+export const BodyParams = z.object({
+  text: z.string(),
+  align: z.enum(["left", "center", "right"]).default("left"),
 });
-
-export const StepRevealSlots = z.object({
-  hook: z
-    .object({
-      type: z.enum(["stat", "quote", "question"]),
-      content: z.string(),
-      label: z.string().optional(),
-    })
-    .optional()
-    .describe("Opening hook before the step list"),
-  steps: z
-    .array(StepRevealItem)
-    .min(1)
-    .max(8)
-    .describe("Each step = one reveal item with heading + optional body/media"),
+export const KickerParams = z.object({
+  text: z.string(),
+  color: z.string().optional(),
 });
-export type StepRevealSlots = z.infer<typeof StepRevealSlots>;
-export type StepRevealItem = z.infer<typeof StepRevealItem>;
-
-// ── data-spotlight ────────────────────────────────────────────────────────────
-
-export const DataSpotlightSlots = z.object({
-  primaryValue: z.string().describe("The big number/stat (e.g. '2048 tokens')"),
-  primaryLabel: z.string().describe("What the number represents"),
-  context: z
-    .string()
-    .optional()
-    .describe("1-2 sentences explaining significance"),
-  secondaryValues: z
-    .array(
-      z.object({
-        value: z.string(),
-        label: z.string(),
-        trend: z.enum(["up", "down", "neutral"]).optional(),
-      })
-    )
-    .max(4)
-    .optional()
-    .describe("Secondary comparison stats"),
-  media: MediaRef.optional().describe("Supporting chart or diagram"),
+export const PullQuoteParams = z.object({
+  text: z.string(),
+  attribution: z.string().optional(),
+  context: z.string().optional(),
 });
-export type DataSpotlightSlots = z.infer<typeof DataSpotlightSlots>;
-
-// ── side-by-side ──────────────────────────────────────────────────────────────
-
-export const SideBySidePanel = z.object({
-  heading: z.string(),
-  body: z.string().optional(),
-  media: MediaRef.optional(),
-  items: z.array(z.string()).optional().describe("Bullet points"),
+export const CaptionParams = z.object({ text: z.string() });
+export const TypeWriterParams = z.object({
+  text: z.string(),
+  speed: z.number().min(10).max(200).default(60),
+  cursor: z.boolean().default(true),
+  scale: z.enum(["hero", "data", "quote", "sub", "body", "kicker"]).default("body"),
 });
 
-export const SideBySideSlots = z.object({
-  left: SideBySidePanel,
-  right: SideBySidePanel,
-  leftLabel: z.string().optional().describe("Label badge (e.g. '优化前', '方案 A')"),
-  rightLabel: z.string().optional(),
-  divider: z.enum(["vs", "arrow", "none"]).default("vs"),
+// ── 数据 ──
+
+export const CounterParams = z.object({
+  to: z.number(),
+  from: z.number().default(0),
+  unit: z.string().default(""),
+  prefix: z.string().default(""),
+  duration: z.number().default(1.2),
+  decimals: z.number().default(0),
+  delay: z.number().default(0),
 });
-export type SideBySideSlots = z.infer<typeof SideBySideSlots>;
-export type SideBySidePanel = z.infer<typeof SideBySidePanel>;
-
-// ── flow-diagram ──────────────────────────────────────────────────────────────
-
-export const FlowNode = z.object({
-  id: z.string(),
+export const StatCardParams = z.object({
+  value: z.string(),
   label: z.string(),
-  description: z.string().optional(),
-  icon: z.string().optional().describe("Emoji or icon character"),
+  trend: z.enum(["up", "down", "neutral"]).optional(),
+});
+export const BigNumberParams = z.object({
+  value: z.string(),
+  unit: z.string().default(""),
+  label: z.string().default(""),
+});
+export const BarChartParams = z.object({
+  data: z.array(z.object({ label: z.string(), value: z.number(), color: z.string().optional() })),
+  showLabels: z.boolean().default(true),
+  duration: z.number().default(1.4),
+});
+export const LineChartParams = z.object({
+  series: z.array(z.object({
+    label: z.string(),
+    points: z.array(z.object({ x: z.union([z.string(), z.number()]), y: z.number() })),
+    color: z.string().optional(),
+  })),
+  duration: z.number().default(1.5),
+});
+export const PieChartParams = z.object({
+  slices: z.array(z.object({ value: z.number(), label: z.string().optional(), color: z.string().optional() })),
+  innerRadius: z.number().min(0).max(1).default(0),
+  showLabels: z.boolean().default(true),
+  duration: z.number().default(1.4),
+});
+export const GaugeParams = z.object({
+  value: z.number().default(0),
+  max: z.number().default(100),
+  label: z.string().default(""),
+  unit: z.string().default(""),
+  color: z.string().optional(),
+  startAngle: z.number().default(135),
+  sweepAngle: z.number().default(270),
+  duration: z.number().default(1.2),
 });
 
-export const FlowDiagramSlots = z.object({
-  nodes: z.array(FlowNode).min(2).max(10),
-  edges: z
-    .array(z.object({ from: z.string(), to: z.string(), label: z.string().optional() }))
-    .optional()
-    .describe("If omitted, nodes are connected sequentially"),
-  highlightIndex: z
-    .number()
-    .int()
-    .min(0)
-    .optional()
-    .describe("Which node to highlight (0-indexed, for step-by-step build)"),
+// ── 媒体 ──
+
+export const ImageFrameParams = z.object({
+  src: z.string(),
+  fit: z.enum(["contain", "cover"]).default("cover"),
+  rounded: z.boolean().default(true),
+  shadow: z.boolean().default(false),
 });
-export type FlowDiagramSlots = z.infer<typeof FlowDiagramSlots>;
-export type FlowNode = z.infer<typeof FlowNode>;
-
-// ── code-showcase ─────────────────────────────────────────────────────────────
-
-export const CodeAnnotation = z.object({
-  lines: z.string().describe("Line range, e.g. '3-7' or '12'"),
-  text: z.string().describe("Annotation text"),
-  position: z.enum(["right", "bottom"]).default("right"),
+export const VideoFrameParams = z.object({
+  src: z.string(),
+  fit: z.enum(["contain", "cover"]).default("cover"),
+  autoplay: z.boolean().default(true),
 });
-
-export const CodeShowcaseSlots = z.object({
-  code: z.string().describe("The code snippet (plain text)"),
-  language: z.string().default("typescript"),
-  filename: z.string().optional(),
-  highlights: z
-    .array(z.string())
-    .optional()
-    .describe("Line ranges to highlight, e.g. ['3-7', '12']"),
-  annotations: z.array(CodeAnnotation).optional(),
-  output: MediaRef.optional().describe("Screenshot/GIF of the running result"),
+export const AvatarParams = z.object({
+  src: z.string(),
+  size: z.number().default(64),
+  shape: z.enum(["circle", "square"]).default("circle"),
 });
-export type CodeShowcaseSlots = z.infer<typeof CodeShowcaseSlots>;
-export type CodeAnnotation = z.infer<typeof CodeAnnotation>;
-
-// ── quote-card ────────────────────────────────────────────────────────────────
-
-export const QuoteCardSlots = z.object({
-  quote: z.string().describe("The pull quote text"),
-  attribution: z.string().optional().describe("Who said/wrote it"),
-  context: z.string().optional().describe("Where it's from or relevance"),
-  media: MediaRef.optional().describe("Portrait or decorative image"),
-});
-export type QuoteCardSlots = z.infer<typeof QuoteCardSlots>;
-
-// ── grid-gallery ──────────────────────────────────────────────────────────────
-
-export const GridItem = z.object({
-  media: MediaRef,
-  caption: z.string().optional(),
-  tag: z.string().optional(),
+export const LottiePlayerParams = z.object({
+  src: z.string(),
+  loop: z.boolean().default(true),
+  speed: z.number().default(1),
+  clipDuration: z.number().default(3),
 });
 
-export const GridGallerySlots = z.object({
-  items: z.array(GridItem).min(2).max(12),
-  columns: z.number().int().min(2).max(4).default(3),
+// ── 布局容器 ──
+
+export const ContainerParams = z.object({
   gap: z.enum(["sm", "md", "lg"]).default("md"),
+  align: z.enum(["start", "center", "end", "stretch"]).default("center"),
 });
-export type GridGallerySlots = z.infer<typeof GridGallerySlots>;
-export type GridItem = z.infer<typeof GridItem>;
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Tier 1: Template layout definition
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/** Maps each template to its slot schema — legacy, kept for backwards compat.
- *  New code should import slot schemas directly from template modules. */
-const SLOT_SCHEMAS = {
-  "hero-title": HeroTitleSlots,
-  "step-reveal": StepRevealSlots,
-  "data-spotlight": DataSpotlightSlots,
-  "side-by-side": SideBySideSlots,
-  "flow-diagram": FlowDiagramSlots,
-  "code-showcase": CodeShowcaseSlots,
-  "quote-card": QuoteCardSlots,
-  "grid-gallery": GridGallerySlots,
-  "timeline": z.object({ items: z.array(z.any()).min(2) }),
-  "comparison-table": z.object({ headers: z.array(z.string()), rows: z.array(z.any()) }),
-  "before-after": z.object({ before: z.any(), after: z.any() }),
-  "anatomy": z.object({ mainImage: z.any(), labels: z.array(z.any()) }),
-  "progress-bar": z.object({ value: z.number(), label: z.string() }),
-  "testimonial": z.object({ quote: z.string(), attribution: z.any() }),
-} as const satisfies Record<TemplateId, z.ZodObject<any>>;
-
-/** Legacy: get slot schema by template ID. Prefer importing directly from template module. */
-export function getSlotSchema(template: TemplateId): z.ZodObject<any> {
-  return SLOT_SCHEMAS[template];
-}
-
-export const TemplateLayout = z.object({
-  mode: z.literal("template"),
-  template: z.enum(TEMPLATE_IDS),
-  /** Template-specific visual variant */
-  variant: z.string().optional(),
-  /** Content slots — schema depends on template */
-  slots: z.record(z.string(), z.any()),
-  overrides: StyleOverrides.optional(),
+export const GridParams = ContainerParams.extend({
+  columns: z.number().int().min(1).max(4).default(2),
 });
-export type TemplateLayout = z.infer<typeof TemplateLayout>;
+export const SplitParams = z.object({
+  ratio: z.string().default("1fr 1fr"),
+  divider: z.enum(["none", "vs", "arrow", "line"]).default("line"),
+  leftLabel: z.string().optional(),
+  rightLabel: z.string().optional(),
+});
+export const CardParams = z.object({
+  padding: z.enum(["none", "sm", "md", "lg"]).default("md"),
+  border: z.boolean().default(true),
+  shadow: z.boolean().default(true),
+});
+
+// ── 装饰 ──
+
+export const DividerParams = z.object({
+  direction: z.enum(["horizontal", "vertical"]).default("horizontal"),
+  style: z.enum(["solid", "dashed", "gradient"]).default("solid"),
+  color: z.string().optional(),
+});
+export const BadgeParams = z.object({
+  text: z.string(),
+  color: z.string().optional(),
+  size: z.enum(["sm", "md"]).default("md"),
+});
+export const BorderBoxParams = z.object({
+  borderWidth: z.number().default(2),
+  borderColor: z.string().optional(),
+  padding: z.enum(["none", "sm", "md", "lg"]).default("md"),
+});
+export const GradientBgParams = z.object({
+  from: z.string().default("var(--accent)"),
+  to: z.string().default("transparent"),
+  direction: z.enum(["to-b", "to-r", "to-br", "to-t"]).default("to-b"),
+  opacity: z.number().min(0).max(1).default(0.15),
+});
+export const NoiseBgParams = z.object({
+  opacity: z.number().min(0).max(1).default(0.05),
+});
+export const PatternBgParams = z.object({
+  pattern: z.enum(["dots", "grid", "diagonal", "crosshatch"]).default("dots"),
+  opacity: z.number().min(0).max(1).default(0.08),
+  color: z.string().optional(),
+});
+export const GlowRingParams = z.object({
+  color: z.string().optional(),
+  size: z.number().default(200),
+  pulseSpeed: z.number().default(2),
+});
+
+// ── 动画/SVG ──
+
+export const DrawPathParams = z.object({
+  d: z.string().describe("SVG path data, e.g. 'M 0 540 L 1920 540'"),
+  strokeWidth: z.number().default(3),
+  color: z.string().optional(),
+  duration: z.number().default(2),
+});
+export const ParticleFieldParams = z.object({
+  behavior: z.enum(["flow", "burst", "orbit", "rain"]).default("flow"),
+  count: z.number().default(80),
+  color: z.string().optional(),
+  speed: z.number().default(1),
+});
+export const WaveFormParams = z.object({
+  variant: z.enum(["sine", "pulse", "noise", "bars"]).default("sine"),
+  cycles: z.number().default(2),
+  amplitude: z.number().default(0.15),
+  color: z.string().optional(),
+});
+export const MagneticFieldParams = z.object({
+  lineCount: z.number().default(12),
+  showParticles: z.boolean().default(true),
+  color: z.string().optional(),
+  accentColor: z.string().optional(),
+});
+export const CircuitFlowParams = z.object({
+  nodes: z.array(z.object({
+    id: z.string(),
+    x: z.number(), y: z.number(),
+    type: z.enum(["ic", "resistor", "capacitor", "dot"]).default("dot"),
+    label: z.string().optional(),
+  })),
+  wires: z.array(z.object({
+    from: z.string(), to: z.string(),
+    via: z.array(z.object({ x: z.number(), y: z.number() })).optional(),
+  })),
+  showCurrent: z.boolean().default(true),
+  duration: z.number().default(2),
+});
+export const TextGlowParams = z.object({
+  text: z.string(),
+  color: z.string().optional(),
+  intensity: z.number().default(1),
+});
+export const SvgRevealParams = z.object({
+  drawPath: z.string().optional(),
+  duration: z.number().default(1.5),
+});
+
+// ── 图表/图示 ──
+
+export const NetworkGraphParams = z.object({
+  nodes: z.array(z.object({
+    id: z.string(),
+    label: z.string(),
+    description: z.string().optional(),
+    icon: z.string().optional(),
+    highlight: z.boolean().default(false),
+  })),
+  edges: z.array(z.object({
+    from: z.string(), to: z.string(),
+    label: z.string().optional(),
+  })).optional(),
+  visibleNodes: z.number().int().optional(),
+  layout: z.enum(["horizontal", "vertical", "radial"]).default("horizontal"),
+});
+export const TimelineItemParams = z.object({
+  date: z.string(),
+  heading: z.string(),
+  body: z.string().optional(),
+  highlight: z.boolean().default(false),
+});
+export const ProcessArrowParams = z.object({
+  steps: z.array(z.object({ label: z.string(), description: z.string().optional() })),
+  direction: z.enum(["horizontal", "vertical"]).default("horizontal"),
+});
+export const VennDiagramParams = z.object({
+  sets: z.array(z.object({
+    label: z.string(),
+    size: z.number(),
+    color: z.string().optional(),
+    items: z.array(z.string()).optional(),
+  })).min(2).max(4),
+});
+export const GeoGlobeParams = z.object({
+  highlightRegions: z.array(z.string()).optional(),
+  rotationSpeed: z.number().default(0.3),
+});
+
+// ── 包装器 ──
+
+export const RevealParams = z.object({
+  from: z.enum(["up", "down", "left", "right", "none"]).default("up"),
+  delay: z.number().default(0),
+  duration: z.number().default(0.7),
+  distance: z.number().default(32),
+});
+export const StaggerParams = z.object({
+  interval: z.number().default(0.12),
+  delay: z.number().default(0),
+  duration: z.number().default(0.6),
+  from: z.enum(["up", "down", "left", "right", "none"]).default("up"),
+});
+
+/** Map primitive ID → Zod params schema */
+export const PRIMITIVE_PARAMS: Record<string, z.ZodObject<any>> = {
+  Headline: HeadlineParams, Body: BodyParams, Kicker: KickerParams,
+  PullQuote: PullQuoteParams, Caption: CaptionParams, TypeWriter: TypeWriterParams,
+  Counter: CounterParams, StatCard: StatCardParams, BigNumber: BigNumberParams,
+  BarChart: BarChartParams, LineChart: LineChartParams, PieChart: PieChartParams,
+  Gauge: GaugeParams,
+  ImageFrame: ImageFrameParams, VideoFrame: VideoFrameParams,
+  Avatar: AvatarParams, LottiePlayer: LottiePlayerParams,
+  Grid: GridParams, FlexRow: ContainerParams, FlexCol: ContainerParams,
+  Split: SplitParams, Card: CardParams,
+  Divider: DividerParams, Badge: BadgeParams, BorderBox: BorderBoxParams,
+  GradientBg: GradientBgParams, NoiseBg: NoiseBgParams,
+  PatternBg: PatternBgParams, GlowRing: GlowRingParams,
+  DrawPath: DrawPathParams, ParticleField: ParticleFieldParams,
+  WaveForm: WaveFormParams, MagneticField: MagneticFieldParams,
+  CircuitFlow: CircuitFlowParams, TextGlow: TextGlowParams,
+  SvgReveal: SvgRevealParams,
+  NetworkGraph: NetworkGraphParams, TimelineItem: TimelineItemParams,
+  ProcessArrow: ProcessArrowParams, VennDiagram: VennDiagramParams,
+  GeoGlobe: GeoGlobeParams,
+  Reveal: RevealParams, Stagger: StaggerParams,
+  StickMan: z.object({ action: z.enum(["walk","wave","think","celebrate","idle","point"]).default("idle"), color: z.string().optional(), size: z.number().default(180), duration: z.number().default(3), delay: z.number().default(0) }),
+  BarRace: z.object({ data: z.array(z.object({ label: z.string(), value: z.number(), color: z.string().optional() })), showLabels: z.boolean().default(true), duration: z.number().default(2), delay: z.number().default(0) }),
+  FaceMorph: z.object({ emotion: z.enum(["happy","surprised","thinking","sweat","angry","neutral"]).default("happy"), size: z.number().default(120), color: z.string().optional(), duration: z.number().default(1.5), delay: z.number().default(0) }),
+  LiquidPour: z.object({ value: z.number().default(65), max: z.number().default(100), label: z.string().default(""), unit: z.string().default("%"), color: z.string().optional(), duration: z.number().default(2), delay: z.number().default(0) }),
+  PlantGrow: z.object({ stages: z.number().int().min(1).max(5).default(4), color: z.string().optional(), size: z.number().default(160), duration: z.number().default(3), delay: z.number().default(0) }),
+  GearMechanism: z.object({ gears: z.number().int().min(1).max(5).default(2), color: z.string().optional(), size: z.number().default(160), speed: z.number().default(1) }),
+  CalendarFlip: z.object({ pages: z.number().int().min(2).max(12).default(4), color: z.string().optional(), size: z.number().default(160), duration: z.number().default(3), delay: z.number().default(0) }),
+  Constellation: z.object({ stars: z.number().int().min(3).max(20).default(8), color: z.string().optional(), size: z.number().default(200), duration: z.number().default(3), delay: z.number().default(0) }),
+  RocketLaunch: z.object({ size: z.number().default(200), color: z.string().optional(), duration: z.number().default(4), delay: z.number().default(0), autoPlay: z.boolean().default(true) }),
+  FunnelFilter: z.object({ particleCount: z.number().default(60), stages: z.number().int().min(1).max(5).default(3), color: z.string().optional(), size: z.number().default(240), duration: z.number().default(4), delay: z.number().default(0) }),
+  DominoEffect: z.object({ count: z.number().int().min(3).max(30).default(10), color: z.string().optional(), size: z.number().default(280), labels: z.array(z.string()).optional(), duration: z.number().default(3.5), delay: z.number().default(0) }),
+  Storm2Calm: z.object({ color: z.string().optional(), size: z.number().default(260), duration: z.number().default(4.5), delay: z.number().default(0) }),
+  Hourglass: z.object({ value: z.number().default(50), color: z.string().optional(), size: z.number().default(180), duration: z.number().default(4), delay: z.number().default(0) }),
+  PuzzleAssembly: z.object({ pieces: z.number().int().min(4).max(30).default(12), color: z.string().optional(), size: z.number().default(240), title: z.string().default(""), duration: z.number().default(4), delay: z.number().default(0) }),
+  PaperPlane: z.object({ color: z.string().optional(), size: z.number().default(240), message: z.string().default(""), duration: z.number().default(4.5), delay: z.number().default(0) }),
+  HologramReveal: z.object({ color: z.string().optional(), size: z.number().default(220), shape: z.enum(["cube","sphere","diamond"]).default("cube"), duration: z.number().default(4.5), delay: z.number().default(0) }),
+  MoonPhase: z.object({ speed: z.number().default(1), size: z.number().default(200) }),
+  FlowChart: z.object({ nodes: z.array(z.object({ id:z.number(), label:z.string(), sub:z.string().optional(), error:z.boolean().optional() })).optional(), duration: z.number().default(2.5), color: z.string().optional(), size: z.number().default(260) }),
+  LineDraw: z.object({ title: z.string().default("ARCHITECTURE"), color: z.string().optional(), size: z.number().default(260), duration: z.number().default(3.5) }),
+  LoadingAnim: z.object({ value: z.number().default(67), label: z.string().default("Loading"), color: z.string().optional(), size: z.number().default(160) }),
+  GameScene: z.object({ mazeSize: z.number().int().min(6).max(24).default(12), color: z.string().optional(), size: z.number().default(240) }),
+  Editorial: z.object({ title: z.string().default("BEYOND THE HORIZON"), subtitle: z.string().default(""), color: z.string().optional(), size: z.number().default(280) }),
+  CowCharacter: z.object({ action: z.enum(["idle","walk","wave","celebrate","charge","point"]).default("idle"), color: z.string().default("#8B5E3C"), spotColor: z.string().default("#6B3F2A"), size: z.number().default(200), duration: z.number().default(3), delay: z.number().default(0) }),
+  Volcano: z.object({ color: z.string().optional(), size: z.number().default(240), duration: z.number().default(4.5), delay: z.number().default(0) }),
+  HandGesture: z.object({ gesture: z.enum(["thumbsUp","counting","okSign","pointing","clap","wave"]).default("thumbsUp"), num: z.number().default(5), color: z.string().optional(), size: z.number().default(120), duration: z.number().default(2), delay: z.number().default(0) }),
+};
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Tier 2: Composed mode — primitives assembly
+// Layout definition — composed mode only
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const PrimitiveCall = z.object({
   primitive: z.enum(PRIMITIVE_IDS),
   params: z.record(z.string(), z.any()).default({}),
-  /** CSS class name to wrap this primitive */
   className: z.string().optional(),
+  /** Nested regions — only for container primitives (Grid/FlexRow/FlexCol/Split/Card/BorderBox) */
+  children: z.array(z.lazy(() => RegionDef)).optional(),
 });
+export type PrimitiveCall = z.infer<typeof PrimitiveCall>;
 
 export const RegionDef = z.object({
-  /** A single primitive or a list (rendered in order) */
-  content: z.union([PrimitiveCall, z.array(PrimitiveCall)]),
-  /** Position/sizing hints */
-  gridArea: z.string().optional().describe("CSS grid-area name for grid layouts"),
-  flex: z.string().optional().describe("flex shorthand for split layouts"),
-  /** CSS that gets applied to the region container */
+  /** PrimitiveCall, array of PrimitiveCall, or a nested LayoutDef for recursive layouts */
+  content: z.union([PrimitiveCall, z.array(PrimitiveCall), z.lazy(() => LayoutDef)]),
+  gridArea: z.string().optional(),
+  flex: z.string().optional(),
   style: z.record(z.string(), z.string()).optional(),
 });
+export type RegionDef = z.infer<typeof RegionDef>;
 
 export const AnimationDef = z.object({
   target: z.string().describe("Region name to animate"),
   effect: z.enum(["fadeIn", "slideUp", "slideLeft", "slideRight", "scaleIn", "drawPath"]),
-  delay: z.number().min(0).default(0).describe("Delay in seconds"),
-  duration: z.number().positive().default(0.6).describe("Duration in seconds"),
+  delay: z.number().min(0).default(0),
+  duration: z.number().positive().default(0.6),
 });
 
-export const ComposedLayout = z.object({
-  mode: z.literal("composed"),
-  /** Top-level layout strategy */
+export const LayoutDef = z.object({
   layout: z.enum(["stack", "grid", "split", "center", "absolute"]),
-  /** For grid: CSS grid-template definition */
-  gridTemplate: z.string().optional().describe("e.g. '1fr 1fr / 1fr 1fr'"),
-  /** Regions keyed by name, referenced by animations */
+  gridTemplate: z.string().optional(),
   regions: z.record(z.string(), RegionDef),
-  /** Entrance animations */
   animations: z.array(AnimationDef).optional(),
-  /** Optional CSS to inject for this step */
   extraCSS: z.string().optional(),
   overrides: StyleOverrides.optional(),
 });
-export type ComposedLayout = z.infer<typeof ComposedLayout>;
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Tier 3: Custom mode — raw code escape hatch
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export const CustomLayout = z.object({
-  mode: z.literal("custom"),
-  /** Extra import statements to prepend */
-  imports: z.array(z.string()).optional(),
-  /** The JSX body for this step (must use design tokens, no hard-coded colors) */
-  jsx: z.string().describe("JSX body — must use var(--token) for colors, var(--font-*) for fonts"),
-  /** Scoped CSS for this step */
-  css: z.string().optional(),
-});
-export type CustomLayout = z.infer<typeof CustomLayout>;
-
-// ═══════════════════════════════════════════════════════════════════════════════
-// Chapter Step Definition
-// ═══════════════════════════════════════════════════════════════════════════════
-
-export const LayoutDef = z.discriminatedUnion("mode", [
-  TemplateLayout,
-  ComposedLayout,
-  CustomLayout,
-]);
 export type LayoutDef = z.infer<typeof LayoutDef>;
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Chapter Step + Blueprint
+// ═══════════════════════════════════════════════════════════════════════════════
+
 export const ChapterStepDef = z.object({
-  /** Spoken narration for this step (empty string = silent transition) */
   narration: z.string().default(""),
-  /** What appears on screen */
   layout: LayoutDef,
-  /** Optional override: display duration in seconds */
   durationSec: z.number().positive().optional(),
 
-  // ── 节奏控制 (pacing) ─────────────────────────────────────────────────
   pacing: z.object({
-    /** 入场方式 */
     entry: z.enum(["reveal", "cut", "dissolve", "wipe", "push"]).default("cut"),
-    /** 入场动画时长 ms */
     entryDurationMs: z.number().min(0).max(3000).default(400),
-    /** 退场方式 */
     exit: z.enum(["hold", "dissolve", "cut", "slide-out"]).default("cut"),
-    /** 退场动画时长 ms */
     exitDurationMs: z.number().min(0).max(3000).default(300),
-    /** 切入后静默停顿 ms */
     preHoldMs: z.number().min(0).max(5000).default(0),
-    /** 旁白结束后的停留 ms */
     postHoldMs: z.number().min(0).max(5000).default(500),
-    /** 旁白与视觉的时序关系 */
     narrationTiming: z.enum(["sync", "visual-first", "audio-first"]).default("sync"),
-    /** 能量级别 (影响 BGM 匹配和动画幅度) */
     energy: z.enum(["calm", "moderate", "high", "peak"]).optional(),
   }).optional(),
 
-  /** 蒙太奇模式：多步快速切换，无旁白 */
   microSteps: z.array(z.object({
     layout: LayoutDef,
     holdMs: z.number().min(300).max(3000),
     transition: z.enum(["cut", "dissolve"]).default("cut"),
-  })).max(8).optional().describe("蒙太奇连续切换，无旁白"),
+  })).max(8).optional(),
 
-  /** 素材绑定提示 */
   assetHint: z.object({
     assetName: z.string(),
     placement: z.enum(["fill", "overlay", "inset"]),
@@ -410,25 +540,16 @@ export const ChapterStepDef = z.object({
 });
 export type ChapterStepDef = z.infer<typeof ChapterStepDef>;
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// Full Chapter Blueprint
-// ═══════════════════════════════════════════════════════════════════════════════
-
 export const ChapterBlueprint = z.object({
-  /** Chapter identifier, slug format (e.g. "why-matter", "02-solution") */
   chapterId: z
     .string()
     .min(2)
     .max(64)
     .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, "Must be slug format"),
-  /** Human-readable chapter title */
   title: z.string().min(1).max(100),
-  /** Ordered steps — one per screen/narration segment */
   steps: z.array(ChapterStepDef).min(1).max(20),
-  /** Optional: order hint for generated file naming */
   orderHint: z.number().int().min(0).optional(),
 
-  // ── 章节转场 ───────────────────────────────────────────────────────────
   transition: z.object({
     into: z.enum(["fade-black", "dissolve", "slide", "zoom", "none"]).default("fade-black"),
     intoDurationMs: z.number().min(0).max(3000).default(600),
@@ -438,24 +559,42 @@ export const ChapterBlueprint = z.object({
     titleCardDurationMs: z.number().min(500).max(5000).default(2000),
   }).optional(),
 
-  // ── BGM 节拍同步 ───────────────────────────────────────────────────────
   bgmSync: z.object({
-    bpm: z.number().positive().optional().describe("BGM beats per minute"),
-    beatAlign: z.enum(["off", "chapter", "step"]).default("off").describe("对齐精度"),
-    offsetBeats: z.number().int().min(0).default(0).describe("从第几拍开始"),
+    bpm: z.number().positive().optional(),
+    beatAlign: z.enum(["off", "chapter", "step"]).default("off"),
+    offsetBeats: z.number().int().min(0).default(0),
   }).optional(),
 });
 export type ChapterBlueprint = z.infer<typeof ChapterBlueprint>;
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Blueprint Generation Metadata (returned from LLM via ProjectSetChapter tool)
+// Backward-compat helpers (for old template/custom blueprints still on disk)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export const BlueprintMetadata = z.object({
-  chapterId: z.string(),
-  title: z.string(),
-  stepCount: z.number().int(),
-  templateCounts: z.record(z.enum(TEMPLATE_IDS), z.number()).optional(),
-  customStepCount: z.number().int().default(0),
-});
-export type BlueprintMetadata = z.infer<typeof BlueprintMetadata>;
+/** Old template IDs — kept for compat, not used in new blueprints */
+export const LEGACY_TEMPLATE_IDS = [
+  "hero-title", "step-reveal", "data-spotlight", "side-by-side",
+  "flow-diagram", "code-showcase", "quote-card", "grid-gallery",
+  "timeline", "comparison-table", "before-after", "anatomy",
+  "progress-bar", "testimonial",
+] as const;
+
+export type LegacyTemplateId = (typeof LEGACY_TEMPLATE_IDS)[number];
+
+/** Accept old blueprint shapes at the Zod level, normalize to LayoutDef */
+export const LegacyLayoutDef = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("template"),
+    template: z.enum(LEGACY_TEMPLATE_IDS),
+    variant: z.string().optional(),
+    slots: z.record(z.string(), z.any()),
+    overrides: StyleOverrides.optional(),
+  }),
+  LayoutDef.extend({ mode: z.literal("composed").optional() }),
+  z.object({
+    mode: z.literal("custom"),
+    imports: z.array(z.string()).optional(),
+    jsx: z.string(),
+    css: z.string().optional(),
+  }),
+]);

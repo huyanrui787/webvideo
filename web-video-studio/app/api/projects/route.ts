@@ -6,6 +6,7 @@ import { ensureProjectDir } from "@/lib/projects";
 import { getUserId, getUserRole } from "@/lib/api-helpers";
 import { nanoid } from "nanoid";
 import { desc, eq, isNull, or } from "drizzle-orm";
+import { ILLUSTRATION_SKILL_ID, MAIN_SKILL_ID, ANIMATION_SKILL_ID } from "@/lib/skills";
 
 export async function GET(req: Request) {
   const userId = getUserId(req);
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
   const userId = getUserId(req);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title, projectType, projectFormat, articleContent, drawPrompt } = await req.json();
+  const { title, projectType, projectFormat, articleContent, drawPrompt, styleConfig } = await req.json();
   if (!title?.trim()) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
@@ -41,6 +42,10 @@ export async function POST(req: Request) {
   const resolvedType: ProjectType =
     (projectType as ProjectType) ??
     (projectFormat === "draw" ? "illustration-video" : "article");
+
+  const isIllust = resolvedType === "illustration-video" || resolvedType === "illustrated-article";
+  const isAnim = resolvedType === "animation-video";
+  const mainSkillId = isAnim ? ANIMATION_SKILL_ID : (isIllust ? ILLUSTRATION_SKILL_ID : MAIN_SKILL_ID);
 
   // Use drawPrompt as initial article content when in draw mode
   const initialContent = drawPrompt || articleContent || "";
@@ -65,17 +70,22 @@ export async function POST(req: Request) {
     title: title.trim(),
     status: "writing",
     projectType: resolvedType,
+    mainSkillId,
     model: chatModel,
     codingModel: codeModel,
+    styleConfig: styleConfig ? JSON.stringify(styleConfig) : "{}",
     createdAt: now,
     updatedAt: now,
   });
 
   ensureProjectDir(id);
 
-  // Auto-scaffold: start VIte + React project immediately in background
-  const { startScaffold } = await import("@/lib/scaffold");
-  startScaffold(id, "midnight-press", "landscape", resolvedType === "illustration-video" ? "video" : (projectFormat ?? "video"));
+  // Illustration projects use IllustPlayer — no Vite scaffold needed.
+  // animation-video and standard video both need full Vite scaffold.
+  if (!isIllust) {
+    const { startScaffold } = await import("@/lib/scaffold");
+    startScaffold(id, "midnight-press", "landscape", projectFormat ?? "video", mainSkillId);
+  }
 
   // Write initial article content if provided
   if (initialContent) {

@@ -19,6 +19,10 @@ const PUBLIC_API_PATTERNS = [
   /^\/api\/billing\/payments\/wechat\/notify$/,
   // Manim check — lightweight readiness check, no auth needed
   /^\/api\/manim\/check$/,
+  // Style analysis — no project data, just AI vision
+  /^\/api\/analyze-style$/,
+  // Preset previews — public, no auth needed
+  /^\/api\/illustration-presets$/,
   // DMG download — public
   /^\/api\/download$/,
 ];
@@ -36,11 +40,16 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Allow /draw SPA and static assets without auth
-  // (API calls under /api/draw/ are protected by individual route handlers)
-  if (pathname.startsWith("/draw") && !pathname.startsWith("/api/")) {
+  // Redirect old showcase root to primitives
+  if (pathname === "/showcase") {
+    return NextResponse.redirect(new URL("/showcase/primitives", req.url));
+  }
+
+  // Allow showcase pages (primitive demo, design system) without auth
+  if (pathname.startsWith("/showcase") && !pathname.startsWith("/api/")) {
     return NextResponse.next();
   }
+
 
   // Allow share pages and API without auth (public sharing)
   if (pathname.startsWith("/share") || pathname.startsWith("/api/share")) {

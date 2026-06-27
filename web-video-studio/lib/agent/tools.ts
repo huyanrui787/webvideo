@@ -11,6 +11,9 @@ import {
 } from "@/lib/projects";
 import { getManimVenvDir } from "@/lib/env";
 import { publishProjectEvent } from "@/lib/events";
+import { importShotsFromIllustrations, spawnIllustrationGeneration } from "@/lib/illustration-pipeline";
+import { importShotsFromAnimations, spawnAnimationGeneration } from "@/lib/animation-pipeline";
+import { triggerVideoScaffold } from "@/lib/video-pipeline";
 import { db } from "@/lib/db";
 import { projects } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -205,6 +208,83 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           if (err) return { error: err };
         }
         writeProjectFile(projectId, path, content);
+
+        // Auto-trigger audio synthesis when script.md is written
+        if (path === "script.md") {
+          const presDir = path.join(projectDir(projectId), "presentation");
+          const scriptsDir = path.join(presDir, "scripts");
+          if (fs.existsSync(path.join(scriptsDir, "synthesize-audio.sh"))) {
+            const { spawn } = require("child_process");
+            const segPath = path.join(presDir, "audio-segments.json");
+
+            // If chapters don't exist yet, extract directly from script.md
+            const chaptersDir = path.join(presDir, "src/chapters");
+            const hasChapters = fs.existsSync(chaptersDir) && fs.readdirSync(chaptersDir).filter(d => !d.startsWith(".") && !d.startsWith("__")).length > 0;
+
+            if (!hasChapters) {
+              // Extract from script.md directly — split by --- separators
+              const scriptPath = path.join(projectDir(projectId), "script.md");
+              if (fs.existsSync(scriptPath)) {
+                const text = fs.readFileSync(scriptPath, "utf-8");
+                const segments = text.split("---").map(s => s.trim()).filter(Boolean)
+                  .map((s, i) => ({ chapter: "step", step: i + 1, text: s.replace(/^\[.*?\]\s*/, "").trim() }));
+                fs.mkdirSync(path.dirname(segPath), { recursive: true });
+                fs.writeFileSync(segPath, JSON.stringify(segments, null, 2));
+                // Now synthesize
+                const synth = spawn("npm", ["run", "synthesize-audio"], {
+                  cwd: presDir, stdio: "ignore", detached: true, env: { ...process.env },
+                });
+                synth.unref();
+              }
+            } else {
+              // Chapters exist — use standard extract + synthesize
+              const extract = spawn("npm", ["run", "extract-narrations"], {
+                cwd: presDir, stdio: "ignore", env: { ...process.env },
+              });
+              extract.on("close", () => {
+                const synth = spawn("npm", ["run", "synthesize-audio"], {
+                  cwd: presDir, stdio: "ignore", detached: true, env: { ...process.env },
+                });
+                synth.unref();
+              });
+            }
+            // Write initial status so the frontend sees "running" immediately
+            const statusFile = path.join(presDir, ".synth-status.json");
+            try { fs.writeFileSync(statusFile, JSON.stringify({ status: "running", completed: 0, total: 0 })); } catch {}
+            console.log(`[audio] Auto-synthesis started for ${projectId}`);
+          }
+        }
+
+        // Auto-trigger illustration generation when AI writes illustrations.json
+        if (path === "illustrations.json") {
+          try {
+            const proj = await db.query.projects.findFirst({
+              where: (p, { eq }) => eq(p.id, projectId),
+              columns: { projectType: true },
+            });
+            if (proj?.projectType === "illustration-video" || proj?.projectType === "illustrated-article") {
+              const parsed = JSON.parse(content);
+              const shotCount = parsed.shots?.length ?? 0;
+              publishProjectEvent(projectId, "illustrations-ready", { shotCount });
+            }
+          } catch { /* best-effort */ }
+        }
+
+        // Auto-trigger animation generation when AI writes animations.json
+        if (path === "animations.json") {
+          try {
+            const proj = await db.query.projects.findFirst({
+              where: (p, { eq }) => eq(p.id, projectId),
+              columns: { projectType: true },
+            });
+            if (proj?.projectType === "animation-video") {
+              const parsed = JSON.parse(content);
+              const shotCount = parsed.shots?.length ?? 0;
+              publishProjectEvent(projectId, "animations-ready", { shotCount });
+            }
+          } catch { /* best-effort */ }
+        }
+
         return { success: true, path };
       },
     }),
@@ -295,9 +375,8 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
 
     ProjectSetChapter: tool({
       description:
-        "提交一个章节 Blueprint JSON，系统自动编译为 TSX/CSS/narrations 代码，写入文件，注册章节，并运行 tsc 验证。" +
-        "Blueprint 是结构化数据，不是代码。LLM 填模板槽位即可，编译器保证代码正确性。" +
-        "支持 14 个模板：hero-title, step-reveal, data-spotlight, side-by-side, flow-diagram, code-showcase, quote-card, grid-gallery, timeline, comparison-table, before-after, anatomy, progress-bar, testimonial。" +
+        "提交一个章节 Blueprint JSON，系统自动编译为 TSX/CSS/narrations 代码，写入文件并运行 tsc 验证。" +
+        "Blueprint 是结构化 JSON 数据，不是代码。使用 composed 模式，5 种布局 × 42 种 primitive 自由拼装。" +
         "每章只需调用一次此工具，不要手工写 TSX/CSS/narrations！",
       inputSchema: z.object({
         chapterId: z.string().min(2).describe("章节 slug，如 'why-matter'"),
@@ -305,17 +384,12 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
         steps: z.array(z.object({
           narration: z.string().default("").describe("该步口播文本"),
           layout: z.object({
-            mode: z.enum(["template","composed","custom"]),
-            template: z.enum(["hero-title","step-reveal","data-spotlight","side-by-side","flow-diagram","code-showcase","quote-card","grid-gallery","timeline","comparison-table","before-after","anatomy","progress-bar","testimonial"]).optional(),
-            variant: z.string().optional(),
-            slots: z.record(z.string(), z.any()).optional(),
-            overrides: z.object({ backgroundStyle: z.enum(["solid","gradient-subtle","gradient-bold","noise"]).optional(), extraClasses: z.string().optional() }).optional(),
-            layoutComp: z.enum(["stack","grid","split","center","absolute"]).optional(),
-            regions: z.record(z.string(), z.object({ content: z.any(), gridArea: z.string().optional(), flex: z.string().optional() })).optional(),
-            animations: z.array(z.object({ target: z.string(), effect: z.enum(["fadeIn","slideUp","slideLeft","slideRight","scaleIn"]), delay: z.number().min(0).default(0), duration: z.number().positive().default(0.6) })).optional(),
-            imports: z.array(z.string()).optional(),
-            jsx: z.string().optional(),
-            css: z.string().optional(),
+            layout: z.enum(["stack","grid","split","center","absolute"]).default("center"),
+            gridTemplate: z.string().optional(),
+            regions: z.record(z.string(), z.object({ content: z.any(), gridArea: z.string().optional(), flex: z.string().optional(), style: z.record(z.string(), z.string()).optional() })),
+            animations: z.array(z.object({ target: z.string(), effect: z.enum(["fadeIn","slideUp","slideLeft","slideRight","scaleIn","drawPath"]), delay: z.number().min(0).default(0), duration: z.number().positive().default(0.6) })).optional(),
+            extraCSS: z.string().optional(),
+            overrides: z.object({ backgroundStyle: z.enum(["solid","gradient-subtle","gradient-bold","noise"]).optional(), extraClasses: z.string().optional(), textAlign: z.enum(["left","center","right"]).optional(), accentColor: z.string().optional(), customProperties: z.record(z.string(), z.string()).optional() }).optional(),
           }),
         })).min(1).max(20),
         orderHint: z.number().int().min(0).optional(),
@@ -331,7 +405,7 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
         };
         const { validated, result } = validateBlueprint(bp);
         if (!validated) {
-          recordValidationFailure(projectId, bp.chapterId, bp, bp.steps[0]?.layout?.template, result.issues);
+          recordValidationFailure(projectId, bp.chapterId, bp, "composed", result.issues);
           return { success: false, error: formatValidationResult(result), issues: result.issues };
         }
         // Check for existing chapter before overwriting
@@ -346,7 +420,7 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
         let generated: GeneratedChapter;
         try { generated = compileChapter(validated!); }
         catch (err: any) {
-          recordCompilationFailure(projectId, bp.chapterId, bp, bp.steps[0]?.layout?.template, err.message);
+          recordCompilationFailure(projectId, bp.chapterId, bp, "composed", err.message);
           return { success: false, error: `Compile: ${err.message}` };
         }
         const chaptersDir = `presentation/src/chapters/${bp.chapterId}`;
@@ -393,7 +467,7 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
             }
             if (chapterErrors.length > 0) {
               tscWarning = `本章 tsc 错误:\n${chapterErrors.join("\n").slice(-800)}`;
-              recordTscFailure(projectId, bp.chapterId, bp, bp.steps[0]?.layout?.template, chapterErrors.join("\n"));
+              recordTscFailure(projectId, bp.chapterId, bp, "composed", chapterErrors.join("\n"));
             }
           }
         } catch (tscErr: any) {
@@ -424,6 +498,7 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           try {
             await db.update(projects).set({ status: "done" as ProjectStatus, updatedAt: Math.floor(Date.now() / 1000) }).where(eq(projects.id, projectId));
             publishProjectEvent(projectId, "status-change", { status: "done", auto: true });
+            console.log(`[ProjectSetChapter] Auto-done: chapter ${bp.chapterId} built, all chapters complete`);
           } catch (err: any) { console.warn("[ProjectSetChapter] Auto-done failed:", err?.message ?? err); }
         }
 
@@ -451,17 +526,11 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           steps: z.array(z.object({
             narration: z.string().default("").describe("该步口播文本"),
             layout: z.object({
-              mode: z.enum(["template","composed","custom"]),
-              template: z.enum(["hero-title","step-reveal","data-spotlight","side-by-side","flow-diagram","code-showcase","quote-card","grid-gallery","timeline","comparison-table","before-after","anatomy","progress-bar","testimonial"]).optional(),
-              variant: z.string().optional(),
-              slots: z.record(z.string(), z.any()).optional(),
+              mode: z.enum(["composed"]),
               overrides: z.object({ backgroundStyle: z.enum(["solid","gradient-subtle","gradient-bold","noise"]).optional(), extraClasses: z.string().optional() }).optional(),
               layoutComp: z.enum(["stack","grid","split","center","absolute"]).optional(),
               regions: z.record(z.string(), z.object({ content: z.any(), gridArea: z.string().optional(), flex: z.string().optional() })).optional(),
-              animations: z.array(z.object({ target: z.string(), effect: z.enum(["fadeIn","slideUp","slideLeft","slideRight","scaleIn"]), delay: z.number().min(0).default(0), duration: z.number().positive().default(0.6) })).optional(),
-              imports: z.array(z.string()).optional(),
-              jsx: z.string().optional(),
-              css: z.string().optional(),
+              animations: z.array(z.object({ target: z.string(), effect: z.enum(["fadeIn","slideUp","slideLeft","slideRight","scaleIn","drawPath"]), delay: z.number().min(0).default(0), duration: z.number().positive().default(0.6) })).optional(),
             }),
           })).min(1).max(20),
           orderHint: z.number().int().min(0).optional(),
@@ -487,7 +556,7 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
           };
           const { validated, result } = validateBlueprint(bp);
           if (!validated) {
-            recordValidationFailure(projectId, bp.chapterId, bp, bp.steps[0]?.layout?.template, result.issues);
+            recordValidationFailure(projectId, bp.chapterId, bp, "composed", result.issues);
             results.push({ chapterId: input.chapterId, title: input.title, success: false, error: formatValidationResult(result) });
           } else {
             results.push({ chapterId: input.chapterId, title: input.title, success: true, compiled: validated });
@@ -571,22 +640,39 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
                 ? fs.readdirSync(chaptersDir).filter(d => !d.startsWith(".") && !d.startsWith("__") && d !== "01-example")
                 : [];
               buildComplete = outlineChapters > 0 && builtDirs.length >= outlineChapters;
+              // If build is complete, clean up orphan directories from previous sessions
+              if (buildComplete) {
+                const builtIds = new Set(built.map(r => r.chapterId));
+                for (const dir of builtDirs) {
+                  if (!builtIds.has(dir)) {
+                    try { fs.rmSync(path.join(chaptersDir, dir), { recursive: true, force: true }); } catch {}
+                  }
+                }
+              }
             }
-          } catch { /* best-effort */ }
+          } catch (err: any) { console.warn("[ProjectSetChapters] Completion check failed:", err?.message ?? err); }
         }
 
-        // ── Auto-done: only if all chapters built AND tsc clean (safer) ──
+        // ── Auto-done: only if all submitted blueprints built AND tsc clean ──
         const tscClean = !tscWarning;
-        if (buildComplete && tscClean) {
+        // Also check: if we built as many or more chapters than the outline requires, we're done
+        const builtEnough = built.length >= (results.length > 0 ? results.length : 1);
+        const shouldAutoDone = buildComplete && tscClean;
+        if (shouldAutoDone) {
           try {
             await db
               .update(projects)
               .set({ status: "done" as ProjectStatus, updatedAt: Math.floor(Date.now() / 1000) })
               .where(eq(projects.id, projectId));
             publishProjectEvent(projectId, "status-change", { status: "done", auto: true });
+            console.log(`[ProjectSetChapters] Auto-done: ${built.length} chapters built, outline=${outlineChapters || "N/A"}, tsc=${tscClean ? "clean" : "warnings"}`);
           } catch (err: any) {
-            console.warn("[ProjectSetChapters] Auto-done failed:", err?.message ?? err);
+            console.warn("[ProjectSetChapters] Auto-done DB update failed:", err?.message ?? err);
           }
+        } else if (buildComplete && !tscClean) {
+          console.log(`[ProjectSetChapters] Build complete but tsc not clean — auto-done blocked. tscWarning: ${tscWarning?.slice(0, 200)}`);
+        } else if (!buildComplete) {
+          console.log(`[ProjectSetChapters] Not all chapters built yet (${built.length} built, ${failed.length} failed, outline may need more)`);
         }
 
         return {
@@ -604,73 +690,6 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
       },
     }),
 
-    ProjectRecommendTemplates: tool({
-      description:
-        "根据章节内容特征和语调，推荐最适合的模板组合。在编写 Blueprint 之前调用此工具，获取模板建议。" +
-        "适用于：不确定该用什么模板、内容类型超出常规范围、需要混合使用多个模板。",
-      inputSchema: z.object({
-        chapterContent: z.string().describe("章节内容摘要或要点（200字以内）"),
-        tone: z.enum(["technical", "story", "data-driven", "persuasive", "tutorial"]).describe("内容语调"),
-        hasUserAssets: z.boolean().default(false).describe("是否有用户上传的图片/视频素材"),
-        highlightType: z.enum(["comparison", "process", "statistic", "concept", "code", "showcase"]).describe("核心表达需求"),
-      }),
-      execute: async ({ chapterContent, tone, hasUserAssets, highlightType }) => {
-        // ── Template recommendation rules ──────────────────────────────
-        const rules: Record<string, { templates: string[]; reason: string }> = {
-          "technical:comparison": { templates: ["side-by-side", "data-spotlight"], reason: "技术对比适合左右对照 + 核心数据强调" },
-          "technical:process": { templates: ["flow-diagram", "step-reveal"], reason: "技术流程适合流程节点图 + 分步揭示" },
-          "technical:code": { templates: ["code-showcase", "side-by-side"], reason: "代码展示为主，可配合对照面板" },
-          "technical:concept": { templates: ["hero-title", "flow-diagram", "step-reveal"], reason: "概念讲解：标题定调 + 流程图/分步展开" },
-          "story:process": { templates: ["step-reveal", "quote-card", "hero-title"], reason: "故事叙述适合分步展开 + 引用点睛 + 标题开场" },
-          "story:concept": { templates: ["hero-title", "quote-card", "grid-gallery"], reason: "感性概念：标题渲染情绪 + 引用 + 图片叙事" },
-          "data-driven:statistic": { templates: ["data-spotlight", "comparison-table", "progress-bar"], reason: "数据驱动适合核心数字 + 对比表格 + 进度条" },
-          "data-driven:comparison": { templates: ["side-by-side", "data-spotlight", "comparison-table"], reason: "数据对比：左右对照 + 数据高亮 + 对比表" },
-          "persuasive:comparison": { templates: ["side-by-side", "before-after", "quote-card"], reason: "说服型对比：前后对比 + 引用背书" },
-          "persuasive:concept": { templates: ["hero-title", "data-spotlight", "testimonial"], reason: "说服概念：强势标题 + 关键数字 + 客户证言" },
-          "tutorial:process": { templates: ["step-reveal", "code-showcase", "anatomy"], reason: "教程流程：分步 + 代码展示 + 界面标注" },
-          "tutorial:code": { templates: ["code-showcase", "step-reveal", "side-by-side"], reason: "代码教程：代码主视觉 + 分步讲解" },
-        };
-
-        const key = `${tone}:${highlightType}`;
-        const match = rules[key] ?? { templates: ["step-reveal", "hero-title", "data-spotlight"], reason: "通用推荐：分步展开 + 标题 + 数据支撑" };
-
-        // Adjust if user has assets
-        let bonusTemplates: string[] = [];
-        if (hasUserAssets) {
-          bonusTemplates = ["grid-gallery", "anatomy"];
-        }
-
-        const recommendations = [...new Set([...match.templates, ...bonusTemplates])];
-
-        // ── Detailed guidance per template ──────────────────────────────
-        const guidance: Record<string, string> = {
-          "hero-title": "用于章节开场或核心理念陈述。只需 kicker + title + subtitle 三个槽位。",
-          "step-reveal": "用于分点论述、操作步骤、要点总结。每步 = heading + body + 可选 media。",
-          "data-spotlight": "用于放大核心数字。primaryValue + primaryLabel + context。适合 1-2 个关键指标。",
-          "side-by-side": "用于对比、选择决策。left + right 各一个 panel，divider 用 vs/arrow/none。",
-          "flow-diagram": "用于流程、链路、架构。nodes 2-10 个，edges 可选（默认串联）。",
-          "code-showcase": "用于展示代码。code + language + 可选 highlights + annotations。",
-          "quote-card": "用于引用、客户评价、金句。quote + attribution。",
-          "grid-gallery": "用于多张图片/视频展示。items 2-12 个，columns 2-4。",
-          "comparison-table": "用于功能对比、方案选型。rows × cols 结构化数据。",
-          "before-after": "用于优化前后对比。左右或上下分屏，适合视觉效果对比。",
-          "timeline": "用于时间线、里程碑、路线图。按时间点排列的事件序列。",
-          "anatomy": "用于产品/界面标注。在图片上放置引导线和标签。",
-          "progress-bar": "用于完成度、目标达成率。单一进度指标 + 标签。",
-          "testimonial": "用于客户案例、用户评价。大引号 + 头像 + 署名。",
-        };
-
-        return {
-          recommendations,
-          primaryReason: match.reason,
-          guidance: Object.fromEntries(
-            recommendations.map((t) => [t, guidance[t] ?? "通用模板，按槽位文档填写"])
-          ),
-          tip: "每章混合 2-3 种模板效果最佳。开场用 hero-title，主体用 step-reveal/flow-diagram，对比用 side-by-side，收尾用 quote-card。",
-        };
-      },
-    }),
-
     ProjectValidateBlueprint: tool({
       description:
         "预校验 Blueprint，不提交文件。返回校验结果供 AI 自行修正。在调用 ProjectSetChapter 之前先调用此工具可以避免提交无效 Blueprint。" +
@@ -681,17 +700,11 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
         steps: z.array(z.object({
           narration: z.string().default(""),
           layout: z.object({
-            mode: z.enum(["template","composed","custom"]),
-            template: z.enum(["hero-title","step-reveal","data-spotlight","side-by-side","flow-diagram","code-showcase","quote-card","grid-gallery","timeline","comparison-table","before-after","anatomy","progress-bar","testimonial"]).optional(),
-            variant: z.string().optional(),
-            slots: z.record(z.string(), z.any()).optional(),
+            mode: z.enum(["composed"]),
             overrides: z.object({ backgroundStyle: z.enum(["solid","gradient-subtle","gradient-bold","noise"]).optional(), extraClasses: z.string().optional() }).optional(),
             layoutComp: z.enum(["stack","grid","split","center","absolute"]).optional(),
             regions: z.record(z.string(), z.object({ content: z.any(), gridArea: z.string().optional(), flex: z.string().optional() })).optional(),
-            animations: z.array(z.object({ target: z.string(), effect: z.enum(["fadeIn","slideUp","slideLeft","slideRight","scaleIn"]), delay: z.number().min(0).default(0), duration: z.number().positive().default(0.6) })).optional(),
-            imports: z.array(z.string()).optional(),
-            jsx: z.string().optional(),
-            css: z.string().optional(),
+            animations: z.array(z.object({ target: z.string(), effect: z.enum(["fadeIn","slideUp","slideLeft","slideRight","scaleIn","drawPath"]), delay: z.number().min(0).default(0), duration: z.number().positive().default(0.6) })).optional(),
           }),
         })).min(1).max(20),
         orderHint: z.number().int().min(0).optional(),
@@ -785,12 +798,200 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
             "illustration_planning",
             "building",
             "illustrating",
+            "animating",
             "typesetting",
             "done",
           ])
           .describe("New project status"),
       }),
       execute: async ({ status }) => {
+        // Prevent the AI from resetting auto-done back to building
+        const current = await db.query.projects.findFirst({
+          where: (p, { eq }) => eq(p.id, projectId),
+          columns: { status: true },
+        });
+        if (current?.status === "done" && status !== "done") {
+          return {
+            success: false,
+            error: `项目已标记为 done（构建完成）。不能回退到 ${status}。系统已自动完成构建，无需再改状态。`,
+          };
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // Done gate: verify all outline chapters exist on disk
+        // ═══════════════════════════════════════════════════════════
+        if (status === "done") {
+          const outlinePath = path.join(projectDir(projectId), "outline.md");
+          if (fs.existsSync(outlinePath)) {
+            const outline = fs.readFileSync(outlinePath, "utf-8");
+            const outlineCount = (outline.match(/^## \d+\./gm) || []).length;
+            if (outlineCount > 0) {
+              const chaptersDir = path.join(projectDir(projectId), "presentation", "src", "chapters");
+              const builtCount = fs.existsSync(chaptersDir)
+                ? fs.readdirSync(chaptersDir).filter(d => !d.startsWith(".") && !d.startsWith("__") && d !== "01-example").length
+                : 0;
+              if (builtCount < outlineCount) {
+                return {
+                  success: false,
+                  error: `不能标记为 done：outline 有 ${outlineCount} 章，但只构建了 ${builtCount} 章。还缺 ${outlineCount - builtCount} 章。请继续构建缺失的章节。`,
+                };
+              }
+            }
+          }
+        }
+        // ═══════════════════════════════════════════════════════════
+        // Building gate: illustration / animation projects MUST generate media first
+        // ═══════════════════════════════════════════════════════════
+        if (status === "building") {
+          const project = await db.query.projects.findFirst({
+            where: (p, { eq }) => eq(p.id, projectId),
+            columns: { projectType: true },
+          });
+          const isIllust = project?.projectType === "illustration-video" || project?.projectType === "illustrated-article";
+          const isAnim = project?.projectType === "animation-video";
+
+          if (isIllust) {
+            const illPath = path.join(projectDir(projectId), "illustrations.json");
+            const tlPath = path.join(projectDir(projectId), "illust-timeline.json");
+
+            // Check illustrations.json
+            if (!fs.existsSync(illPath)) {
+              return {
+                success: false,
+                error: `⛔ 禁止直接进入 building：illustrations.json 不存在。请先规划插图 shots 并写入 illustrations.json，然后进入 illustrating 阶段生图。`,
+                code: "GATE_ILLUSTRATIONS_MISSING",
+              };
+            }
+            const illData = JSON.parse(fs.readFileSync(illPath, "utf-8"));
+            const shotCount = illData.shots?.length ?? 0;
+            if (shotCount === 0) {
+              return {
+                success: false,
+                error: `⛔ 禁止直接进入 building：illustrations.json 中无 shot。请重新规划插图。`,
+                code: "GATE_ILLUSTRATIONS_EMPTY",
+              };
+            }
+            if (shotCount > 50) {
+              return {
+                success: false,
+                error: `⛔ 插画数量过多：${shotCount} 个 shots（上限 50）。请精简到 50 张以内。`,
+                code: "GATE_TOO_MANY_SHOTS",
+                shotCount,
+              };
+            }
+
+            // Check illust-timeline.json (v1) or manifest.json (v2)
+            if (!fs.existsSync(tlPath)) {
+              // v2: check manifest.json instead
+              const manifestPath = path.join(projectDir(projectId), "manifest.json");
+              if (fs.existsSync(manifestPath)) return; // v2 done — skip gate
+              return {
+                success: false,
+                error: `⛔ 生图尚未完成。请等待系统自动生成插画和配音。`,
+                code: "GATE_TIMELINE_MISSING",
+                shotCount,
+              };
+            }
+            const tlData = JSON.parse(fs.readFileSync(tlPath, "utf-8"));
+            const timeline = tlData.timeline ?? [];
+            if (timeline.length === 0) {
+              return {
+                success: false,
+                error: `⛔ 生图尚未完成（0 张已生成）。请等待系统自动生成。`,
+                code: "GATE_TIMELINE_EMPTY",
+                shotCount,
+              };
+            }
+
+            // Verify actual image files
+            const missingFiles: string[] = [];
+            for (const entry of timeline) {
+              if (!entry.assetUrl) { missingFiles.push(entry.shotId ?? "?"); continue; }
+              const urlPath = entry.assetUrl.replace(/^\/api\/projects\/[^/]+\/assets\//, "");
+              const filePath = path.join(projectDir(projectId), urlPath);
+              if (!fs.existsSync(filePath)) missingFiles.push(entry.shotId ?? "?");
+            }
+            if (missingFiles.length > 0) {
+              return {
+                success: false,
+                error: `⛔ 禁止直接进入 building：${missingFiles.length} 张插画文件不存在 (${missingFiles.slice(0, 5).join(", ")}${missingFiles.length > 5 ? "..." : ""})。请重新输出 illustration_generate 信号触发生图。`,
+                code: "GATE_IMAGE_FILES_MISSING",
+                missingFiles: missingFiles.slice(0, 10),
+              };
+            }
+          }
+
+          if (isAnim) {
+            const animPath = path.join(projectDir(projectId), "animations.json");
+            const tlPath = path.join(projectDir(projectId), "anim-timeline.json");
+
+            // Check animations.json
+            if (!fs.existsSync(animPath)) {
+              return {
+                success: false,
+                error: `⛔ 禁止直接进入 building：animations.json 不存在。请先规划动画 shots 并写入 animations.json，然后进入 animating 阶段生视频。`,
+                code: "GATE_ANIMATIONS_MISSING",
+              };
+            }
+            const animData = JSON.parse(fs.readFileSync(animPath, "utf-8"));
+            const shotCount = animData.shots?.length ?? 0;
+            if (shotCount === 0) {
+              return {
+                success: false,
+                error: `⛔ 禁止直接进入 building：animations.json 中无 shot。请重新规划动画。`,
+                code: "GATE_ANIMATIONS_EMPTY",
+              };
+            }
+            if (shotCount > 50) {
+              return {
+                success: false,
+                error: `⛔ 动画数量过多：${shotCount} 个 shots（上限 50）。请精简到 50 个以内。`,
+                code: "GATE_TOO_MANY_SHOTS",
+                shotCount,
+              };
+            }
+
+            // Check anim-timeline.json or manifest.json
+            if (!fs.existsSync(tlPath)) {
+              const manifestPath = path.join(projectDir(projectId), "manifest.json");
+              if (fs.existsSync(manifestPath)) return; // done — skip gate
+              return {
+                success: false,
+                error: `⛔ 动画生成尚未完成。请等待系统自动生成动画视频和配音。`,
+                code: "GATE_TIMELINE_MISSING",
+                shotCount,
+              };
+            }
+            const tlData = JSON.parse(fs.readFileSync(tlPath, "utf-8"));
+            const timeline = tlData.timeline ?? [];
+            if (timeline.length === 0) {
+              return {
+                success: false,
+                error: `⛔ 动画生成尚未完成（0 个已生成）。请等待系统自动生成。`,
+                code: "GATE_TIMELINE_EMPTY",
+                shotCount,
+              };
+            }
+
+            // Verify actual video files
+            const missingFiles: string[] = [];
+            for (const entry of timeline) {
+              if (!entry.assetUrl) { missingFiles.push(entry.shotId ?? "?"); continue; }
+              const urlPath = entry.assetUrl.replace(/^\/api\/projects\/[^/]+\/assets\//, "");
+              const filePath = path.join(projectDir(projectId), urlPath);
+              if (!fs.existsSync(filePath)) missingFiles.push(entry.shotId ?? "?");
+            }
+            if (missingFiles.length > 0) {
+              return {
+                success: false,
+                error: `⛔ 禁止直接进入 building：${missingFiles.length} 个视频文件不存在 (${missingFiles.slice(0, 5).join(", ")}${missingFiles.length > 5 ? "..." : ""})。请重新触发生视频。`,
+                code: "GATE_VIDEO_FILES_MISSING",
+                missingFiles: missingFiles.slice(0, 10),
+              };
+            }
+          }
+        }
+
         await db
           .update(projects)
           .set({
@@ -798,6 +999,178 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
             updatedAt: Math.floor(Date.now() / 1000),
           })
           .where(eq(projects.id, projectId));
+
+        // ── Auto-trigger video pipeline ────────────────────────────
+        // When entering "building" phase for standard video projects,
+        // auto-start scaffold (non-blocking — runs in background).
+        if (status === "building") {
+          const proj = await db.query.projects.findFirst({
+            where: (p, { eq }) => eq(p.id, projectId),
+            columns: { projectType: true, theme: true, orientation: true, projectFormat: true, mainSkillId: true },
+          });
+          const isIllustOrAnim = proj?.projectType === "illustration-video" || proj?.projectType === "illustrated-article" || proj?.projectType === "animation-video";
+          if (!isIllustOrAnim) {
+            try {
+              triggerVideoScaffold(projectId, {
+                theme: proj?.theme, orientation: proj?.orientation,
+                projectFormat: proj?.projectFormat, mainSkillId: proj?.mainSkillId,
+              });
+            } catch (err: any) {
+              console.error(`[ProjectSetStatus] Failed to trigger video scaffold: ${err.message}`);
+            }
+          }
+        }
+
+        // ── Auto-trigger illustration pipeline ──────────────────────
+        // When entering "illustrating" phase, the server takes over:
+        // import shots → spawn generation + audio synthesis.
+        // The gen script auto-advances to "done" when complete.
+        if (status === "illustrating") {
+          const proj = await db.query.projects.findFirst({
+            where: (p, { eq }) => eq(p.id, projectId),
+            columns: { projectType: true, ttsProvider: true, ttsVoice: true },
+          });
+          const isIllust = proj?.projectType === "illustration-video" || proj?.projectType === "illustrated-article";
+          if (isIllust) {
+            try {
+              await importShotsFromIllustrations(projectId);
+              spawnIllustrationGeneration(projectId);
+            } catch (err: any) {
+              console.error(`[ProjectSetStatus] Failed to spawn illustration pipeline: ${err.message}`);
+            }
+            // Start audio synthesis in background
+            try {
+              const { ensureAudioScaffold } = await import("@/lib/scaffold");
+              await ensureAudioScaffold(projectId);
+              // Step 1: write audio-segments.json from script.md
+              const presDir = path.join(projectDir(projectId), "presentation");
+              const scriptMd = path.join(projectDir(projectId), "script.md");
+              if (fs.existsSync(scriptMd)) {
+                const text = fs.readFileSync(scriptMd, "utf-8");
+                const segments = text.split("---").map((s: string) => s.trim()).filter(Boolean)
+                  .map((s: string, i: number) => ({
+                    chapter: "step", step: i + 1,
+                    text: s.replace(/^\[.*?\]\s*/, "").trim(),
+                    audio: `step/${i + 1}.mp3`,
+                  }));
+                fs.mkdirSync(presDir, { recursive: true });
+                fs.writeFileSync(path.join(presDir, "audio-segments.json"), JSON.stringify(segments, null, 2));
+              }
+              // Step 2: spawn TTS synthesis with progress tracking
+              const totalSegs = segments.length;
+              const statusPath = path.join(presDir, ".synth-status.json");
+              fs.writeFileSync(statusPath, JSON.stringify({ status: "running", completed: 0, total: totalSegs }));
+
+              const { spawn: sp2 } = await import("child_process");
+              const child2 = sp2("npm", ["run", "synthesize-audio"], {
+                cwd: presDir,
+                env: { ...process.env, PRESENTATION_TTS: proj?.ttsProvider || "minimax", PRESENTATION_TTS_VOICE: proj?.ttsVoice || "default" },
+                stdio: ["ignore", "pipe", "pipe"],
+                detached: true,
+              });
+              // Parse progress markers from stdout and update status file
+              child2.stdout?.on("data", (d: Buffer) => {
+                const line = d.toString().trim();
+                const m = line.match(/\[\s*(\d+)\/(\d+)\]/);
+                if (m) {
+                  try {
+                    fs.writeFileSync(statusPath, JSON.stringify({ status: "running", completed: parseInt(m[1]), total: parseInt(m[2]) }));
+                  } catch {}
+                }
+              });
+              child2.stderr?.on("data", (d: Buffer) => {
+                const line = d.toString().trim();
+                if (line) console.error(`[tts:${projectId}]`, line);
+              });
+              child2.on("close", (code: number | null) => {
+                try {
+                  fs.writeFileSync(statusPath, JSON.stringify({
+                    status: code === 0 ? "done" : "error",
+                    completed: code === 0 ? totalSegs : 0,
+                    total: totalSegs,
+                    lastLine: code === 0 ? `✓ done — synthesized ${totalSegs}` : `✗ exited with code ${code}`,
+                  }));
+                } catch {}
+              });
+              child2.unref();
+            } catch { /* best-effort */ }
+          }
+        }
+
+        // ── Auto-trigger animation pipeline ─────────────────────────
+        // When entering "animating" phase, the server takes over:
+        // import shots → spawn video generation + audio synthesis.
+        if (status === "animating") {
+          const proj = await db.query.projects.findFirst({
+            where: (p, { eq }) => eq(p.id, projectId),
+            columns: { projectType: true, ttsProvider: true, ttsVoice: true },
+          });
+          const isAnim = proj?.projectType === "animation-video";
+          if (isAnim) {
+            try {
+              await importShotsFromAnimations(projectId);
+              spawnAnimationGeneration(projectId);
+            } catch (err: any) {
+              console.error(`[ProjectSetStatus] Failed to spawn animation pipeline: ${err.message}`);
+            }
+            // Start audio synthesis in background
+            try {
+              const { ensureAudioScaffold } = await import("@/lib/scaffold");
+              await ensureAudioScaffold(projectId);
+              // Step 1: write audio-segments.json from script.md
+              const presDir = path.join(projectDir(projectId), "presentation");
+              const scriptMd = path.join(projectDir(projectId), "script.md");
+              if (fs.existsSync(scriptMd)) {
+                const text = fs.readFileSync(scriptMd, "utf-8");
+                const segments = text.split("---").map((s: string) => s.trim()).filter(Boolean)
+                  .map((s: string, i: number) => ({
+                    chapter: "step", step: i + 1,
+                    text: s.replace(/^\[.*?\]\s*/, "").trim(),
+                    audio: `step/${i + 1}.mp3`,
+                  }));
+                fs.mkdirSync(presDir, { recursive: true });
+                fs.writeFileSync(path.join(presDir, "audio-segments.json"), JSON.stringify(segments, null, 2));
+              }
+              // Step 2: spawn TTS synthesis with progress tracking
+              const totalSegs = segments.length;
+              const statusPath = path.join(presDir, ".synth-status.json");
+              fs.writeFileSync(statusPath, JSON.stringify({ status: "running", completed: 0, total: totalSegs }));
+
+              const { spawn: sp2 } = await import("child_process");
+              const child2 = sp2("npm", ["run", "synthesize-audio"], {
+                cwd: presDir,
+                env: { ...process.env, PRESENTATION_TTS: proj?.ttsProvider || "minimax", PRESENTATION_TTS_VOICE: proj?.ttsVoice || "default" },
+                stdio: ["ignore", "pipe", "pipe"],
+                detached: true,
+              });
+              child2.stdout?.on("data", (d: Buffer) => {
+                const line = d.toString().trim();
+                const m = line.match(/\[\s*(\d+)\/(\d+)\]/);
+                if (m) {
+                  try {
+                    fs.writeFileSync(statusPath, JSON.stringify({ status: "running", completed: parseInt(m[1]), total: parseInt(m[2]) }));
+                  } catch {}
+                }
+              });
+              child2.stderr?.on("data", (d: Buffer) => {
+                const line = d.toString().trim();
+                if (line) console.error(`[tts:${projectId}]`, line);
+              });
+              child2.on("close", (code: number | null) => {
+                try {
+                  fs.writeFileSync(statusPath, JSON.stringify({
+                    status: code === 0 ? "done" : "error",
+                    completed: code === 0 ? totalSegs : 0,
+                    total: totalSegs,
+                    lastLine: code === 0 ? `✓ done — synthesized ${totalSegs}` : `✗ exited with code ${code}`,
+                  }));
+                } catch {}
+              });
+              child2.unref();
+            } catch { /* best-effort */ }
+          }
+        }
+
         // Notify frontend via SSE so it can react to status changes immediately
         publishProjectEvent(projectId, "status-change", { status });
         return { success: true, status };
@@ -811,14 +1184,14 @@ export function makeAgentTools(projectId: string, _projectStatus?: string) {
 // ═══════════════════════════════════════════════════════════════════════
 
 function buildLayoutDef(layout: any): any {
-  const mode = layout.mode ?? "template";
-  if (mode === "template") {
-    return { mode: "template", template: layout.template, variant: layout.variant, slots: layout.slots ?? {}, overrides: layout.overrides };
-  }
-  if (mode === "composed") {
-    return { mode: "composed", layout: layout.layoutComp ?? "stack", regions: layout.regions ?? {}, animations: layout.animations, overrides: layout.overrides };
-  }
-  return { mode: "custom", imports: layout.imports, jsx: layout.jsx ?? "<div />", css: layout.css };
+  return {
+    layout: layout.layoutComp ?? layout.layout ?? "center",
+    gridTemplate: layout.gridTemplate,
+    regions: layout.regions ?? {},
+    animations: layout.animations,
+    extraCSS: layout.extraCSS ?? layout.css,
+    overrides: layout.overrides,
+  };
 }
 
 /** Rebuild chapters.ts from all directories on disk. Self-healing: always matches reality. */
@@ -839,13 +1212,18 @@ function regenerateRegistry(projectId: string): string {
   const entries: string[] = [];
 
   for (const dirName of dirs) {
+    const dirPath = path.join(chaptersDir, dirName);
+
     // Find the TSX file in the directory
     let tsxFile = "";
+    let hasNarrations = false;
     try {
-      const files = fs.readdirSync(path.join(chaptersDir, dirName));
+      const files = fs.readdirSync(dirPath);
       tsxFile = files.find((f) => f.endsWith(".tsx")) ?? "";
+      hasNarrations = files.some((f) => f === "narrations.ts");
     } catch { continue; }
-    if (!tsxFile) continue;
+    // Skip incomplete chapters: must have both TSX and narrations.ts
+    if (!tsxFile || !hasNarrations) continue;
 
     const componentName = tsxFile.replace(".tsx", "");
     const camel = dirName.split("-").map((s, i) => i === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1)).join("");

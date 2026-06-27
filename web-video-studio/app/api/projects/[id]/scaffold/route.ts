@@ -25,6 +25,17 @@ export async function POST(
   const { error, project } = await requireProjectAccess(req, id);
   if (error) return error;
 
+  // illustration-video / illustrated-article: audio-only scaffold (IllustPlayer, no Vite needed)
+  // animation-video IS a blueprint video project — needs full Vite scaffold
+  const isIllust = project?.projectType === "illustration-video" || project?.projectType === "illustrated-article";
+  if (isIllust) {
+    if (isScaffolded(id)) return NextResponse.json({ status: "done", skipped: true });
+    // Lightweight scaffold: copy audio scripts + npm install
+    const { startAudioScaffold } = await import("@/lib/scaffold");
+    startAudioScaffold(id);
+    return NextResponse.json({ status: "running" });
+  }
+
   if (isScaffolded(id)) {
     return NextResponse.json({ status: "done", skipped: true });
   }

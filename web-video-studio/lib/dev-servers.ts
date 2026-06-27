@@ -180,31 +180,109 @@ function cleanupZombies(): number {
   return killed;
 }
 
-const MAX_CONCURRENT = 5; // max simultaneous Vite instances (ports 5200-5204)
+const MAX_CONCURRENT = 5; // max simultaneous Vite instances
+
+/** Scan all project directories for PID files and recover valid ones into memory.
+ *  Critical after Next.js HMR/restart when the in-memory Map is empty but Vite
+ *  processes are still running. */
+function recoverAllPidFiles(): number {
+  let recovered = 0;
+  const projectsRoot = projectDir("");
+  if (!projectsRoot || !fs.existsSync(projectsRoot)) return 0;
+  try {
+    for (const dir of fs.readdirSync(projectsRoot)) {
+      const presDir = path.join(projectsRoot, dir, "presentation");
+      if (!fs.existsSync(presDir)) continue;
+      const pidFile = path.join(presDir, ".vite.pid");
+      if (!fs.existsSync(pidFile)) continue;
+      const projectId = dir;
+      if (servers.has(projectId)) continue; // already tracked
+      try {
+        const meta = JSON.parse(fs.readFileSync(pidFile, "utf-8"));
+        if (!isValidPidFileMeta(meta)) continue;
+        if (meta.projectId !== projectId) continue;
+        if (isProcessAlive(meta.pid)) {
+          servers.set(projectId, { pid: meta.pid, port: meta.port });
+          recovered++;
+        } else {
+          removePidFile(projectId);
+        }
+      } catch { /* corrupt PID file — skip */ }
+    }
+  } catch { /* can't read projects root */ }
+  if (recovered > 0) console.log(`[dev-servers] Recovered ${recovered} PID files after restart`);
+  return recovered;
+}
 
 async function allocatePort(): Promise<number> {
+  // Phase 1: try primary ports 5200-5204
   const usedByUs = new Set([...servers.values()].map((s) => s.port));
-  const busy = getBusyPortsInRange();
+  let busy = getBusyPortsInRange();
 
   for (let port = BASE_PORT; port < BASE_PORT + MAX_CONCURRENT; port++) {
     if (usedByUs.has(port)) continue;
-    if (!busy.has(port)) return port;
+    if (!busy.has(port) && !(await isPortOpen(port, 300))) return port;
   }
 
-  // No free ports — clean up zombie processes tracked by us that are dead
+  // Phase 2: clean dead entries from servers Map
   for (const [id, entry] of servers) {
     if (!isProcessAlive(entry.pid)) {
       servers.delete(id);
+      removePidFile(id);
       usedByUs.delete(entry.port);
     }
   }
 
-  // Recheck after cleanup
+  // Re-scan and retry primary ports
+  busy = getBusyPortsInRange();
   for (let port = BASE_PORT; port < BASE_PORT + MAX_CONCURRENT; port++) {
-    if (!busy.has(port)) return port;
+    if (!busy.has(port) && !(await isPortOpen(port, 300))) return port;
   }
 
-  throw new Error(`预览已达上限（${MAX_CONCURRENT}个），请关闭其他项目预览后重试`);
+  // Phase 3: recover from PID files (critical after Next.js restart)
+  recoverAllPidFiles();
+
+  // Re-scan and retry primary ports after recovery
+  busy = getBusyPortsInRange();
+  for (let port = BASE_PORT; port < BASE_PORT + MAX_CONCURRENT; port++) {
+    if (!busy.has(port) && !(await isPortOpen(port, 300))) return port;
+  }
+
+  // Phase 4: kill unrecovered orphans (processes on our ports that don't belong
+  // to any known project) to free up ports for new projects.
+  for (const port of busy) {
+    if (port < BASE_PORT || port >= BASE_PORT + 20) continue;
+    if (usedByUs.has(port)) continue;
+    try {
+      const pid = findPidForPort(port);
+      if (pid > 0) {
+        // Verify it's one of our Vite processes (under projectsRoot)
+        const procCwd = execSync(
+          `lsof -p ${pid} -Fn 2>/dev/null | grep '^fcwd' | sed 's/^fcwd//'`,
+          { encoding: "utf-8", timeout: 2000 }
+        ).trim();
+        const projectsRoot = projectDir("");
+        if (procCwd.startsWith(projectsRoot)) {
+          process.kill(pid, "SIGTERM");
+          // Give it a moment to release the port
+          await new Promise(r => setTimeout(r, 300));
+          if (!(await isPortOpen(port, 300))) return port;
+        }
+      }
+    } catch { /* can't reclaim this port */ }
+  }
+
+  // Phase 5: enforce count-based limit
+  if (servers.size >= MAX_CONCURRENT) {
+    throw new Error(`预览已达上限（${MAX_CONCURRENT}个），请关闭其他项目预览后重试`);
+  }
+
+  // Phase 6: search wider port range (5205-5219)
+  for (let port = BASE_PORT + MAX_CONCURRENT; port < BASE_PORT + 20; port++) {
+    if (!(await isPortOpen(port, 300))) return port;
+  }
+
+  throw new Error(`无法分配可用端口，请关闭其他项目后重试`);
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
@@ -283,6 +361,11 @@ export async function startDevServer(projectId: string): Promise<{ port: number 
       const viteBin = path.join(cwd, "node_modules", ".bin", "vite");
 
       if (!fs.existsSync(viteBin)) {
+        // Audio-only scaffold (illustration projects) — Vite not needed
+        if (fs.existsSync(path.join(cwd, "scripts", "synthesize-audio.sh")) &&
+            !fs.existsSync(path.join(cwd, "src"))) {
+          return { port: 0 }; // signal: no dev server needed
+        }
         throw new Error(`Vite binary not found at ${viteBin}. Run scaffold first.`);
       }
 
@@ -310,8 +393,20 @@ export async function startDevServer(projectId: string): Promise<{ port: number 
         try {
           logTail = execSync(`tail -15 "${logFile}" 2>/dev/null`, { encoding: "utf-8" });
         } catch { /* ignore */ }
-        // Try to kill the failed Vite so it doesn't become a zombie
-        try { execSync(`kill $(lsof -ti :${port} -sTCP:LISTEN 2>/dev/null) 2>/dev/null`); } catch { /* ok */ }
+        // Only kill if the port is actually open (our Vite may be hung, not dead)
+        // and verify it belongs to THIS project before killing
+        if (await isPortOpen(port, 300)) {
+          const stalePid = findPidForPort(port);
+          if (stalePid && stalePid > 0) {
+            try {
+              const staleCwd = execSync(`lsof -p ${stalePid} -Fn 2>/dev/null | grep '^fcwd' | sed 's/^fcwd//'`, { encoding: "utf-8", timeout: 2000 }).trim();
+              if (staleCwd === cwd) {
+                // Belongs to us — safe to kill
+                try { process.kill(stalePid, "SIGTERM"); } catch { /* ok */ }
+              }
+            } catch { /* can't verify ownership — leave it alone */ }
+          }
+        }
         throw new Error(`Vite 启动超时（${TIMEOUT_MS / 1000}s）。日志：\n${logTail || "(空)"}`);
       }
 
@@ -323,14 +418,89 @@ export async function startDevServer(projectId: string): Promise<{ port: number 
 
       // Verify the process is actually for this project (cwd check)
       let verifiedPid = pid;
+      let foreignProcess = false;
       if (pid && pid > 0) {
         try {
           const procCwd = execSync(`lsof -p ${pid} -Fn 2>/dev/null | grep '^fcwd' | sed 's/^fcwd//'`, { encoding: "utf-8", timeout: 2000 }).trim();
           if (procCwd && procCwd !== cwd) {
             console.error(`[dev-servers] Port ${port} PID ${pid} belongs to ${procCwd}, not ${cwd} — refusing to track`);
             verifiedPid = 0;
+            foreignProcess = true;
           }
-        } catch { /* can't verify — trust the port check */ }
+        } catch { /* can't verify — check Vite log for startup errors instead */ }
+      }
+
+      // Verify via Vite log: check for both failure AND success indicators
+      {
+        let logTail = "";
+        try {
+          logTail = execSync(`tail -15 "${logFile}" 2>/dev/null`, { encoding: "utf-8" });
+        } catch { /* ignore */ }
+
+        // Failure indicators → port was taken by another process
+        if (logTail.includes("already in use") || logTail.includes("EADDRINUSE")) {
+          console.error(`[dev-servers] Port ${port} appears taken by another process (Vite log shows address-in-use). Retrying…`);
+          foreignProcess = true;
+          verifiedPid = 0;
+        }
+
+        // If we couldn't verify cwd AND pid is unknown, require a success signal
+        if (!foreignProcess && (!pid || pid <= 0)) {
+          const hasSuccess = /ready in \d+|Local:/i.test(logTail);
+          if (!hasSuccess) {
+            console.error(`[dev-servers] Port ${port} is open but cannot confirm it belongs to this project (no PID, no Vite success log). Retrying…`);
+            foreignProcess = true;
+            verifiedPid = 0;
+          }
+        }
+      }
+
+      // If port belongs to another project, retry with a different port
+      // IMPORTANT: do NOT kill the process on this port — it belongs to another project
+      if (foreignProcess) {
+        servers.delete(projectId);
+        removePidFile(projectId);
+
+        // Allocate a different port and restart
+        let busy2 = getBusyPortsInRange();
+        let newPort = port + 1;
+        while (busy2.has(newPort) || await isPortOpen(newPort, 300)) {
+          newPort++;
+          if (newPort > BASE_PORT + 19) {
+            // Re-scan in case lsof data is stale
+            busy2 = getBusyPortsInRange();
+          }
+          if (newPort > MAX_PORT) throw new Error(`无法分配可用端口（${port}已被占用），请关闭其他项目后重试`);
+        }
+
+        const cmd2 = `nohup "${viteBin}" --port ${newPort} --strictPort --host 127.0.0.1 > "${logFile}" 2>&1 &`;
+        await new Promise<void>((resolve2, reject2) => {
+          execFile("sh", ["-c", cmd2], { cwd }, (err2) => {
+            if (err2) reject2(err2); else resolve2();
+          });
+        });
+
+        const ready2 = await new Promise<boolean>((resolve2) => {
+          const start2 = Date.now();
+          const check2 = async () => {
+            if (await isPortOpen(newPort)) { resolve2(true); return; }
+            if (Date.now() - start2 < TIMEOUT_MS) setTimeout(check2, 600);
+            else resolve2(false);
+          };
+          setTimeout(check2, 200);
+        });
+
+        if (!ready2) {
+          throw new Error(`Vite 重试启动超时（${TIMEOUT_MS / 1000}s）`);
+        }
+
+        const newPid = findPidForPort(newPort);
+        if (newPid && newPid > 0) {
+          writePidFile(projectId, newPid, newPort);
+        }
+        servers.set(projectId, { pid: newPid || 0, port: newPort });
+        publishProjectEvent(projectId, "dev-server", { port: newPort, ready: true });
+        return { port: newPort };
       }
 
       // If PID unknown but port is open, track with port-only validation
@@ -406,9 +576,11 @@ export function resetCrashCount(projectId: string): void {
 }
 
 // ─── Startup orphan cleanup ─────────────────────────────────────────────────
+// Runs once on module load. Cleans up Vite processes for deleted projects only.
+// Active projects' Vite processes are left alone — getDevServer/startDevServer
+// will recover them via PID files or orphan scanning.
 
 (function cleanupOrphanViteProcesses() {
-  if (process.env.CLEANUP_ORPHAN_VITE !== "true") return;
   try {
     const projectsRoot = projectDir("");
     if (!projectsRoot) return;
@@ -425,7 +597,8 @@ export function resetCrashCount(projectId: string): void {
           `lsof -p ${pid} -Fn 2>/dev/null | grep '^fcwd' | sed 's/^fcwd//'`,
           { encoding: "utf-8" }
         ).trim();
-        if (procCwd.startsWith(projectsRoot)) {
+        // Only kill if the project directory no longer exists (deleted project)
+        if (procCwd.startsWith(projectsRoot) && !fs.existsSync(procCwd)) {
           try { process.kill(pid, "SIGTERM"); } catch { /* ignore */ }
         }
       } catch { continue; }

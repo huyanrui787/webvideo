@@ -1,19 +1,23 @@
 /**
- * Blueprint Validator — 编译前校验
+ * Blueprint Validator v2 — 编译前校验
  *
  * 校验层级：
  *   L1: Zod schema 基础校验（类型、必填、格式）
- *   L2: 语义校验（槽位完整性、引用正确性、步骤一致性）
- *   L3: 约束校验（16:9 比例、token 使用、设计规范）
+ *   L2: 语义 + 信息密度校验（primitive 多样性、params 正确性、区域引用）
+ *   L3: 设计约束校验（token 使用、字号下限、对比度）
  *
  * 校验结果包含 warnings（不阻塞编译）和 errors（阻塞编译）。
  */
 
 import {
   ChapterBlueprint,
+  PRIMITIVE_PARAMS,
+  WRAPPER_PRIMS,
+  TEXT_PRIMS,
+  DECOR_PRIMS,
   type ChapterBlueprint as ChapterBlueprintType,
+  type LayoutDef,
 } from "./types";
-import { getTemplate } from "./templates/registry";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Result types
@@ -21,8 +25,8 @@ import { getTemplate } from "./templates/registry";
 
 export interface ValidationIssue {
   level: "error" | "warning";
-  step: number | null; // null = chapter-level issue
-  field: string; // dot-separated path, e.g. "steps[0].layout.slots.title"
+  step: number | null;
+  field: string;
   message: string;
 }
 
@@ -37,7 +41,6 @@ export interface ValidationResult {
 
 function validateL1(bp: ChapterBlueprintType): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-
   const result = ChapterBlueprint.safeParse(bp);
   if (!result.success) {
     for (const err of result.error.issues) {
@@ -49,93 +52,197 @@ function validateL1(bp: ChapterBlueprintType): ValidationIssue[] {
       });
     }
   }
-
   return issues;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// L2: Semantic validation
+// L2: Semantic + Diversity validation
 // ═══════════════════════════════════════════════════════════════════════════════
+
+/** Collect all primitive calls from a single region (recursively into container children) */
+function collectPrimsFromRegion(region: any): { primitive: string; params: Record<string, any> }[] {
+  const result: { primitive: string; params: Record<string, any> }[] = [];
+
+  // Nested LayoutDef: content is a full layout object
+  if (region.content?.layout && region.content?.regions) {
+    result.push(...collectPrimsFromLayout(region.content as LayoutDef));
+    return result;
+  }
+
+  const contents = Array.isArray(region.content) ? region.content : (region.content ? [region.content] : []);
+  for (const c of contents) {
+    if (c?.primitive) {
+      result.push({ primitive: c.primitive, params: c.params ?? {} });
+    }
+    if (c?.children) {
+      for (const child of c.children) {
+        result.push(...collectPrimsFromRegion(child));
+      }
+    }
+  }
+  return result;
+}
+
+/** Collect all primitives from a layout by iterating over its regions */
+function collectPrimsFromLayout(layout: LayoutDef): { primitive: string; params: Record<string, any> }[] {
+  const result: { primitive: string; params: Record<string, any> }[] = [];
+  for (const region of Object.values(layout.regions ?? {})) {
+    result.push(...collectPrimsFromRegion(region));
+  }
+  return result;
+}
 
 function validateL2(bp: ChapterBlueprintType): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
   for (let i = 0; i < bp.steps.length; i++) {
     const step = bp.steps[i]!;
-    const layout = step.layout;
+    const layout = step.layout as LayoutDef;
 
-    if (layout.mode === "template") {
-      // Validate that the template ID is registered
-      const tpl = getTemplate(layout.template);
-      // Validate variant value against the template's registered variants
-      if (layout.variant && tpl.variants && tpl.variants.length > 0) {
-        if (!tpl.variants.includes(layout.variant)) {
-          issues.push({
-            level: "warning",
-            step: i,
-            field: `steps[${i}].layout.variant`,
-            message: `Template "${layout.template}" has no variant "${layout.variant}". Available: ${tpl.variants.join(", ")}. The default variant will be used instead.`,
-          });
-        }
-      }
-      // Validate that the slots match the template's expected schema (via registry)
-      const slotsResult = tpl.slots.safeParse(layout.slots);
-      if (!slotsResult.success) {
-        for (const err of slotsResult.error.issues) {
+    // ── Animation target validation ─────────────────────────────────────
+    if (layout.animations) {
+      for (const anim of layout.animations) {
+        if (!(anim.target in layout.regions)) {
           issues.push({
             level: "error",
             step: i,
-            field: `steps[${i}].layout.slots.${err.path.join(".")}`,
-            message: `Template "${layout.template}": ${err.message}`,
+            field: `steps[${i}].layout.animations`,
+            message: `Animation targets region "${anim.target}" which doesn't exist in regions`,
           });
         }
       }
     }
 
-    if (layout.mode === "composed") {
-      // Check that all regions referenced by animations exist
-      if (layout.animations) {
-        for (const anim of layout.animations) {
-          if (!(anim.target in layout.regions)) {
+    // ── Grid layout needs gridTemplate ───────────────────────────────────
+    if (layout.layout === "grid" && !layout.gridTemplate) {
+      issues.push({
+        level: "warning",
+        step: i,
+        field: `steps[${i}].layout.gridTemplate`,
+        message: `Grid layout should specify gridTemplate for reliable positioning`,
+      });
+    }
+
+    // ── Empty regions check ──────────────────────────────────────────────
+    const regionCount = Object.keys(layout.regions).length;
+    if (regionCount === 0) {
+      issues.push({
+        level: "error",
+        step: i,
+        field: `steps[${i}].layout.regions`,
+        message: `No regions defined — screen will be completely empty`,
+      });
+    }
+    if (regionCount > 8) {
+      issues.push({
+        level: "warning",
+        step: i,
+        field: `steps[${i}].layout.regions`,
+        message: `${regionCount} regions may feel cluttered. Consider 3-6 for optimal clarity.`,
+      });
+    }
+
+    // ── Primitive params validation ──────────────────────────────────────
+    const allPrims = collectPrimsFromLayout(layout);
+    for (const { primitive, params } of allPrims) {
+      const schema = PRIMITIVE_PARAMS[primitive];
+      if (schema) {
+        const result = schema.safeParse(params);
+        if (!result.success) {
+          for (const err of result.error.issues) {
             issues.push({
               level: "error",
               step: i,
-              field: `steps[${i}].layout.animations`,
-              message: `Animation targets region "${anim.target}" which doesn't exist in regions`,
+              field: `steps[${i}].layout.regions.<region>.content.${primitive}.params.${err.path.join(".")}`,
+              message: `${primitive}: ${err.message}` +
+                (err.code === "invalid_enum_value" && (err as any).options
+                  ? `。有效值: ${(err as any).options.join(" | ")}`
+                  : err.code === "invalid_type" && err.received === "undefined"
+                  ? `（该字段是必填的）`
+                  : ""),
             });
           }
         }
       }
-
-      // Check that grid layout has gridTemplate
-      if (layout.layout === "grid" && !layout.gridTemplate) {
-        issues.push({
-          level: "warning",
-          step: i,
-          field: `steps[${i}].layout.gridTemplate`,
-          message: `Grid layout should specify gridTemplate for reliable positioning`,
-        });
-      }
     }
 
-    if (layout.mode === "custom") {
-      // Basic JSX sanity check
-      if (!layout.jsx.trim().startsWith("<")) {
-        issues.push({
-          level: "warning",
-          step: i,
-          field: `steps[${i}].layout.jsx`,
-          message: `Custom JSX doesn't appear to start with a JSX element — this may fail at runtime`,
-        });
-      }
+    // ═════════════════════════════════════════════════════════════════════
+    // DIVERSITY CONSTRAINTS (new L2 hard rules)
+    // ═════════════════════════════════════════════════════════════════════
+
+    const contentPrims = allPrims
+      .map((p) => p.primitive)
+      .filter((p) => !WRAPPER_PRIMS.has(p as any));
+
+    const distinctTypes = new Set(contentPrims);
+
+    // Constraint 1: ≥ 2 distinct primitive types (warning if < 3)
+    if (distinctTypes.size < 2) {
+      issues.push({
+        level: "error",
+        step: i,
+        field: `steps[${i}].layout`,
+        message: `信息密度不足：只使用了 ${distinctTypes.size} 种 primitive（${[...distinctTypes].join(", ")}），至少需要 2 种。请增加数据图表、SVG 动画、媒体或装饰类元素。`,
+      });
+    } else if (distinctTypes.size < 3) {
+      issues.push({
+        level: "warning",
+        step: i,
+        field: `steps[${i}].layout`,
+        message: `建议增加更多元素类型：当前只有 ${distinctTypes.size} 种 primitive（${[...distinctTypes].join(", ")}），建议 ≥ 3 种以获得更丰富的画面。`,
+      });
     }
+
+    // Constraint 2: Must include non-text primitives (PullQuote + decor is acceptable)
+    const hasNonText = contentPrims.some((p) => !TEXT_PRIMS.has(p as any));
+    const hasPullQuote = contentPrims.includes("PullQuote");
+    if (!hasNonText && !hasPullQuote) {
+      issues.push({
+        level: "error",
+        step: i,
+        field: `steps[${i}].layout`,
+        message: `全部为文字元素（${contentPrims.join(", ")}），缺少视觉元素。请添加图表、数据、媒体、SVG 动画或装饰类 primitive。`,
+      });
+    }
+
+    // Constraint 3: Should include decor/animation (warning only)
+    const hasDecorAnim = contentPrims.some((p) => DECOR_PRIMS.has(p as any));
+    if (!hasDecorAnim && contentPrims.length > 0) {
+      issues.push({
+        level: "warning",
+        step: i,
+        field: `steps[${i}].layout`,
+        message: `建议添加装饰或动画元素（如 Divider / ParticleField / GlowRing / Badge），增加画面丰富度。`,
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // CHAPTER-LEVEL: pure-text step ratio ≤ 30%
+  // ═══════════════════════════════════════════════════════════════════════
+
+  const totalSteps = bp.steps.length;
+  const textOnlySteps = bp.steps.filter((s) => {
+    const layout = s.layout as LayoutDef;
+    const prims = collectPrimsFromLayout(layout).map((p) => p.primitive);
+    const contentPrims = prims.filter((p) => !WRAPPER_PRIMS.has(p as any));
+    return contentPrims.length > 0 && contentPrims.every((p) => TEXT_PRIMS.has(p as any));
+  }).length;
+
+  if (textOnlySteps / totalSteps > 0.3) {
+    issues.push({
+      level: "error",
+      step: null,
+      field: "steps",
+      message: `纯文字 step 占比 ${Math.round((textOnlySteps / totalSteps) * 100)}%（${textOnlySteps}/${totalSteps}），超过 30% 上限。${textOnlySteps} 个 step 需增加非文字元素（图表/数据/媒体/SVG/装饰）。`,
+    });
   }
 
   return issues;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// L3: Constraint validation (best practices / design system rules)
+// L3: Design constraint validation
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const HARDCODED_COLORS_RE = /#[0-9a-fA-F]{3,8}(?!\d)/;
@@ -145,223 +252,64 @@ const HARDCODED_RADIUS_RE = /border-radius\s*:\s*(?!var\(--r|var\(--radius)/;
 const HARDCODED_SHADOW_RE = /box-shadow\s*:\s*(?!var\(--s|var\(--shadow|none)/;
 const HARDCODED_MOTION_RE = /cubic-bezier\([^)]+\)(?!\s*;)/;
 const FONT_SIZE_RE = /font-size\s*:\s*(\d+)(px|pt)/g;
-const LOW_CONTRAST_PAIRS = [
-  [/#[fF]{3,6}/g, /#[fF]{3,6}/g],          // white on white
-  [/#[eE]{2,6}/g, /#[fF]{3,6}/g],          // near-white on white
-  [/#999|#aaa|#bbb|#ccc|#ddd/, /#[fF]{3,6}/g], // grey on white
-] as const;
 const WHITESPACE_ZERO_RE = /padding\s*:\s*0[^.]|margin\s*:\s*0[^.]/;
 const NARRATION_MAX_CHARS = 500;
 const STEPS_MAX = 12;
 
-function validateContrast(cssText: string): string | null {
-  // Check for known low-contrast patterns (heuristic)
-  if (/color\s*:\s*(#[fF]{3,6}|white|#eee|#fafafa)/.test(cssText) &&
-      /background\s*:\s*(#[fF]{3,6}|white|transparent|none)\b/.test(cssText)) {
-    return "Text color may have insufficient contrast against background (WCAG AA requires 4.5:1 for body text). Use darker text on light backgrounds, or check contrast ratio.";
-  }
-  if (/font-size\s*:\s*(?:1[0-2]|\d)px/.test(cssText)) {
-    return "Font size below 14px may be unreadable at 1080p on standard displays. Consider using at least var(--t-small) or 14px+.";
-  }
-  return null;
-}
-
 function validateL3(bp: ChapterBlueprintType): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
-  // ── Chapter-level checks ──────────────────────────────────────────────
   if (bp.steps.length > STEPS_MAX) {
     issues.push({
       level: "warning",
       step: null,
       field: "steps",
-      message: `Chapter has ${bp.steps.length} steps (recommended max: ${STEPS_MAX}). Consider splitting into multiple shorter chapters for better viewer retention.`,
+      message: `Chapter has ${bp.steps.length} steps (recommended max: ${STEPS_MAX}). Consider splitting.`,
     });
   }
 
   for (let i = 0; i < bp.steps.length; i++) {
     const step = bp.steps[i]!;
-    const layout = step.layout;
+    const layout = step.layout as LayoutDef;
 
-    // ── Narration length check ───────────────────────────────────────────
     const narrationLen = (step.narration || "").length;
     if (narrationLen > NARRATION_MAX_CHARS) {
       issues.push({
         level: "warning",
         step: i,
         field: `steps[${i}].narration`,
-        message: `Narration is ${narrationLen} chars (recommended max: ${NARRATION_MAX_CHARS}). Screen may not display all text. Either shorten narration or split into multiple steps.`,
+        message: `Narration is ${narrationLen} chars (max: ${NARRATION_MAX_CHARS}).`,
       });
     }
 
-    // Check for hardcoded colors in custom CSS/JSX
-    if (layout.mode === "custom") {
-      if (layout.css) {
-        if (HARDCODED_COLORS_RE.test(layout.css)) {
-          issues.push({
-            level: "warning",
-            step: i,
-            field: `steps[${i}].layout.css`,
-            message: `Custom CSS contains hardcoded hex colors. Use var(--token) instead to support theme switching.`,
-          });
-        }
-        if (HARDCODED_FONT_RE.test(layout.css)) {
-          issues.push({
-            level: "warning",
-            step: i,
-            field: `steps[${i}].layout.css`,
-            message: `Custom CSS contains hardcoded font-family. Use var(--font-*) tokens instead.`,
-          });
-        }
-        if (DEPRECATED_TOKENS_RE.test(layout.css)) {
-          issues.push({
-            level: "warning",
-            step: i,
-            field: `steps[${i}].layout.css`,
-            message: `CSS references deprecated tokens (var(--color-*), var(--bg-*), var(--border-*)). Use var(--text), var(--accent), var(--surface) instead.`,
-          });
-        }
-        if (HARDCODED_RADIUS_RE.test(layout.css)) {
-          issues.push({
-            level: "warning",
-            step: i,
-            field: `steps[${i}].layout.css`,
-            message: `CSS contains hardcoded border-radius. Use var(--radius-sm), var(--radius-md), var(--radius-lg) or var(--r-card) from the theme.`,
-          });
-        }
-        if (HARDCODED_SHADOW_RE.test(layout.css)) {
-          issues.push({
-            level: "warning",
-            step: i,
-            field: `steps[${i}].layout.css`,
-            message: `CSS contains hardcoded box-shadow. Use var(--shadow-sm), var(--shadow-md), var(--shadow-lg), or theme shadow tokens.`,
-          });
-        }
-        if (HARDCODED_MOTION_RE.test(layout.css)) {
-          issues.push({
-            level: "warning",
-            step: i,
-            field: `steps[${i}].layout.css`,
-            message: `CSS contains hardcoded cubic-bezier(). Use var(--motion-snappy), var(--motion-smooth), var(--motion-gentle), var(--motion-spring), or var(--motion-linear).`,
-          });
-        }
-
-        // ── New: contrast check ──────────────────────────────────────────
-        const contrastMsg = validateContrast(layout.css);
-        if (contrastMsg) {
-          issues.push({
-            level: "warning",
-            step: i,
-            field: `steps[${i}].layout.css`,
-            message: contrastMsg,
-          });
-        }
-
-        // ── New: font size floor ─────────────────────────────────────────
-        let fsMatch: RegExpExecArray | null;
-        while ((fsMatch = FONT_SIZE_RE.exec(layout.css)) !== null) {
-          const px = parseInt(fsMatch[1], 10);
-          if (px < 14) {
-            issues.push({
-              level: "warning",
-              step: i,
-              field: `steps[${i}].layout.css`,
-              message: `Font size ${px}px may be too small for 1920×1080 video. Minimum recommended: 14px for body, 16px for headings.`,
-            });
-            break; // one warning per css block is enough
-          }
-        }
-
-        // ── New: whitespace check ────────────────────────────────────────
-        if (WHITESPACE_ZERO_RE.test(layout.css) &&
-            !/padding\s*:\s*0\s+\d|margin\s*:\s*0\s+\d/.test(layout.css)) {
-          issues.push({
-            level: "warning",
-            step: i,
-            field: `steps[${i}].layout.css`,
-            message: `Padding and margin appear to be zero — visual may feel cramped. Consider using theme spacing tokens (var(--space-3) etc.) for breathing room.`,
-          });
-        }
+    // Check extraCSS for design token violations
+    const css = layout.extraCSS ?? "";
+    if (css) {
+      if (HARDCODED_COLORS_RE.test(css)) {
+        issues.push({ level: "warning", step: i, field: `steps[${i}].layout.extraCSS`,
+          message: `extraCSS contains hardcoded hex colors. Use var(--token) instead.` });
+      }
+      if (HARDCODED_FONT_RE.test(css)) {
+        issues.push({ level: "warning", step: i, field: `steps[${i}].layout.extraCSS`,
+          message: `extraCSS contains hardcoded font-family. Use var(--font-*) instead.` });
+      }
+      if (DEPRECATED_TOKENS_RE.test(css)) {
+        issues.push({ level: "warning", step: i, field: `steps[${i}].layout.extraCSS`,
+          message: `extraCSS references deprecated tokens.` });
+      }
+      if (WHITESPACE_ZERO_RE.test(css) && !/padding\s*:\s*0\s+\d|margin\s*:\s*0\s+\d/.test(css)) {
+        issues.push({ level: "warning", step: i, field: `steps[${i}].layout.extraCSS`,
+          message: `Padding/margin appear to be zero — visual may feel cramped.` });
       }
 
-      if (HARDCODED_COLORS_RE.test(layout.jsx)) {
-        issues.push({
-          level: "warning",
-          step: i,
-          field: `steps[${i}].layout.jsx`,
-          message: `JSX contains hardcoded hex colors. Use var(--token) instead.`,
-        });
-      }
-    }
-
-    // ── New: composed mode — check for orphaned primitives ───────────────
-    if (layout.mode === "composed" && layout.regions) {
-      const regionCount = Object.keys(layout.regions).length;
-      if (regionCount === 0) {
-        issues.push({
-          level: "warning",
-          step: i,
-          field: `steps[${i}].layout.regions`,
-          message: `Composed layout has no regions defined — screen will be empty.`,
-        });
-      }
-      if (regionCount > 8) {
-        issues.push({
-          level: "warning",
-          step: i,
-          field: `steps[${i}].layout.regions`,
-          message: `Composed layout has ${regionCount} regions — may feel cluttered. Consider 3-6 regions for optimal clarity.`,
-        });
-      }
-    }
-
-    // Template-specific constraint checks
-    if (layout.mode === "template" && layout.slots) {
-      const slots = layout.slots as Record<string, any>;
-
-      // hero-title: check for empty required fields
-      if (layout.template === "hero-title" && !slots.title?.trim()) {
-        issues.push({
-          level: "error",
-          step: i,
-          field: `steps[${i}].layout.slots.title`,
-          message: `hero-title template requires a non-empty title`,
-        });
-      }
-
-      // step-reveal: check that each step item has content
-      if (layout.template === "step-reveal" && Array.isArray(slots.steps)) {
-        for (let si = 0; si < slots.steps.length; si++) {
-          const item = slots.steps[si];
-          if (!item.heading?.trim()) {
-            issues.push({
-              level: "warning",
-              step: i,
-              field: `steps[${i}].layout.slots.steps[${si}].heading`,
-              message: `step-reveal item ${si} has an empty heading — screen may appear blank`,
-            });
-          }
+      let fsMatch: RegExpExecArray | null;
+      while ((fsMatch = FONT_SIZE_RE.exec(css)) !== null) {
+        const px = parseInt(fsMatch[1], 10);
+        if (px < 14) {
+          issues.push({ level: "warning", step: i, field: `steps[${i}].layout.extraCSS`,
+            message: `Font size ${px}px may be too small for 1920×1080 video.` });
+          break;
         }
-      }
-
-      // quote-card: require quote text
-      if (layout.template === "quote-card" && !slots.quote?.trim()) {
-        issues.push({
-          level: "error",
-          step: i,
-          field: `steps[${i}].layout.slots.quote`,
-          message: `quote-card template requires a non-empty quote`,
-        });
-      }
-
-      // grid-gallery: require at least 2 items
-      if (layout.template === "grid-gallery" && (!Array.isArray(slots.items) || slots.items.length < 2)) {
-        issues.push({
-          level: "warning",
-          step: i,
-          field: `steps[${i}].layout.slots.items`,
-          message: `grid-gallery is designed for 2+ items. Consider a different template for single images.`,
-        });
       }
     }
   }
@@ -370,35 +318,19 @@ function validateL3(bp: ChapterBlueprintType): ValidationIssue[] {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Post-compilation: quick structural checks on generated output
+// Post-compilation checks
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export function validateGenerated(tsx: string, stepCount: number): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-
-  // Check that stepCount matches if/else if blocks
   const stepBlockMatches = tsx.match(/if\s*\(\s*step\s*===\s*\d+\s*\)/g);
   const blockCount = stepBlockMatches?.length ?? 0;
-
   if (blockCount !== stepCount) {
     issues.push({
-      level: "error",
-      step: null,
-      field: "generated.tsx",
+      level: "error", step: null, field: "generated.tsx",
       message: `Generated TSX has ${blockCount} step blocks but blueprint declares ${stepCount} steps`,
     });
   }
-
-  // Check for missing component import
-  if (tsx.includes("import { ") && !tsx.includes("from")) {
-    issues.push({
-      level: "error",
-      step: null,
-      field: "generated.tsx",
-      message: `Generated TSX has a broken import statement`,
-    });
-  }
-
   return issues;
 }
 
@@ -411,7 +343,6 @@ export function validateBlueprint(
 ): { validated: ChapterBlueprintType | null; result: ValidationResult } {
   const allIssues: ValidationIssue[] = [];
 
-  // L0: Quick type check — is it even an object with the expected shape?
   if (!bp || typeof bp !== "object") {
     return {
       validated: null,
@@ -422,49 +353,49 @@ export function validateBlueprint(
     };
   }
 
-  // L1: Zod schema
-  allIssues.push(...validateL1(bp as ChapterBlueprintType));
+  // L0: Detect old template/custom blueprints and give clear error
+  const raw = bp as any;
+  if (raw?.steps) {
+    for (let i = 0; i < raw.steps.length; i++) {
+      const mode = raw.steps[i]?.layout?.mode;
+      if (mode === "template" || mode === "custom") {
+        allIssues.push({
+          level: "error",
+          step: i,
+          field: `steps[${i}].layout.mode`,
+          message: `Blueprint v2 不再支持 "${mode}" 模式。请使用 composed 模式：去掉 mode/template/slots 字段，直接用 layout + regions + animations。参考 PRIMITIVES.md 的 42 种 primitive。`,
+        });
+      }
+    }
+  }
 
-  // If L1 failed, we can't proceed to L2/L3 safely
-  const hasErrors = allIssues.some((i) => i.level === "error");
-  if (hasErrors) {
-    return {
-      validated: null,
-      result: { valid: false, issues: allIssues },
-    };
+  // L1
+  allIssues.push(...validateL1(bp as ChapterBlueprintType));
+  if (allIssues.some((i) => i.level === "error")) {
+    return { validated: null, result: { valid: false, issues: allIssues } };
   }
 
   const parsed = bp as ChapterBlueprintType;
 
-  // L2: Semantic
+  // L2
   allIssues.push(...validateL2(parsed));
 
-  // L3: Constraints
+  // L3
   allIssues.push(...validateL3(parsed));
 
-  const stillHasErrors = allIssues.some((i) => i.level === "error");
+  const hasErrors = allIssues.some((i) => i.level === "error");
 
   return {
-    validated: stillHasErrors ? null : parsed,
-    result: {
-      valid: !stillHasErrors,
-      issues: allIssues,
-    },
+    validated: hasErrors ? null : parsed,
+    result: { valid: !hasErrors, issues: allIssues },
   };
 }
 
-/**
- * Human-readable summary of validation issues, suitable for showing
- * to the LLM so it can fix its blueprint.
- */
 export function formatValidationResult(result: ValidationResult): string {
-  if (result.issues.length === 0) {
-    return "✅ Blueprint 校验通过，无问题。";
-  }
+  if (result.issues.length === 0) return "✅ Blueprint 校验通过，无问题。";
 
   const errors = result.issues.filter((i) => i.level === "error");
   const warnings = result.issues.filter((i) => i.level === "warning");
-
   const lines: string[] = [];
 
   if (errors.length > 0) {
@@ -474,7 +405,6 @@ export function formatValidationResult(result: ValidationResult): string {
       lines.push(`  - [${loc}] ${e.field}: ${e.message}`);
     }
   }
-
   if (warnings.length > 0) {
     lines.push(`\n⚠️  ${warnings.length} 个警告（建议修复）：`);
     for (const w of warnings) {

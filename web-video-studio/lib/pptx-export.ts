@@ -59,18 +59,16 @@ export async function exportToPPTX(
         });
       }
 
-      // Extract text content from slots
-      if (layout.mode === "template") {
-        const slots = layout.slots as Record<string, any>;
-        const textParts: string[] = [];
+      // Extract text content from layout (handles both legacy template and new composed)
+      const textParts: string[] = [];
 
+      if ((layout as any).mode === "template") {
+        // Legacy template blueprint
+        const slots = (layout as any).slots as Record<string, any> ?? {};
         for (const [key, value] of Object.entries(slots)) {
-          if (typeof value === "string" && value.trim()) {
-            textParts.push(value);
-          } else if (typeof value === "object" && value?.heading) {
-            textParts.push(value.heading);
-            if (value.body) textParts.push(value.body);
-          } else if (Array.isArray(value)) {
+          if (typeof value === "string" && value.trim()) textParts.push(value);
+          else if (typeof value === "object" && value?.heading) { textParts.push(value.heading); if (value.body) textParts.push(value.body); }
+          else if (Array.isArray(value)) {
             for (const item of value) {
               if (typeof item === "string") textParts.push(`• ${item}`);
               else if (item?.heading) textParts.push(`${item.heading}`);
@@ -78,30 +76,37 @@ export async function exportToPPTX(
             }
           }
         }
-
-        // Add text to slide
-        if (textParts.length > 0) {
-          slide.addText(textParts.join("\n"), {
-            x: 0.5, y: 0.5, w: "90%", h: "90%",
-            fontSize: 16,
-            align: layout.template === "hero-title" ? "center" : "left",
-            valign: layout.template === "hero-title" ? "middle" : "top",
-          });
-        }
-
-        // Add media references as notes
-        const mediaRefs: string[] = [];
-        const scanForMedia = (obj: any) => {
-          if (!obj || typeof obj !== "object") return;
-          if (obj.type && obj.src) mediaRefs.push(`${obj.type}: ${obj.src}`);
-          for (const v of Object.values(obj)) {
-            if (typeof v === "object") scanForMedia(v);
+      } else {
+        // New composed layout — extract text from all primitives in all regions
+        const extractFromPrimitive = (prim: any) => {
+          if (!prim?.params) return;
+          if (prim.primitive === "Headline" && prim.params.text) textParts.push(prim.params.text);
+          else if (prim.primitive === "Body" && prim.params.text) textParts.push(prim.params.text);
+          else if (prim.primitive === "TypeWriter" && prim.params.text) textParts.push(prim.params.text);
+          else if (prim.primitive === "PullQuote" && prim.params.text) textParts.push(`"${prim.params.text}"`);
+          else if (prim.primitive === "Kicker" && prim.params.text) textParts.push(`[${prim.params.text}]`);
+          else if (prim.primitive === "StatCard" && prim.params.value) textParts.push(`${prim.params.value} — ${prim.params.label ?? ""}`);
+          else if (prim.primitive === "BigNumber" && prim.params.value) textParts.push(`${prim.params.value}${prim.params.unit ?? ""}`);
+          else if (prim.primitive === "Counter" && prim.params.to != null) textParts.push(`${prim.params.to}${prim.params.unit ?? ""}`);
+          // Recurse into container children
+          if (prim.children) {
+            for (const child of prim.children) {
+              const contents = Array.isArray(child.content) ? child.content : [child.content];
+              contents.forEach(extractFromPrimitive);
+            }
           }
         };
-        scanForMedia(slots);
-        if (mediaRefs.length > 0) {
-          slide.addNotes(`Media references:\n${mediaRefs.join("\n")}`);
+        for (const region of Object.values((layout as any).regions ?? {})) {
+          const contents = Array.isArray((region as any).content) ? (region as any).content : [(region as any).content];
+          contents.forEach(extractFromPrimitive);
         }
+      }
+
+      if (textParts.length > 0) {
+        slide.addText(textParts.join("\n"), {
+          x: 0.5, y: 0.5, w: "90%", h: "90%",
+          fontSize: 16, align: "left", valign: "top",
+        });
       }
 
       // Add narration as speaker notes

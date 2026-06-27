@@ -9,7 +9,7 @@ import { eq } from "drizzle-orm";
 import { listAllSkills, MAIN_SKILL_ID, getSkill, readSkillRef, type Skill } from "@/lib/skills";
 import { getMainSkillDir } from "@/lib/env";
 
-function resolveSkillPath(skillId: string): string {
+export function resolveSkillPath(skillId: string): string {
   const s = getSkill(skillId);
   return s ? s.path : getMainSkillDir();
 }
@@ -17,7 +17,7 @@ function resolveSkillPath(skillId: string): string {
 const MEDIA_EXTS = new Set(["jpg","jpeg","png","webp","svg","gif","mp4","webm","mov"]);
 
 /** Shared model display name formatter — used by all prompt builders */
-function formatModelName(model: string): string {
+export function formatModelName(model: string): string {
   if (model.startsWith("claude-"))
     return `Claude ${model.replace("claude-", "").replace(/-/g, " ")}`;
   if (model.startsWith("deepseek-"))
@@ -30,14 +30,15 @@ const RED_LINES = {
   noAskUser: "不要反问用户、不要问用户任何问题。直接行动。",
   noChapterCode: "绝不要手工写 presentation/src/chapters/ 下的 TSX/CSS 文件！绝不要手工编辑 presentation/src/registry/chapters.ts！",
   noExtraTalk: "一句话带过即可，不要冗长解释。完成后直接输出 JSON 或调用工具。",
+  noManualDevServer: "绝不要手动运行 npm run dev / vite / cd presentation 启动预览。系统自动管理 dev server，你只需标记 done。不要说'运行 cd presentation && npm run dev 即可预览'。",
 } as const;
 
-function readRef(skillId: string, filename: string): string {
+export function readRef(skillId: string, filename: string): string {
   return readSkillRef(skillId, filename);
 }
 
 /** 项目状态摘要 — 告诉 AI 已经完成了什么，还有什么待做 */
-async function buildProjectStateSummary(project: Project): Promise<string> {
+export async function buildProjectStateSummary(project: Project, isIllust = false): Promise<string> {
   const projDir = projectDir(project.id);
   const presDir = path.join(projDir, "presentation");
   const chaptersDir = path.join(presDir, "src", "chapters");
@@ -47,100 +48,128 @@ async function buildProjectStateSummary(project: Project): Promise<string> {
   // Writing phase
   const hasArticle = fs.existsSync(path.join(projDir, "article.md"));
   const hasScript = fs.existsSync(path.join(projDir, "script.md"));
-  const hasOutline = fs.existsSync(path.join(projDir, "outline.md"));
-  const writingDone = hasArticle && hasScript && hasOutline;
-  checks.push(`写作阶段: ${writingDone ? "✅ 已完成" : "❌ 未完成"}`
-    + (!writingDone ? ` [${!hasArticle ? "缺article " : ""}${!hasScript ? "缺script " : ""}${!hasOutline ? "缺outline" : ""}]` : ""));
+  const writingDone = hasArticle && hasScript;
+  if (isIllust) {
+    checks.push(`写作阶段: ${writingDone ? "✅ 已完成" : "❌ 未完成"}`
+      + (!writingDone ? ` [${!hasArticle ? "缺article " : ""}${!hasScript ? "缺script " : ""}]` : ""));
+  } else {
+    const hasOutline = fs.existsSync(path.join(projDir, "outline.md"));
+    checks.push(`写作阶段: ${writingDone && hasOutline ? "✅ 已完成" : "❌ 未完成"}`
+      + (!writingDone || !hasOutline ? ` [${!hasArticle ? "缺article " : ""}${!hasScript ? "缺script " : ""}${!hasOutline ? "缺outline" : ""}]` : ""));
+  }
 
-  // Building phase
+  if (isIllust) {
+    // v2: pure slideshow — check script segments and illustrations
+    let shotCount = 0;
+    const illPath = path.join(projDir, "illustrations.json");
+    if (fs.existsSync(illPath)) {
+      try {
+        const d = JSON.parse(fs.readFileSync(illPath, "utf-8"));
+        shotCount = d.shots?.length ?? 0;
+      } catch {}
+    }
+    checks.push(`插画规划: ${shotCount > 0 ? `${shotCount} 个节拍` : "⬜ 未开始"}`);
+    const tlPath = path.join(projDir, "illust-timeline.json");
+    const manifestPath = path.join(projDir, "manifest.json");
+    const hasImages = fs.existsSync(tlPath) || fs.existsSync(manifestPath);
+    checks.push(`插画生成: ${hasImages ? "✅ 已完成" : "⬜ 待系统自动生成"}`);
+    const audioDir = path.join(presDir, "public", "audio");
+    const hasAudio = fs.existsSync(audioDir) &&
+      (fs.readdirSync(audioDir, { recursive: true }) as string[]).some(f => f.endsWith(".mp3"));
+    checks.push(`配音: ${hasAudio ? "✅ 已完成" : "⬜ 待系统自动生成"}`);
+    checks.push(`播放清单: ${fs.existsSync(manifestPath) ? "✅ 已就绪" : "⬜ 待系统自动生成"}`);
+
+    const summary = `## 📊 项目进度
+
+${checks.join("\n")}
+
+**当前阶段**: ${project.status === "done" ? "✅ 已完成 — manifest.json 已就绪，可直接预览。" : project.status === "writing" ? "写作中 — 产出 script.md + illustrations.json。系统自动接管后续流程。" : project.status}`;
+    return summary;
+  }
+
+  // v1: standard video — building/chapter tracking
+  const hasOutline = fs.existsSync(path.join(projDir, "outline.md"));
   let builtCount = 0;
   let outlineCount = 0;
   if (hasOutline) {
     try {
       const outline = fs.readFileSync(path.join(projDir, "outline.md"), "utf-8");
       outlineCount = (outline.match(/^## \d+\./gm) || []).length;
-    } catch (err: any) { console.warn("[system-prompt] Failed to read outline:", err?.message ?? err); }
+    } catch {}
   }
   if (fs.existsSync(chaptersDir)) {
     try {
-      const dirs = fs.readdirSync(chaptersDir).filter(d =>
-        !d.startsWith(".") && !d.startsWith("__") && d !== "01-example"
-      );
-      builtCount = dirs.length;
-    } catch (err: any) { console.warn("[system-prompt] Failed to read chapters dir:", err?.message ?? err); }
+      builtCount = fs.readdirSync(chaptersDir).filter(d => !d.startsWith(".") && !d.startsWith("__") && d !== "01-example").length;
+    } catch {}
   }
   const buildingDone = outlineCount > 0 && builtCount >= outlineCount;
-  checks.push(`构建阶段: ${buildingDone ? `✅ 已完成 (${builtCount}/${outlineCount}章)` : builtCount > 0 ? `🔄 进行中 (${builtCount}/${outlineCount}章)` : "⬜ 未开始"}`);
+  const buildStatus = outlineCount > 0
+    ? (buildingDone ? `✅ 已完成 (${builtCount}/${outlineCount}章)` : builtCount > 0 ? `🔄 进行中 (${builtCount}/${outlineCount}章)` : `⬜ 未开始 (0/${outlineCount}章)`)
+    : (builtCount > 0 ? `⚠️ 有${builtCount}个章节目录但 outline.md 不存在` : "⬜ 未开始 (缺少 outline.md)");
+  checks.push(`构建阶段: ${buildStatus}`);
 
-  // Audio phase
   const hasAudio = fs.existsSync(path.join(presDir, "public", "audio"));
   const hasAudioSegments = fs.existsSync(path.join(presDir, "audio-segments.json"));
-  const audioDone = hasAudio || hasAudioSegments;
-  checks.push(`音频合成: ${audioDone ? "✅ 已完成" : "⬜ 未开始"}`);
-
-  // Render phase
-  const hasRender = fs.existsSync(path.join(projDir, "render.mp4"));
-  checks.push(`渲染: ${hasRender ? "✅ 已完成" : "⬜ 未开始"}`);
+  checks.push(`音频合成: ${hasAudio || hasAudioSegments ? "✅ 已完成" : "⬜ 未开始"}`);
+  checks.push(`渲染: ${fs.existsSync(path.join(projDir, "render.mp4")) ? "✅ 已完成" : "⬜ 未开始"}`);
 
   const summary = `## 📊 项目进度
 
 ${checks.join("\n")}
 
-**当前阶段**: ${project.status === "done" ? "已完成 — 系统已自动标记完成。你可以修改内容、回答提问、建议录制视频，但不要重建已有章节。" : project.status === "building" ? "构建中 — " + (buildingDone ? "所有章节已构建，系统将自动标记为 done。" : `继续为 outline 中的剩余章节生成 Blueprint（${builtCount}/${outlineCount} 已完成）。`) : project.status === "plan_checkpoint" ? "等待用户确认 — 用户在审阅章节计划，确认后系统会自动进入构建阶段。" : project.status === "writing" ? "写作中 — 产出 rhythm.md / script.md / outline.md。完成后输出 plan_checkpoint JSON 等待用户确认。" : project.status}
+**当前阶段**: ${project.status === "done" ? "✅ 已完成。不要重建任何章节。" : project.status === "building" ? "构建中 — " + (buildingDone ? "✅ 构建完成。系统将自动标记 done。" : `只构建缺失的章节（${builtCount}/${outlineCount} 已完成）。`) : project.status === "writing" ? "写作中 — 产出 rhythm.md / script.md / outline.md。完成后输出 plan_checkpoint JSON。" : project.status}
 
-**自动流程**:
-- 写作完成后 → 调用 ProjectSetStatus("building") → ⚡系统自动触发脚手架 → 进入构建阶段
-- 所有章节构建完毕 → ⚡系统自动标记 done（不需要你手动调）
-- 你的职责：写作完成后调 ProjectSetStatus("building")；构建时提交 Blueprint；构建完成后的 done 由系统自动设置
-
-**重要原则**: 对比「项目进度」与对话历史——如果进度显示已完成但对话显示刚做完，说明这之前的工作已经完成，不要重复执行。直接告知用户当前状态并等待指令。`;
-
+**自动流程**: 写作完成后调用 ProjectSetStatus("building") → 系统自动触发脚手架 → 构建章节 → 自动标记 done。
+**重要原则**: 检查已构建章节列表——如果已构建数量 >= outline 数量，说明构建完成，不要做任何操作。`;
   return summary;
 }
 
 /** 写作阶段参考文件 — RHYTHM-DESIGN 内联（格式核心），其余路径引用 */
-function buildWritingRefs(skillId: string): string {
+export function buildWritingRefs(skillId: string, isIllust = false): string {
   const skillPath = resolveSkillPath(skillId);
-  const rhythm = readRef(skillId, "RHYTHM-DESIGN.md");
   const hasScript = readRef(skillId, "SCRIPT-STYLE.md");
   const hasOutline = readRef(skillId, "OUTLINE-FORMAT.md");
-  if (!rhythm && !hasScript && !hasOutline) return "";
   const parts: string[] = [];
-  if (rhythm) {
-    parts.push(`## 参考文档（内联）：RHYTHM-DESIGN.md\n\n${rhythm}`);
+  // v2 pure slideshow doesn't need RHYTHM-DESIGN
+  if (!isIllust) {
+    const rhythm = readRef(skillId, "RHYTHM-DESIGN.md");
+    if (rhythm) parts.push(`## 参考文档（内联）：RHYTHM-DESIGN.md\n\n${rhythm}`);
   }
-  const lazyFiles = [];
-  if (hasScript) lazyFiles.push(`- \`${skillPath}/references/SCRIPT-STYLE.md\` — 脚本写作风格指南`);
-  if (hasOutline) lazyFiles.push(`- \`${skillPath}/references/OUTLINE-FORMAT.md\` — 大纲格式规范`);
-  if (lazyFiles.length > 0) {
-    parts.push(`## 参考文档（按需加载）\n\n写作前用 ProjectRead 加载：\n${lazyFiles.join("\n")}`);
+  if (!isIllust) {
+    const lazyFiles = [];
+    if (hasScript) lazyFiles.push(`- \`${skillPath}/references/SCRIPT-STYLE.md\` — 脚本写作风格指南`);
+    if (hasOutline) lazyFiles.push(`- \`${skillPath}/references/OUTLINE-FORMAT.md\` — 大纲格式规范`);
+    if (lazyFiles.length > 0) {
+      parts.push(`## 参考文档（按需加载）\n\n写作前用 ProjectRead 加载：\n${lazyFiles.join("\n")}`);
+    }
   }
   return "\n" + parts.join("\n\n") + "\n";
 }
 
-/** 构建阶段参考文件 — 改为路径引用，AI 用 ProjectRead 按需加载 */
-function buildBuildingRefs(skillId: string): string {
+/** 构建阶段参考文件 — 强制预加载，禁止猜测 */
+export function buildBuildingRefs(skillId: string): string {
   const skillPath = resolveSkillPath(skillId);
   const files = [
+    { name: "PRIMITIVES.md", desc: "Primitive 选型表（所有 primitive 的 params、有效 enum 值、类型、默认值——唯一权威参考）" },
     { name: "CHAPTER-CRAFT.md", desc: "章节制作规则（十条原则、决策树、反AI味）" },
-    { name: "PRIMITIVES.md", desc: "Primitive 选型表（Counter/Reveal/NetworkGraph 等完整 params）" },
   ].filter((f) => readRef(skillId, f.name));
   if (files.length === 0) return "";
   const lines = files.map((f) => `- \`${skillPath}/references/${f.name}\` — ${f.desc}`);
   return `
-## 参考文档（按需加载）
+## 构建前必读参考文档
 
-构建章节前，用 ProjectRead 加载以下文件获取完整规则：
+开始写 Blueprint 前，必须先用 ProjectRead 加载以下文件：
 ${lines.join("\n")}
 
-不要一次性全读——只在需要时才 ProjectRead 对应文件。
+PRIMITIVES.md 包含每个 primitive 的所有 params、有效 enum 值、类型、默认值。
+这是唯一权威参考。不要在构建过程中猜测格式——读完再写，零猜测 = 零格式错误。
 `;
 }
 
 const XIAOHEI_SKILL_ID = "ian-xiaohei-illustrations";
 
 /** 插图阶段参考文件 — 小黑 IP、构图方法论、QA 检查清单 */
-function buildIllustrationRefs(): string {
+export function buildIllustrationRefs(): string {
   const ip = readSkillRef(XIAOHEI_SKILL_ID, "xiaohei-ip.md");
   const comp = readSkillRef(XIAOHEI_SKILL_ID, "composition-patterns.md");
   const qa = readSkillRef(XIAOHEI_SKILL_ID, "qa-checklist.md");
@@ -163,7 +192,7 @@ ${qa}
 `;
 }
 
-function buildEnabledSkillsSection(enabledIds: string[], mainSkillId: string): string {
+export function buildEnabledSkillsSection(enabledIds: string[], mainSkillId: string): string {
   const all = listAllSkills();
   const byId = new Map(all.map((s) => [s.id, s]));
   const enabled = enabledIds
@@ -201,7 +230,7 @@ ${lines.join("\n\n")}
 `;
 }
 
-async function buildAssetsManifest(project: Project): Promise<string> {
+export async function buildAssetsManifest(project: Project): Promise<string> {
   const rows: Array<{ file: string; type: string; caption: string; source: string; duration: string }> = [];
 
   // Local project assets
@@ -269,7 +298,7 @@ ${lines.join("\n")}
 const MAX_SYSTEM_CHARS = 180_000; // ~45K tokens — safety margin below most provider limits
 
 /** Guard against system prompts exceeding provider context windows */
-function applySizeGuard(messages: SystemModelMessage[]): SystemModelMessage[] {
+export function applySizeGuard(messages: SystemModelMessage[]): SystemModelMessage[] {
   let totalChars = 0;
   for (const m of messages) {
     totalChars += typeof m.content === "string" ? m.content.length : 0;
@@ -290,6 +319,25 @@ function applySizeGuard(messages: SystemModelMessage[]): SystemModelMessage[] {
 }
 
 export async function buildSystemPrompt(project: Project, enabledSkills: string[] = [MAIN_SKILL_ID]): Promise<SystemModelMessage[]> {
+  // Route to the right prompt based on project type
+  const isIllust = project.projectType === "illustration-video" || project.projectType === "illustrated-article";
+  const isAnim = project.projectType === "animation-video";
+  if (isIllust) {
+    const { buildIllustSystemPrompt } = await import("./system-prompt-illust");
+    const { ILLUSTRATION_SKILL_ID } = await import("@/lib/skills");
+    return buildIllustSystemPrompt(project, enabledSkills.length > 0 ? enabledSkills : [ILLUSTRATION_SKILL_ID]);
+  }
+  if (isAnim) {
+    const { buildAnimSystemPrompt } = await import("./system-prompt-anim");
+    const { ANIMATION_SKILL_ID } = await import("@/lib/skills");
+    return buildAnimSystemPrompt(project, enabledSkills.length > 0 ? enabledSkills : [ANIMATION_SKILL_ID]);
+  }
+  const { buildVideoSystemPrompt } = await import("./system-prompt-video");
+  return buildVideoSystemPrompt(project, enabledSkills);
+}
+
+/** @deprecated Legacy export — kept for the internal prompt builder. Use buildSystemPrompt instead. */
+export async function _buildLegacyPrompt(project: Project, enabledSkills: string[] = [MAIN_SKILL_ID]): Promise<SystemModelMessage[]> {
   // Graphic projects use a completely different prompt
   if (project.projectFormat === "graphic") {
     return buildGraphicSystemPrompt(project, enabledSkills);
@@ -311,10 +359,10 @@ export async function buildSystemPrompt(project: Project, enabledSkills: string[
   const assetsSection = await buildAssetsManifest(project);
   const isBuilding = project.status === "building";
   const isDone = project.status === "done";
-  const isWriting = project.status === "writing" || project.status === "plan_checkpoint" || project.status === "illustration_planning";
+  const isWriting = project.status === "writing" || project.status === "illustration_planning";
   const isIllustrating = project.status === "illustrating";
   const isTypesetting = project.status === "typesetting";
-  const isIllustMode = project.projectType === "illustration-video" || project.projectType === "illustrated-article";
+  const isIllustMode = project.projectType === "illustration-video" || project.projectType === "illustrated-article" || project.projectType === "animation-video";
 
   // Check if user has illustrations enabled
   let illustrationsEnabled = true;
@@ -346,22 +394,35 @@ export async function buildSystemPrompt(project: Project, enabledSkills: string[
 - step N (~Ts) — 屏幕内容描述（不写动画，只写屏幕内容）
 
 ## Outline 章节类型规则（必须执行）
-每章标题后、信息池前，必须声明 3 行元数据（见 CHAPTER-TYPES.md 路由表）：
+每章标题后、信息池前，必须声明 4 行元数据：
 \`\`\`
 chapter_type: <10种类型之一>
-visual_strategy: <物理意象 + SVG动作描述，不是方案名称>
-primitives: [Primitive1, Primitive2, ...]
+visual_strategy: <物理意象 + 动作描述>
+primitives: [实际Primitive名称1, 实际Primitive名称2, ...]   ← 必须用 PRIMITIVES.md 中的真实名称
+decor: [装饰类Primitive名称]   ← 可选，至少1个
 \`\`\`
-data-proof 章节额外必填：data_shape: {items:[{label,value}], unit:"单位"}
 
-**visual_strategy 写法要求（必须包含意象+动作）：**
-× 不合格：visual_strategy: bar-chart-growth（只有名称，没有意象）
-× 不合格：visual_strategy: three-node-flywheel（没有具体动作）
-✓ 合格：visual_strategy: 增长用竹节SVG从底部逐节生长，每节对应一年数据，口播"五倍"时Counter滚动到最终数字
-✓ 合格：visual_strategy: 信息筛选用漏斗SVG，大量粒子落入，底部仅漏出3颗高亮粒子代表高质量内容
-✓ 合格：visual_strategy: 天平两端砝码对比，左边逐一加砝码代表SEO指标，口播"重心转移"时天平向右倾斜
-写 visual_strategy 时先问：这个概念在现实世界里长什么样？把那个东西画出来、让它动起来。
-参考 CHAPTER-CRAFT.md 的「概念→物理场景→SVG动画意象映射表」速查。
+**primitives 字段必须从以下真实名称中选择（常见）：**
+
+| 场景/意象 | 对应的 real primitive |
+|----------|---------------------|
+| 数据增长/竞赛/排名 | BarRace, Counter, StatCard, BarChart, LineChart |
+| 指数曲线/爆发增长 | BarRace, Volcano, RocketLaunch |
+| 进度/占比/完成度 | LiquidPour, Gauge, ProgressBar |
+| 冲突→解决/叙事高潮 | Storm2Calm, DominoEffect |
+| 流程/步骤/因果关系 | DominoEffect, ProcessArrow, NetworkGraph |
+| 时间/里程碑/版本 | Hourglass, CalendarFlip, TimelineItem |
+| 筛选/过滤/淘汰 | FunnelFilter, Divider |
+| 关系/网络/拓扑 | Constellation, NetworkGraph, CircuitFlow |
+| 概念揭示/发布 | HologramReveal, PaperPlane |
+| 碎片→整体/协作 | PuzzleAssembly, Grid |
+| 人物/情绪/动作 | StickMan, CowCharacter, FaceMorph, HandGesture |
+| 背景氛围/粒子 | ParticleField, WaveForm, GradientBg, NoiseBg |
+| 数字冲击/大字 | BigNumber, Counter, Headline, GlowRing |
+| 对比/前后对照 | Split, StatCard, SideBySide |
+| 金句/引用/收尾 | PullQuote, QuoteCard, Headline(scale:quote) |
+
+**visual_strategy 写法：** 先问这个概念在现实世界长什么样，把画面画出来、让它动起来。不合格示例：bar-chart-growth（只有名称）。合格示例：2→4→8→16指数曲线从底部竞速生长，口播\"爆炸\"时柱子加速到顶。
 
 章节类型速查（按内容选）：
 - 开篇问题/钩子 → hero-hook
@@ -374,96 +435,280 @@ data-proof 章节额外必填：data_shape: {items:[{label,value}], unit:"单位
 - 代码/命令行/CLI → technical-demo
 - 地图/地区/分布 → geo-spatial
 - 结论/总结/收尾 → close-cta
+
+## 绘图视频项目
+
+如果项目类型是 illustration-video 或 illustrated-article：
+- **禁止**输出 plan_checkpoint。**禁止**等待确认。全程自动。
+- Outline 控制在 4-8 章，每章 2-5 step
+- 写完 rhythm/script 后，直接写 illustrations.json（每章≤2 张 shots，全项目≤12 张）
+- 系统检测到 illustrations.json 后自动生图，不需要你操作
+- 不要在 writing 阶段调 ProjectSetStatus("building")
 ` : "";
 
   const buildingRules = isBuilding ? `
-## 章节构建方案：Blueprint 模板系统（★ 不要手写代码！）
+## 章节构建：你是视频美术指导 ★ 使用 Blueprint 积木系统
 
 **优先使用 ProjectSetChapters 一次性批量提交所有章节的 Blueprint JSON 数组。**
 系统自动完成：逐个验证 → 并行编译 TSX/CSS/narrations → 写文件 → 一次性重建注册表 → 跑一次 tsc。
-失败章节用 ProjectSetChapter 单独修正。
-校验失败时根据返回的错误信息修改 JSON 重新提交即可。
 
-## 首选：组合模式（mode: "composed"）—— 默认使用
+## 唯一模式：composed — 5 种布局 × 63 种 primitive
 
-大多数章节应使用组合模式。5 种布局 × 11 种 primitive，任意编排。
+以下是一个 step 的完整 Blueprint JSON，展示了**所有结构能力**：grid 布局、嵌套子布局、容器 primitive children、动画、gridTemplate/gridArea、style overrides。以它为模板，替换内容即可。
 
-**5 种布局**: center（居中）、split（分屏）、stack（堆叠）、grid（CSS Grid）、absolute（绝对定位）
-**11 种 Primitive**: Counter（数字滚动）、Reveal（入场）、Stagger（逐个）、NetworkGraph（节点图）、WaveForm（波形）、TypeWriter（打字机）、ParticleField（粒子）、DrawPath（路径）、MediaFrame（媒体）、CodeBlock（代码）、DataChart（图表）
-
-Composed Blueprint 结构：
 \`\`\`json
-{
+{ "narration": "...",
   "layout": {
-    "mode": "composed",
     "layout": "grid",
     "gridTemplate": "2fr 1fr",
+    "overrides": { "backgroundStyle": "gradient-subtle" },
     "regions": {
-      "big-number": {
-        "content": [{ "primitive": "Counter", "params": { "to": 99.5, "unit": "%" } }],
+      "hero": {
+        "content": [
+          { "primitive": "Headline", "params": { "text": "大标题", "scale": "hero" } },
+          { "primitive": "Badge",      "params": { "text": "NEW" } },
+          { "primitive": "Divider",    "params": { "direction": "horizontal" } },
+          { "primitive": "Body",       "params": { "text": "正文段落", "align": "left" } }
+        ],
         "gridArea": "1/1"
       },
-      "context": {
-        "content": [{ "primitive": "Reveal", "params": { "from": "right" } }],
-        "gridArea": "1/2"
+      "nested": {
+        "content": {
+          "layout": "split",
+          "regions": {
+            "left":  { "content": [
+              { "primitive": "Stagger", "params": { "interval": 0.15 } },
+              { "primitive": "StatCard", "params": { "value": "99.5%", "label": "成功率", "trend": "up" } },
+              { "primitive": "StatCard", "params": { "value": "3.2s", "label": "平均耗时", "trend": "down" } }
+            ]},
+            "right": { "content": [
+              { "primitive": "Card", "params": { "padding": "md" },
+                "children": [
+                  { "content": [
+                    { "primitive": "Counter", "params": { "to": 2048, "unit": "tokens", "duration": 1.5 } },
+                    { "primitive": "Caption", "params": { "text": "每秒处理量" } }
+                  ]}
+                ]
+              }
+            ]}
+          }
+        },
+        "gridArea": "1/2",
+        "style": { "padding": "var(--space-4)" }
+      },
+      "bg": {
+        "content": [
+          { "primitive": "GradientBg", "params": { "from": "var(--accent)", "opacity": 0.08 } },
+          { "primitive": "ParticleField", "params": { "behavior": "flow", "count": 40 } }
+        ],
+        "gridArea": "1/3"
       }
     },
-    "animations": [{ "target": "big-number", "effect": "scaleIn", "delay": 0.2, "duration": 0.8 }]
+    "animations": [
+      { "target": "hero",   "effect": "slideUp",    "delay": 0,   "duration": 0.6 },
+      { "target": "nested", "effect": "scaleIn",     "delay": 0.5, "duration": 0.8 }
+    ]
   }
 }
 \`\`\`
-参考：PRIMITIVES.md（完整选型表+params）和 EXAMPLES/composed-blueprints/（完整示例）。
 
----
+关键规则（从示例中提取）：
+- **regions**: 每个 region 的 content 是 PrimitiveCall 数组，每个 primitive 必须有 "primitive" 和 "params"
+- **嵌套布局**: region 的 content 可以是另一个完整的 {layout, regions} 对象（如 "nested" region）
+- **容器 children**: Card/BorderBox/Grid/FlexRow/FlexCol/Split 通过 children 数组嵌套子区域定义
+- **动画**: animations 数组，target 指向 region 名称
+- **grid**: gridTemplate + gridArea 搭配使用；非 grid 布局不需要 gridArea
 
-## 备选：模板模式（mode: "template"）—— 快捷方式，仅结构匹配时用
+## 42 种 Primitive 速查表
 
-## 8 个可用模板及槽位
+### 文字 (6)
+| Primitive | 用途 | 关键 params |
+|-----------|------|-------------|
+| Headline | 大标题 | text, scale: hero/data/quote/sub/body/kicker |
+| Body | 正文段落 | text, align |
+| Kicker | 小标签 | text, color? |
+| PullQuote | 引用金句 | text, attribution?, context? |
+| Caption | 图片说明 | text |
+| TypeWriter | 打字机效果 | text, speed, cursor?, scale |
 
-| 模板 | 适用场景 | 必填槽位 | 变体 |
-|------|---------|---------|------|
-| hero-title | 章节开场、核心观点 | title | centered, left, split |
-| step-reveal | 逐条论证、知识拆解 | steps[{heading}] | numbered, icon, timeline |
-| data-spotlight | 数据冲击、指标展示 | primaryValue, primaryLabel | single-stat, comparison |
-| side-by-side | 前后对比、方案对比 | left{heading}, right{heading} | vs, arrow |
-| flow-diagram | 流程、架构、管道 | nodes[{id,label}] | horizontal, vertical |
-| code-showcase | 代码讲解 | code | single-file |
-| quote-card | 引用、名言 | quote | centered, side, overlay |
-| grid-gallery | 多图展示 | items[{media}] | cols-2, cols-3, cols-4 |
+### 数据 (7)
+| Primitive | 用途 | 关键 params |
+|-----------|------|-------------|
+| Counter | 数字滚动 | to, from?, unit?, duration |
+| StatCard | 统计卡片 | value, label, trend? |
+| BigNumber | 静态大数字 | value, unit?, label? |
+| BarChart | 柱状图 | data:[{label, value, color?}] |
+| LineChart | 折线图 | series:[{label, points:[{x,y}]}] |
+| PieChart | 饼图 | slices:[{value, label, color?}], innerRadius? |
+| Gauge | SVG 仪表盘 | value, max, label?, unit? |
 
-详细槽位结构：\`title\`, \`subtitle?\`, \`kicker?\`, \`background?\`, \`steps[].heading\`, \`steps[].body?\`, \`steps[].media?\`, \`primaryValue\`, \`primaryLabel\`, \`context?\`, \`left.heading\`, \`right.heading\`, \`nodes[].id\`, \`nodes[].label\`, \`code\`, \`language?\`, \`quote\`, \`attribution?\`, \`items[].media\`, \`columns\`
+### 媒体 (4)
+| Primitive | 用途 | 关键 params |
+|-----------|------|-------------|
+| ImageFrame | 图片 | src, fit, rounded?, shadow? |
+| VideoFrame | 视频 | src, fit, autoplay? |
+| Avatar | 头像 | src, size?, shape? |
+| LottiePlayer | Lottie 动画 | src, loop?, speed? |
 
-## Blueprint JSON 示例
+### 布局容器 (5)
+| Primitive | 用途 | 关键 params |
+|-----------|------|-------------|
+| Grid | CSS Grid 容器 | columns, gap, children:[...] |
+| FlexRow | 横向排列 | gap, align, children:[...] |
+| FlexCol | 纵向排列 | gap, align, children:[...] |
+| Split | 左右分栏 | ratio?, divider?, leftLabel?, rightLabel?, children:[...] |
+| Card | 卡片容器 | padding?, border?, shadow?, children:[...] |
 
-\`\`\`json
-{
-  "chapterId": "why-matter",
-  "title": "为什么需要记忆机制",
-  "steps": [
-    {
-      "narration": "首先我们来看大模型面临的挑战。",
-      "layout": {
-        "mode": "template", "template": "hero-title", "variant": "centered",
-        "slots": { "kicker": "认知瓶颈", "title": "GPT-4 一次只能记住 128k 个 token" },
-        "overrides": { "backgroundStyle": "gradient-subtle" }
-      }
-    },
-    {
-      "narration": "解决思路是引入外部记忆库。",
-      "layout": {
-        "mode": "template", "template": "step-reveal", "variant": "numbered",
-        "slots": { "steps": [{ "heading": "注意力机制的平方复杂度", "body": "O(n²) 增长" }] }
-      }
-    }
-  ]
-}
-\`\`\`
+### 装饰 (7)
+| Primitive | 用途 | 关键 params |
+|-----------|------|-------------|
+| Divider | 分割线 | direction, style |
+| Badge | 徽章 | text, color?, size? |
+| BorderBox | 边框盒子 | borderWidth?, borderColor?, children:[...] |
+| GradientBg | 渐变背景 | from?, to?, direction?, opacity |
+| NoiseBg | 噪点纹理 | opacity? |
+| PatternBg | 图案背景 | pattern: dots/grid/diagonal, opacity? |
+| GlowRing | 发光环 | color?, size?, pulseSpeed? |
 
-**组合模式**（模板不够用）：mode: "composed" + layout + regions，可用 primitives: Reveal, Counter, NetworkGraph, CodeBlock
-**自定义模式**（自由度）：mode: "custom" + jsx + css
+### 动画/SVG (7)
+| Primitive | 用途 | 关键 params |
+|-----------|------|-------------|
+| DrawPath | SVG 路径自绘 | d, strokeWidth?, color?, duration |
+| ParticleField | 粒子场 | behavior: flow/burst/orbit/rain, count |
+| WaveForm | 波形 | variant: sine/pulse/noise/bars, cycles |
+| MagneticField | 磁场可视化 | lineCount, showParticles |
+| CircuitFlow | 电路流动画 | nodes:[{id,x,y,type?}], wires:[{from,to}] |
+| TextGlow | 文字发光 | text, color?, intensity |
+| SvgReveal | SVG 揭示 | drawPath?, duration |
+
+### 图表/图示 (5)
+| Primitive | 用途 | 关键 params |
+|-----------|------|-------------|
+| NetworkGraph | 节点关系图 | nodes:[{id,label,icon?}], edges?, layout |
+| TimelineItem | 时间线条目 | date, heading, body?, highlight? |
+| ProcessArrow | 流程箭头 | steps:[{label,description?}], direction |
+| VennDiagram | 韦恩图 | sets:[{label,size,color?,items?}] (2-4 sets) |
+| GeoGlobe | 3D 地球 | highlightRegions?, rotationSpeed? |
+
+### 包装器 (2 — 不计入 diversity)
+| Primitive | 用途 | 关键 params |
+|-----------|------|-------------|
+| Reveal | 入场动画 | from, delay?, duration? |
+| Stagger | 逐个出现 | interval, from? |
+
+## 画面搭建规则（validator 硬约束，违反 → 编译失败）
+
+1. **每个 step ≥ 3 种 distinct primitive**（Reveal/Stagger 不计入）
+2. **每个 step 必须同时包含文字 + 非文字元素**（非文字=数据/媒体/装饰/SVG/图表）
+3. **每个 step 建议 ≥ 1 个装饰/动画**（Divider/ParticleField/GlowRing/DrawPath/WaveForm 等）
+4. **整章纯文字 step ≤ 30%**
+5. 有数字→Counter/StatCard/Chart；有流程→ProcessArrow/NetworkGraph；有对比→Split+StatCard
+6. 容器(Grid/FlexRow/FlexCol/Split/Card/BorderBox)用 children 数组嵌套子区域
+7. **布局嵌套**: region 的 content 可以是 LayoutDef，Sub-Layout → 递归渲染。
+   示例: Split 左 panel 里嵌 Grid，Grid 的 cell 里嵌 Card，Card 里嵌 FlexCol + Headline + Counter
+   \`\`\`json
+   "regions": {
+     "left": { "content": { "layout": "grid", "gridTemplate": "1fr 1fr", "regions": {
+       "cell1": { "content": [{ "primitive": "Headline", ... }] }
+     } } }
+   }
+   \`\`\`
+
+## 布局决策指南
+
+### 5 种顶层布局 - 按内容结构选
+
+| 布局 | 适用场景 | 典型 region 数 |
+|------|---------|--------------|
+| center | 单一焦点：大数字、金句、角色 | 1 |
+| stack | 纵向信息流：标题-正文-数据 | 2-3 |
+| split | 二元对比：前后对照、方案 A vs B | 2 |
+| grid | 多维并列：指标卡片、仪表盘 | 2-9 |
+| absolute | 叠加层：背景动画 + 前景文字 | 2 |
+
+### 何时使用嵌套布局
+
+如果某个 region 内部需要混合排列方向（横向+纵向）或需要容器样式包裹一组元素，该 region 就应该是嵌套布局。
+
+4 种高频嵌套模式：
+- **Split -> 异向**: 左 FlexCol 竖排(标题+正文) + 右 Grid 横排(数据卡片)
+- **Grid -> Card 网格**: Grid(3列) 每列一个 Card 内 FlexCol(图标+数字+标签)
+- **Card -> Grid 仪表盘**: 单个 Card(带边框) Grid 2x2 StatCard x4
+- **stack -> 混合**: region1 扁平文字 + region2 嵌套 Grid + region3 扁平 Badge 行
+
+### 嵌套深度原则
+
+- 深度 1 (扁平): 80% 的 step
+- 深度 2 (一层嵌套): 15% 的 step
+- 深度 3 (两层嵌套): 5% 的 step
+- 深度 >= 4: 禁止使用，拆成多个 step
 
 绝不要手工写 presentation/src/chapters/ 下的 TSX/CSS 文件！
 绝不要手工编辑 presentation/src/registry/chapters.ts！
+
+## GSAP 动画${illustrationsEnabled ? '辅助' : '替代插图'} ★
+
+${illustrationsEnabled
+  ? '你有 AI 插图素材可用（ImageFrame）。GSAP 动画作为补充——让静态插图"活起来"。'
+  : '你没有插图素材。GSAP 动画是唯一视觉来源，零 API 成本、TTS 精准同步、画风一致。'
+}
+
+### 场景→GSAP 映射表
+
+| 文章描述的场景 | 用这个 GSAP primitive |
+|---------------|---------------------|
+| 人物动作/对话/情绪 | StickMan (walk/wave/think/celebrate/point) |
+| 面部表情变化 | FaceMorph (happy/surprised/thinking/sweat/angry) |
+| 手势/数字列举 | HandGesture (thumbsUp/counting/pointing) |
+| 拟人化角色（牛） | CowCharacter (idle/walk/wave/celebrate/charge/point) |
+| 数据竞赛/排名 | BarRace (多柱竞速) |
+| 进度/完成度 | LiquidPour (液面上升) |
+| 增长/养成 | PlantGrow (根→茎→叶→花) |
+| 因果关系/连锁反应 | DominoEffect (骨牌倒下+标签弹出) |
+| 冲突→解决/叙事高潮 | Storm2Calm (天暗→闪电→暴雨→光透→平静) |
+| 时间流逝/截止日期 | Hourglass (沙流→翻转) |
+| 碎片化→整体/协作 | PuzzleAssembly (碎片飞入拼合) |
+| 信息传递/创意出发 | PaperPlane (折叠→飞出→降落) |
+| 概念揭示/产品发布 | HologramReveal (全息投影→物体旋转) |
+| 爆发增长/颠覆变革 | Volcano (冒烟→裂缝→喷涌→新生) |
+| 筛选过滤/层层淘汰 | FunnelFilter (粒子涌入→过滤→精华) |
+| 齿轮传动/系统原理 | GearMechanism (啮合旋转) |
+| 日历/里程碑/版本 | CalendarFlip (3D翻页) |
+| 关系网络/拓扑 | Constellation (星点连线渐显) |
+| 启动/突破/增长 | RocketLaunch (倒计时→点火→升空) |
+
+### 使用 ImageFrame / VideoFrame 的唯一场景
+
+只有以下情况才用 ImageFrame/VideoFrame 引用外部素材：
+- 真实照片（人物肖像、历史照片、产品实物）
+- 截图（软件界面、数据仪表盘、代码运行结果）
+- 用户上传的图片/视频
+- AI 生成的插画（仅限 illustration-video 项目，且没有合适的 GSAP 替代时）
+
+所有其他场景——角色、数据、流程、氛围、时间、关系——全部用 GSAP primitive。
+
+${illustrationsEnabled ? `
+## 插图素材使用
+
+本项目开启了插图生成。构建时：
+- 如果 illust-timeline.json 存在，用 ImageFrame 引用其中的 assetUrl
+- GSAP primitive 可作为补充装饰，但主要视觉由 AI 插图承载
+- 每章至少 1 个 step 用 ImageFrame 嵌入对应插图
+` : `
+## GSAP 动画替代插图 ★
+
+本项目未开启插图生成。**你必须用 GSAP 动画 primitive 替代所有视觉内容。**
+- ❌ 禁止使用 ImageFrame / VideoFrame（没有插图素材可用）
+- ✅ 每个 step 必须使用 GSAP/Canvas/SVG 动画类 primitive 作为主要视觉
+- ✅ 视觉→GSAP 速查：人物动作→StickMan/CowCharacter，数据→BarRace/LiquidPour，流程→DominoEffect/ProcessArrow，氛围→ParticleField/WaveForm，叙事高潮→Storm2Calm/Volcano/RocketLaunch，概念→Constellation/HologramReveal
+- 整章纯文字 step = 0%（validator 会强制检查）
+`}
+
+## 绘图视频项目——Building 阶段
+
+如果项目类型是 illustration-video 且存在 illust-timeline.json：
+- 读取 illust-timeline.json 获取 assetUrl
+- 每个需要素材的 step 用 ImageFrame + Grid/Split 嵌入
 ` : "";
 
   const doneRules = isDone ? `
@@ -489,14 +734,11 @@ Composed Blueprint 结构：
 - \`${mainSkillPath}/references/PRIMITIVES.md\`        — Primitive 选型表（Counter/Reveal/NetworkGraph 等）
 - \`${mainSkillPath}/references/CHAPTER-TYPES.md\`     — 章节类型路由表（10种类型速查）
 
-然后参考已有章节的代码风格（ProjectRead 现有章节文件），用 ProjectSetChapter 提交 blueprint。
-不要手写 TSX/CSS — 始终通过 Blueprint 编译器生成代码。
+用 ProjectSetChapter 提交 blueprint。不要手写 TSX/CSS。
 
 ### 现有项目结构
 
-已构建的章节在 presentation/src/chapters/ 目录下，注册表在 presentation/src/registry/chapters.ts。
-用 ProjectList("presentation/src/chapters") 查看已有章节列表。
-用 ProjectRead 读取具体文件查看内容。
+用 ProjectList("presentation/src/chapters") 查看已有章节列表即可。不要读已构建章节的代码——Blueprint 示例就是格式参考。
 
 ### 行为准则
 - ✅ 直接执行修改，不要反问用户「要不要调整」「有没有意见」
@@ -509,6 +751,14 @@ Composed Blueprint 结构：
 ` : "";
 
   const illustratingRules = isIllustrating ? `
+
+## 📊 插画数量硬约束
+
+- **每章最多 2 张插画**（选最核心的认知锚点，不是每个 step 都配图）
+- **全项目最多 12 张插画**
+- 优先选：数字冲击、概念具象化、隐喻对比 — 这些真正需要视觉辅助
+- 跳过：纯文字叙述、过渡段、总结段 — 这些文字本身够用
+- 规划完 shots 后自查：如果超过 12 张，删掉最弱的，只保留最核心的
 
 每张插画规格：
 - 16:9 横版（1280×720），纯白背景，黑色手绘线稿
@@ -528,19 +778,26 @@ Composed Blueprint 结构：
 - 优先选 cognitive anchor moment（认知转折、抽象概念具象化）
 - 为当前文章发明新隐喻，不复用旧案例
 
+⚠️ **全自动模式：禁止阻塞**
+
+- 禁止输出 illustration_checkpoint。禁止等待用户确认。
+- 规划完 shots 直接写入 illustrations.json，然后立即 ProjectSetStatus("illustrating")
+- 生图完成后写入 illust-timeline.json，立即 ProjectSetStatus("building")
+- 整个流水线零人工干预
+
 代码约束：
 - **${
   project.projectType === "illustrated-article"
     ? "不需要写任何代码，不需要 presentation/src/。产出是图片文件 + article_layouts 排版结构"
-    : "不需要写 React 代码，不需要 presentation/src/。产出是图片文件 + illust-timeline.json"
+    : "illustrating 阶段不需要写 React 代码。产出是图片文件 + illust-timeline.json。之后 building 阶段再构建章节。"
 }**
 - 图片保存到 assets/illustrations/
 
-生成流程：
-1. 先输出 shot plan 让用户确认
-2. 确认后输出 illustration_generate JSON 信号（Studio 会调用生成 API）
-3. 生成完后${project.projectType === "illustrated-article" ? ' ProjectSetStatus("typesetting")' : ' ProjectWrite("illust-timeline.json", timeline) → ProjectSetStatus("done")'}
-4. durationSec 默认填 5.0（实际时长在 TTS 合成后由音频文件决定）
+生成流程（系统自动执行，你不需要参与）：
+1. 你：直接写入 illustrations.json（shots 列表，含 chapterId/coreIdea/structure/elements/xiaoheiAction）
+2. 系统：自动检测 illustrations.json → 自动调用生图 API → 自动写入 illust-timeline.json
+3. 系统：生图完成后会通知你 → 你调用 ProjectSetStatus("building")
+4. durationSec 默认填 5.0
 5. kenBurns 默认填 { "scale": 1.03, "panX": 0, "panY": 0 }
 ` : "";
 
@@ -747,12 +1004,14 @@ function getStatusGuidance(
       if (isProductDemo) {
         return `**已有文件不重写。产品探索已由系统自动完成。直接推进下一步。不要反问用户。**
 
+⚠️ 以下步骤必须一口气连续执行，中间不要停顿。全部完成后才调 ProjectSetStatus("building")。
+
 步骤：
 1. ProjectRead("product-exploration.json") 读取探索结果，了解产品功能模块、页面结构、截图素材
 2. 根据产品功能模块规划章节结构，ProjectWrite("outline.md", content)
-3. 生成产品讲解口播稿（确保与 outline.md 中每章的 narration_text 一致），ProjectWrite("script.md", content)
+3. 生成产品讲解口播稿，ProjectWrite("script.md", content)
 4. 生成情绪节奏文件，ProjectWrite("rhythm.md", content)
-5. **⚠️ 完成以上后，必须调用 ProjectSetStatus("building")，不要只描述。** 调用工具后即可停止，不要再写任何文字。
+5. 全部文件落盘后，调用 ProjectSetStatus("building")
 
 ## ⛔ 红线
 - ❌ 不要写任何 presentation/src/chapters/ 下的代码
@@ -763,60 +1022,97 @@ function getStatusGuidance(
 - 每章对应一个产品功能模块，引用 product-exploration.json 中的截图路径`;
       }
 
-      if (isVideo && illustrationsEnabled) {
-        return `**已有文件不重写。不需要逐条列出已有文件——直接判断当前阶段，推进下一步。不要反问用户「要不要调整」「有没有意见」——直接执行。**
+      const isQuick = devMode !== "detailed";
+      const quickHeader = `**已有文件不重写。不要调用 ProjectList——项目状态摘要已有文件信息。直接判断当前阶段，推进下一步。**
 
-步骤（仅当文件尚未生成时执行）：
-1. ProjectRead("article.md") 读取内容
-2. 根据文章类型选情绪弧模板（上方「RHYTHM-DESIGN.md」），ProjectWrite("rhythm.md", content)
-3. 生成口播稿，ProjectWrite("script.md", content)
-4. 生成 outline，ProjectWrite("outline.md", content)
+⚠️ 以下步骤必须一口气连续执行，中间不要停顿、不要输出中间结果、不要解释你做了什么。
+全部完成后才调用 ProjectSetStatus("building")，中间步骤不要停止。`;
+
+      const detailedHeader = `**已有文件不重写。不要调用 ProjectList。你是详细模式——每阶段给用户审核机会。**
+
+⚠️ 以下步骤逐步执行，完成后输出 plan_checkpoint 让用户确认。用户说"继续"后再推进。`;
+
+      const commonSteps = `步骤（仅当文件尚未生成时执行）：
+1. "正在阅读文章内容…" → ProjectRead("article.md")
+2. "正在设计情绪弧…" → 选模板，ProjectWrite("rhythm.md", content)
+3. "正在生成口播稿，共 N 个节拍…" → ProjectWrite("script.md", content)
+4. "正在生成章节大纲…" → ProjectWrite("outline.md", content)`;
+
+      const commonRedLines = `## ⛔ 写作阶段红线（违反会被系统拦截）
+- ❌ **绝对禁止写 presentation/src/chapters/ 下的任何 .tsx / .css 文件**
+- ❌ **绝对禁止调用 ProjectShell 执行 tsc 或任何构建命令**
+- ❌ 不要在写作阶段把 outline 里的章节「顺便」实现成代码`;
+
+      // ── 快捷 · 带插图 ──────────────────────────────────────────────
+      if (isVideo && illustrationsEnabled && isQuick) {
+        return `${quickHeader}
+
+${commonSteps}
 5. ⚠️ **到此为止，不要继续**。不要规划插图、不要输出 illustration_checkpoint JSON。
    系统检测到 script+outline 就绪后会自动让你进入插图规划阶段。
 
-**Phase 2 — 插图规划**（系统自动触发，你会收到「稿子写好了，帮我配几张插图」指令）：
+**Phase 2 — 插图规划**（系统自动触发）：
 1. ProjectRead("outline.md") 读取章节计划
-2. 规划插图 shot list（4-8 张，可空），**在消息末尾输出 illustration_checkpoint JSON**
-3. ⚠️ **不要逐个描述每张插图**。一句话带过即可，然后直接输出 JSON。
-4. ⚠️ **不要反问用户**。不要调用 ProjectSetStatus。输出完就停。
+2. 规划插图 shot list（4-8 张），**在消息末尾输出 illustration_checkpoint JSON**
+3. ⚠️ 不要逐个描述每张插图。一句话带过，输出 JSON。
+4. ⚠️ 不要反问用户，输出完就停。
 
-## ⛔ 写作阶段红线（违反会被系统拦截）
-- ❌ **绝对禁止写 presentation/src/chapters/ 下的任何 .tsx / .css 文件**
-- ❌ **绝对禁止调用 ProjectShell 执行 tsc 或任何构建命令**
-- ❌ 不要在写作阶段把 outline 里的章节「顺便」实现成代码——进入 building 阶段后由你通过 ProjectSetChapter 完成
-- 你的唯一输出：rhythm.md → script.md → outline.md → illustration_checkpoint JSON
-
-主题已默认设置，不要讨论主题。
-**绝对禁止**：不要列出 review 清单、不要反问用户、不要停下来等确认。
-⚠️ SKILL.md 中的旧 Phase 1 checkpoint 流程已被本系统的自动化流程替代，不要执行。`;
+${commonRedLines}
+- 你的唯一输出：rhythm.md → script.md → outline.md → ProjectSetStatus("building")
+主题已默认设置。不要反问用户、不要停下来等确认。`;
       }
-      if (isVideo && !illustrationsEnabled) {
-        return `**已有文件不重写。不需要逐条列出已有文件——直接判断当前阶段，推进下一步。不要反问用户「要不要调整」「有没有意见」——直接执行。**
 
-步骤（仅当文件尚未生成时执行）：
-1. ProjectRead("article.md") 读取内容
-2. 根据文章类型选情绪弧模板（上方「RHYTHM-DESIGN.md」），ProjectWrite("rhythm.md", content)
-3. 生成口播稿，ProjectWrite("script.md", content)
-4. 生成 outline，ProjectWrite("outline.md", content)
-5. **完成后调用 ProjectSetStatus("building")** → ⚡系统自动触发脚手架，然后你进入构建阶段通过 ProjectSetChapters 批量生成蓝图并编译为代码。
+      // ── 详细 · 带插图 ──────────────────────────────────────────────
+      if (isVideo && illustrationsEnabled && !isQuick) {
+        return `${detailedHeader}
 
-**如果所有文件（script.md + outline.md）都已存在**：不要重写、不要反问、不要提议修改。
-调用 ProjectSetStatus("building")，简短回复「文件已就绪，进入构建阶段。」然后立即停止。系统会自动触发脚手架。
+${commonSteps}
+5. 三文件落盘后，**输出 plan_checkpoint JSON**。不要调用 ProjectSetStatus。
+   用户审核三文件后会回复"继续"，收到后再推进。
+6. 用户确认后，进入 Phase 2 — 插图规划。
 
-## ⛔ 写作阶段红线（违反会被系统拦截）
-- ❌ **绝对禁止写 presentation/src/chapters/ 下的任何 .tsx / .css 文件**
-- ❌ **绝对禁止调用 ProjectShell 执行 tsc 或任何构建命令**
-- ❌ 不要在写作阶段把 outline 里的章节「顺便」实现成代码——进入 building 阶段后由你通过 ProjectSetChapter 完成
+**Phase 2 — 插图规划**：
+1. ProjectRead("outline.md") 读取章节计划
+2. 规划插图 shot list（4-8 张），输出 illustration_checkpoint JSON
+3. 用户可以审核插图计划，确认后调用 ProjectSetStatus("building")
+
+${commonRedLines}
+- 你的唯一输出：rhythm.md → script.md → outline.md → plan_checkpoint
+- 用户说"继续"后再进入插图规划`;
+      }
+
+      // ── 快捷 · 不带插图 ────────────────────────────────────────────
+      if (isVideo && !illustrationsEnabled && isQuick) {
+        return `${quickHeader}
+
+${commonSteps}
+5. 全部文件落盘后，调用 ProjectSetStatus("building")
+
+**如果所有文件都已存在**：不要重写。直接调 ProjectSetStatus("building")。
+
+${commonRedLines}
 - ❌ **不要输出 illustration_checkpoint JSON**（插图生成已关闭）
 - 你的唯一输出：rhythm.md → script.md → outline.md
-- ❌ **不要问用户任何问题**（不要问"要不要调整稿子""要不要改大纲""选哪个主题"等）
-- ❌ **不要推荐主题或开发模式**
+- ❌ 不要反问用户、不要推荐主题
+主题已默认设置。`;
+      }
 
-主题已默认设置，不要讨论主题。
-⚠️ SKILL.md 中的旧 Phase 1 checkpoint 流程已被本系统的自动化流程替代，不要执行。`;
+      // ── 详细 · 不带插图 ────────────────────────────────────────────
+      if (isVideo && !illustrationsEnabled && !isQuick) {
+        return `${detailedHeader}
+
+${commonSteps}
+5. 三文件落盘后，**输出 plan_checkpoint JSON**。不要调用 ProjectSetStatus。
+   用户审核三文件后会回复"继续"，收到后再调用 ProjectSetStatus("building")。
+
+${commonRedLines}
+- ❌ **不要输出 illustration_checkpoint JSON**（插图生成已关闭）
+- 你的唯一输出：rhythm.md → script.md → outline.md → plan_checkpoint
+- 收到用户"继续"后，调用 ProjectSetStatus("building")
+主题已默认设置。`;
       }
       // Graphic format (non-video)
-      return `**已有文件不重写。不要反问用户。直接执行。**
+      return `**已有文件不重写。不要调用 ProjectList——状态摘要已有文件信息。直接执行。**
 
 步骤（仅当文件尚未生成时执行）：
 1. ProjectRead("article.md") 读取内容
@@ -863,7 +1159,9 @@ ${projectType === "product-demo" ? `
 2. 为每个章节选择视觉方案：
    - **默认用组合模式（mode: "composed"）**：根据 visual_strategy 选择布局和 primitive 组合。参考 PRIMITIVES.md 的选型表和 EXAMPLES/composed-blueprints/ 的完整示例。
    - 如果章节结构恰好匹配某个模板（如纯引用用 quote-card），才用模板模式（mode: "template"）。
-3. 将所有 blueprint 放入一个数组，调用 **ProjectSetChapters({ blueprints: [...] })** 一次性提交
+3. 将所有 blueprint 放入一个数组，调用 **ProjectSetChapters({ blueprints: [...] })** 提交
+   - 超过 5 章时分批提交（每批 ≤5 章），避免 JSON 过长被截断
+   - 每批只包含未构建的章节——不要重复提交已成功的章节
    - 系统逐个验证 → 合法的并行编译落盘 → 一次性重建注册表 → 跑一次 tsc
    - 返回结果区分 built（成功）和 failed（失败，附原因）
 
@@ -874,9 +1172,15 @@ ${projectType === "product-demo" ? `
 **全部完成后：** 简短总结，不要调用 ProjectSetStatus。
 
 ## 重要规则
+- ✅ **首次构建时读一次 PRIMITIVES.md + CHAPTER-CRAFT.md**，修复失败章节时不要再重复读
+- ❌ **不要重新读 article.md / script.md / SKILL.md / theme 文件**——写作阶段已读过，outline.md 已提取全部信息，主题已在 DB 中选定，够了
+- ❌ **不要读已构建章节的 .tsx 代码**——Blueprint JSON 示例就是格式参考，不需要读代码学格式
+- ✅ **先检查已构建的章节**（列 presentation/src/chapters/），只构建缺失的
+- ✅ **超过 5 章时分批提交**（每批 ≤5 章），每批只包含未构建的
 - ✅ **优先使用 ProjectSetChapters 一次性提交所有章节**（一次工具调用完成全部构建）
 - ✅ **默认使用 composed 模式**（grid/split/stack/center + Counter/Reveal/Stagger/NetworkGraph 等），模板模式仅作快捷通道
-- ✅ 严格按 outline.md 的 chapter_type、visual_strategy、primitives、infoPool 填充 blueprint
+- ✅ 严格按 outline.md 的 primitives + decor 列表填充 blueprint——这是硬约束，每章至少 2 个 primitive 必须来自 outline 推荐列表
+- ✅ visual_strategy 描述的动作/意象，必须翻译为对应的 primitive（如"指数曲线竞速"→BarRace，"粒子纠缠"→Constellation）
 - ✅ 注册表自动从磁盘目录重建，无需手动检查
 - ✅ 如果批量提交后有 failed 章节，用 ProjectSetChapter 单独修正
 - ❌ 不要逐章调用 ProjectSetChapter（除非修正失败的章节）
@@ -895,7 +1199,7 @@ ${projectType === "product-demo" ? `
 	- 不要输出任何 JSON 信号，不要调用 ProjectSetStatus
 	- 如果用户询问音频，引导他们使用工具栏面板`;
 	    case "done":
-	      return "项目已完成，可以预览播放。\n\n你是轻量修改模式：\n- 简单修改（改数据/文案/样式）→ ProjectRead → ProjectWrite → ProjectShell tsc 验证\n- 新增/重建章节 → 先 ProjectRead 参考文档（CHAPTER-CRAFT.md / PRIMITIVES.md / CHAPTER-TYPES.md），再用 ProjectSetChapter 提交 blueprint\n- 换主题 → 直接 ProjectWrite tokens.css\n- 音频/BGM → 引导用户用工具栏面板操作\n\n不要反问用户、不要输出 JSON 信号、不要调用 ProjectSetStatus。\n不要主动建议重建章节。用户只询问进度/状态时简短回复即可。";
+	      return "项目已完成，预览由系统自动启动。绝不要手动运行 npm run dev / vite / cd presentation。\n\n你是轻量修改模式：\n- 简单修改（改数据/文案/样式）→ ProjectRead → ProjectWrite → ProjectShell tsc 验证\n- 新增/重建章节 → 先 ProjectRead 参考文档（CHAPTER-CRAFT.md / PRIMITIVES.md / CHAPTER-TYPES.md），再用 ProjectSetChapter 提交 blueprint\n- 换主题 → 直接 ProjectWrite tokens.css\n- 音频/BGM → 引导用户用工具栏面板操作\n\n不要反问用户、不要输出 JSON 信号、不要调用 ProjectSetStatus。\n不要主动建议重建章节。用户只询问进度/状态时简短回复即可。";
 
     default:
       return "";
@@ -910,7 +1214,7 @@ function getIllustStatusGuidance(status: string, projectType: string): string {
   switch (status) {
     case "writing":
     case "plan_checkpoint":
-      return `**已有文件不重写。不要反问用户。直接执行。**
+      return `**已有文件不重写。不要调用 ProjectList——状态摘要已有文件信息。直接执行。**
 
 步骤（仅当文件尚未生成时执行）：
 1. ProjectRead("article.md") 读取内容
@@ -1255,7 +1559,7 @@ ${getManimStatusGuidance(project.status)}`;
 function getManimStatusGuidance(status: string): string {
   switch (status) {
     case "writing":
-      return `**已有文件不重写。不要反问用户。直接执行。**
+      return `**已有文件不重写。不要调用 ProjectList——状态摘要已有文件信息。直接执行。**
 步骤（仅当文件未生成时）：
 1. ProjectRead("article.md") 读取内容
 2. 生成口播稿 ProjectWrite("script.md")

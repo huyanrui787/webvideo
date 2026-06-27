@@ -405,7 +405,7 @@ function generateSuggestions(
     suggestions.push({
       priority: "high",
       target: "lib/chapter-blueprint/compiler.ts",
-      action: `编译器产生 ${compilerBugs.length} 次错误（有效 Blueprint → 生成代码失败）。检查 genTemplateLayout/genComposedLayout/genCustomLayout 的边界条件处理。`,
+      action: `编译器产生 ${compilerBugs.length} 次错误（有效 Blueprint → 生成代码失败）。检查 genLayout/genPrimitive 函数的边界条件处理。`,
       evidence: compilerBugs.map((e) => e.errorSummary).join("; "),
       autoFixable: false,
     });
