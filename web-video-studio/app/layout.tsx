@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 
@@ -63,11 +64,11 @@ export default function RootLayout({
       className="h-full antialiased"
       suppressHydrationWarning
     >
-      <head>
-        {/* Prevent FOUC: apply theme before first paint */}
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
-      </head>
       <body className="min-h-full flex flex-col">
+        {/* Prevent FOUC: apply theme before first paint / hydration */}
+        <Script id="theme-init" strategy="beforeInteractive">
+          {themeInitScript}
+        </Script>
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

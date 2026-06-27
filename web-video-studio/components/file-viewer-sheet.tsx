@@ -145,7 +145,7 @@ export function FileViewerSheet({
 
       {/* JSON parse error */}
       {isJson && parseError && (
-        <div className="px-3 py-1.5 text-xs text-amber-500 bg-amber-500/10 border-b border-amber-500/20 shrink-0">
+        <div className="px-3 py-1.5 text-xs text-amber-500 bg-brand-subtle border-b border-brand/20 shrink-0">
           {parseError}
         </div>
       )}

@@ -193,7 +193,7 @@ export function IllustrationCheckpointCard({
               className="h-full transition-all duration-700 ease-out rounded-r-full"
               style={{
                 width: `${pct}%`,
-                background: "linear-gradient(90deg, #6366f1, #a855f7, #ec4899, #f59e0b)",
+                background: "#6366f1",
                 backgroundSize: "200% 100%",
                 animation: "illustration-bar-shimmer 1.5s ease-in-out infinite",
               }}
@@ -208,7 +208,7 @@ export function IllustrationCheckpointCard({
             插图规划 · {total} 张
           </span>
           {phase === "generating" && (
-            <span className="ml-auto text-xs font-medium bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent animate-pulse">
+            <span className="ml-auto text-xs font-medium text-brand-text animate-pulse">
               {doneCount}/{total} 生成中…
             </span>
           )}

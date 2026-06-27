@@ -30,7 +30,7 @@ export function LandingNav() {
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-sm font-bold text-white shadow-lg shadow-indigo-500/20">
+          <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center text-sm font-bold text-white">
             W
           </div>
           <span className="text-sm font-semibold tracking-tight text-t1">
@@ -59,7 +59,7 @@ export function LandingNav() {
           </Link>
           <Link
             href="/register"
-            className="text-sm px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-medium hover:from-indigo-400 hover:to-violet-500 transition-all shadow-lg shadow-indigo-500/25"
+            className="text-sm px-4 py-2 rounded-xl bg-brand text-white font-medium hover:bg-brand-hover transition-colors"
           >
             免费注册
           </Link>

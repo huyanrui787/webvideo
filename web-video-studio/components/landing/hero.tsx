@@ -22,26 +22,26 @@ export function LandingHero() {
       {/* Content */}
       <div className="relative z-10 max-w-4xl mx-auto px-6 text-center">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-indigo-500/25 bg-indigo-500/8 text-sm text-indigo-300 mb-8 animate-fade-in backdrop-blur-sm">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-bd bg-surface text-xs text-t2 mb-8 animate-fade-in">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500" />
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-brand" />
           </span>
           AI 驱动的视频制作平台
         </div>
 
         {/* Headline */}
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-t1 leading-tight animate-fade-in-up">
+        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-t1 leading-tight text-balance animate-fade-in-up">
           一键把文章变成
           <br />
-          <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400 bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient-shift">
+          <span className="text-brand-text">
             可发布的视频
           </span>
         </h1>
 
         {/* Subtitle */}
         <p
-          className="mt-6 text-lg md:text-xl text-t2 max-w-2xl mx-auto animate-fade-in-up"
+          className="mt-6 text-base md:text-lg text-t2 max-w-2xl mx-auto animate-fade-in-up"
           style={{ animationDelay: "150ms" }}
         >
           不用写脚本、不用拍摄、不用剪辑。
@@ -56,13 +56,13 @@ export function LandingHero() {
         >
           <Link
             href="/register"
-            className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-semibold text-base hover:from-indigo-400 hover:to-violet-500 transition-all shadow-xl shadow-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/40 hover:scale-105"
+            className="px-8 py-3.5 rounded-2xl bg-brand text-white font-semibold text-base hover:bg-brand-hover transition-colors"
           >
             开始免费使用 →
           </Link>
           <a
             href="#features"
-            className="px-8 py-3.5 rounded-2xl border border-white/10 text-t1 font-medium text-base hover:bg-white/5 backdrop-blur-sm transition-all"
+            className="px-8 py-3.5 rounded-2xl border border-bd text-t1 font-medium text-base hover:bg-surface transition-colors"
           >
             了解更多
           </a>
@@ -70,7 +70,7 @@ export function LandingHero() {
 
         {/* Stats row */}
         <div
-          className="mt-16 flex flex-wrap items-center justify-center gap-8 md:gap-12 text-sm text-t3 animate-fade-in"
+          className="mt-16 flex flex-wrap items-center justify-center gap-8 md:gap-12 text-xs text-t3 animate-fade-in"
           style={{ animationDelay: "500ms" }}
         >
           {[
@@ -80,7 +80,7 @@ export function LandingHero() {
             { num: "16:9", label: "+ 9:16 双格式" },
           ].map(({ num, label }) => (
             <div key={label} className="text-center">
-              <span className="block text-2xl font-bold text-t1">{num}</span>
+              <span className="block text-xl font-bold text-t1">{num}</span>
               <span>{label}</span>
             </div>
           ))}

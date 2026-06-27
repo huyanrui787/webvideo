@@ -28,24 +28,73 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  // Local project assets
+  // Local project assets — recursive scan for subdirectories too
   const dir = assetsDir(id);
   const meta = readAssetMeta(id);
-  const localItems = fs.existsSync(dir)
-    ? fs.readdirSync(dir)
-        .filter((f) => f !== "meta.json" && Object.keys(MIME).includes(f.split(".").pop()?.toLowerCase() ?? ""))
-        .map((name) => ({
-          name,
-          originalName: name,
-          type: (isImage(name) ? "image" : "video") as "image" | "video",
-          size: fs.statSync(path.join(dir, name)).size,
-          url: `/api/projects/${id}/assets/${encodeURIComponent(name)}`,
+
+  function walkDir(currentDir: string, relativePrefix: string): Array<{
+    name: string; originalName: string; type: "image" | "video";
+    size: number; url: string; source: "local"; refId: null;
+    caption: string; tags: string[];
+  }> {
+    const items: any[] = [];
+    if (!fs.existsSync(currentDir)) return items;
+    const entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === "meta.json") continue;
+      const fullPath = path.join(currentDir, entry.name);
+      const relPath = relativePrefix ? `${relativePrefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        items.push(...walkDir(fullPath, relPath));
+      } else {
+        const ext = entry.name.split(".").pop()?.toLowerCase() ?? "";
+        if (!Object.keys(MIME).includes(ext)) continue;
+        items.push({
+          name: relPath,
+          originalName: entry.name,
+          type: (isImage(entry.name) ? "image" : "video") as "image" | "video",
+          size: fs.statSync(fullPath).size,
+          url: `/api/projects/${id}/assets/${encodeURIComponent(relPath)}`,
           source: "local" as const,
           refId: null,
-          caption: meta[name]?.caption ?? "",
-          tags: meta[name]?.tags ?? [],
-        }))
-    : [];
+          caption: meta[entry.name]?.caption ?? "",
+          tags: meta[entry.name]?.tags ?? [],
+        });
+      }
+    }
+    return items;
+  }
+
+  const localItems = walkDir(dir, "");
+
+  // Include failed illustration entries from manifest.json
+  const manifestPath = path.join(projectDir(id), "manifest.json");
+  const failedItems: any[] = [];
+  if (fs.existsSync(manifestPath)) {
+    try {
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+      const steps = manifest.steps ?? [];
+      for (const step of steps) {
+        if (step.imageStatus === "error" && !step.image) {
+          const label = `step-${String(step.index + 1).padStart(2, "0")}`;
+          failedItems.push({
+            name: label,
+            originalName: label,
+            type: "image" as const,
+            size: 0,
+            url: null,
+            source: "failed" as const,
+            status: "error" as const,
+            stepIdx: step.index,
+            error: step.error || "Image generation failed",
+            refId: null,
+            caption: "",
+            tags: [],
+          });
+        }
+      }
+    } catch {}
+  }
 
   // Library refs
   const refs = await db
@@ -75,7 +124,7 @@ export async function GET(
     tags: [] as string[],
   }));
 
-  return NextResponse.json([...localItems, ...libItems]);
+  return NextResponse.json([...localItems, ...failedItems, ...libItems]);
 }
 
 export async function POST(

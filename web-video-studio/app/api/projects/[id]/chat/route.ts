@@ -5,8 +5,7 @@ import {
   createUIMessageStreamResponse,
   convertToModelMessages,
 } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
-import { deepseek as deepseekProvider } from "@ai-sdk/deepseek";
+import { getModel, modelSupportsToolHistory } from "@/lib/model-provider";
 import { makeAgentTools } from "@/lib/agent/tools";
 import { buildSystemPrompt } from "@/lib/agent/system-prompt";
 import { requireProjectAccess } from "@/lib/api-helpers";
@@ -17,13 +16,16 @@ import { nanoid } from "nanoid";
 import { pruneMessages } from "@/lib/agent/prune-messages";
 import { loadSkillContext } from "@/lib/agent/skill-context";
 import { logger, reqId } from "@/lib/logger";
-import { getSkill, MAIN_SKILL_ID } from "@/lib/skills";
+import { getSkill, MAIN_SKILL_ID, ILLUSTRATION_SKILL_ID, ANIMATION_SKILL_ID } from "@/lib/skills";
 import { projectDir } from "@/lib/projects";
 import fs from "fs";
 import path from "path";
 
-function getSkillRoot(): string {
-  const skill = getSkill(MAIN_SKILL_ID);
+function getSkillRoot(projectType?: string | null): string {
+  const isIllust = projectType === "illustration-video" || projectType === "illustrated-article";
+  const isAnim = projectType === "animation-video";
+  const skillId = isAnim ? ANIMATION_SKILL_ID : (isIllust ? ILLUSTRATION_SKILL_ID : MAIN_SKILL_ID);
+  const skill = getSkill(skillId);
   return skill?.path ?? process.cwd().replace(/\/web-video-studio$/, "") + "/web-video-presentation";
 }
 
@@ -44,21 +46,6 @@ function classifyStreamError(error: unknown): string {
   if (lower.includes("context") && (lower.includes("too long") || lower.includes("exceed") || lower.includes("maximum")))
     return "对话上下文过长，请开始新对话";
   return "连接中断 — 刷新页面即可恢复，已生成的内容不会丢失。";
-}
-
-// Anthropic base URL (from env for proxy support, defaults to api.anthropic.com)
-const anthropicBaseURL = process.env.ANTHROPIC_BASE_URL || undefined;
-
-/** Choose the right AI provider based on model ID */
-function getModel(modelId: string) {
-  if (modelId.startsWith("deepseek")) {
-    return deepseekProvider(modelId);
-  }
-  if (modelId.startsWith("claude")) {
-    return anthropic(modelId, { baseURL: anthropicBaseURL });
-  }
-  // Fallback: try Anthropic first
-  return anthropic(modelId, { baseURL: anthropicBaseURL });
 }
 
 export const maxDuration = 3600; // 1 hour — long writing+building flows need headroom
@@ -123,11 +110,6 @@ export async function GET(
     return { id: r.id, role: r.role, parts, createdAt: new Date(r.createdAt * 1000) };
   })
     .filter((m) => m.parts.length > 0)
-    .filter((m) => {
-      // Drop tool-only assistant messages (no text content)
-      if (m.role === "assistant" && m.parts.every((p: any) => (p.type || "").startsWith("tool-"))) return false;
-      return true;
-    })
     .filter((m, i, arr) => {
       // Drop consecutive duplicate user messages
       if (m.role !== "user" || i === 0) return true;
@@ -142,8 +124,8 @@ export async function GET(
 }
 
 /** Read completed chapter ids using the path declared in the Skill manifest. */
-function getCompletedChapterIds(projectId: string): Set<string> {
-  const skillCtx = loadSkillContext(getSkillRoot());
+function getCompletedChapterIds(projectId: string, projectType?: string | null): Set<string> {
+  const skillCtx = loadSkillContext(getSkillRoot(projectType));
   if (!skillCtx.chapterDirPattern) return new Set();
   const chaptersDir = path.join(projectDir(projectId), skillCtx.chapterDirPattern);
   if (!fs.existsSync(chaptersDir)) return new Set();
@@ -289,9 +271,9 @@ export async function POST(
   const prunedMessages = shouldPrune
     ? pruneMessages(messages, {
         status: project.status,
-        completedChapterIds: getCompletedChapterIds(id),
+        completedChapterIds: getCompletedChapterIds(id, project.projectType),
         activeChapterId: detectActiveChapter(messages),
-        skill: loadSkillContext(getSkillRoot()),
+        skill: loadSkillContext(getSkillRoot(project.projectType)),
       })
     : messages;
 
@@ -300,11 +282,9 @@ export async function POST(
   // Accumulate full parts across all steps for upsert
   const accumulatedParts: Array<{ type: string; text?: string; toolName?: string; input?: unknown; state?: string }> = [];
 
-  // DeepSeek provider does not support tool-call content blocks in message history.
-  // Strip tool-invocation parts before conversion — the tool results have already
-  // been executed and their effects are reflected in the conversation (files written,
-  // status changed). Keeping them in history causes AI_InvalidPromptError.
-  const supportsToolHistory = !model.startsWith("deepseek");
+  // Strip tool-invocation parts for models that don't support them.
+  // (DeepSeek does not support tool-call content blocks in history.)
+  const supportsToolHistory = modelSupportsToolHistory(model);
   const cleanMessages = supportsToolHistory
     ? prunedMessages
     : prunedMessages.map((m: any) => ({

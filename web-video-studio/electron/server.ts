@@ -23,7 +23,8 @@ export function startNextServer(port: number): Promise<void> {
       return;
     }
 
-    // Packaged mode: spawn next start
+    // Packaged mode: spawn next start using Electron's bundled Node.js runtime.
+    // ELECTRON_RUN_AS_NODE=1 tells Electron to act as a plain Node.js process.
     const nextBin = path.join(__dirname, "..", "node_modules", ".bin", "next");
     console.log(`[server] Starting Next.js (packaged): ${nextBin} start -p ${port}`);
 
@@ -32,7 +33,7 @@ export function startNextServer(port: number): Promise<void> {
       [nextBin, "start", "-p", String(port)],
       {
         cwd: path.join(__dirname, ".."),
-        env: { ...process.env, NODE_ENV: "production" },
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", NODE_ENV: "production" },
         stdio: ["ignore", "pipe", "pipe"],
       }
     );

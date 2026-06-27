@@ -4,7 +4,19 @@ import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 // ─── Users ───────────────────────────────────────────────────────────────────
 
 export type UserRole = "admin" | "user";
-export type PreferredModel = "deepseek-chat" | "deepseek-reasoner" | "deepseek-v4-flash" | "deepseek-v4-pro" | "claude-sonnet-4-6" | "claude-opus-4-8";
+export type PreferredModel =
+  // Anthropic
+  | "claude-sonnet-4-6"
+  | "claude-opus-4-8"
+  // DeepSeek
+  | "deepseek-chat"
+  | "deepseek-reasoner"
+  | "deepseek-v4-flash"
+  | "deepseek-v4-pro"
+  // OpenAI-compatible
+  | "gpt-4o"
+  | "gpt-4o-mini"
+  // Future: extend with more provider models as they are added to the registry
 export type PreferredTtsProvider = "minimax" | "openai";
 
 export type PlanCode = "free" | "starter" | "pro" | "enterprise";
@@ -51,6 +63,7 @@ export type ProjectStatus =
   | "illustration_planning"
   | "building"
   | "illustrating"
+  | "animating"
   | "typesetting"
   | "audio_checkpoint"
   | "audio"
@@ -67,7 +80,8 @@ export type ProjectType =
   | "timeline-story"
   | "resume"
   | "illustration-video"
-  | "illustrated-article";
+  | "illustrated-article"
+  | "animation-video";
 
 export type ProjectFormat = "video" | "graphic" | "manim" | "resume" | "draw";
 
@@ -94,6 +108,7 @@ export const projects = sqliteTable("projects", {
   ttsProvider: text("tts_provider").default("minimax"),
   ttsVoice: text("tts_voice"),
   thumbnailUrl: text("thumbnail_url"),
+  styleConfig: text("style_config").default("{}"),
   // Batch linkage
   batchId: text("batch_id").references(() => batches.id),
   batchIndex: integer("batch_index"),
@@ -478,6 +493,7 @@ export const illustrationShots = sqliteTable("illustration_shots", {
   elements: text("elements").notNull().default("[]"),
   labels: text("labels").notNull().default("[]"),
   promptEn: text("prompt_en"),
+  styleHint: text("style_hint"),
   assetFilename: text("asset_filename"),
   assetUrl: text("asset_url"),
   generationStatus: text("generation_status")
@@ -496,6 +512,41 @@ export const illustrationShots = sqliteTable("illustration_shots", {
 
 export type IllustrationShot = typeof illustrationShots.$inferSelect;
 export type NewIllustrationShot = typeof illustrationShots.$inferInsert;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Animation Shots (for animation-video mode — T2V generation)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const animationShots = sqliteTable("animation_shots", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id")
+    .notNull()
+    .references(() => projects.id),
+  chapterId: text("chapter_id").notNull(),
+  stepIdx: integer("step_idx").notNull().default(0),
+  theme: text("theme").notNull(),
+  structureType: text("structure_type").$type<StructureType>().notNull(),
+  videoPrompt: text("video_prompt").notNull(),
+  elements: text("elements").notNull().default("[]"),
+  labels: text("labels").notNull().default("[]"),
+  promptEn: text("prompt_en"),
+  styleHint: text("style_hint"),
+  videoStyle: text("video_style"),
+  assetFilename: text("asset_filename"),
+  assetUrl: text("asset_url"),
+  generationStatus: text("generation_status")
+    .$type<ShotStatus>()
+    .notNull()
+    .default("pending"),
+  generationError: text("generation_error"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: integer("created_at")
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+export type AnimationShot = typeof animationShots.$inferSelect;
+export type NewAnimationShot = typeof animationShots.$inferInsert;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Article Layouts (for illustrated-article mode — typesetting phase)

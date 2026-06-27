@@ -150,7 +150,7 @@ export function AudioPlayerBar({ projectId, ttsVoice, ttsProvider }: AudioPlayer
               <button
                 onClick={resynthesize}
                 disabled={synthStatus === "running" || synthStatus === "extracting"}
-                className="shrink-0 text-xs bg-amber-500 hover:bg-amber-600 text-t1 px-2.5 py-1 rounded-lg disabled:opacity-50 transition-colors font-medium"
+                className="shrink-0 text-xs bg-amber-500 hover:bg-brand text-t1 px-2.5 py-1 rounded-lg disabled:opacity-50 transition-colors font-medium"
               >
                 {synthStatus === "extracting" ? "提取中…" : synthStatus === "running" ? "合成中…" : "重新合成"}
               </button>

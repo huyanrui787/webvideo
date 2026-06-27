@@ -6,7 +6,7 @@ import { EventEmitter } from "events";
 
 export interface ProjectEvent {
   projectId: string;
-  type: "scaffold" | "scaffold-progress" | "dev-server" | "dev-stderr" | "build" | "render" | "audio" | "status-change" | "chapter-built";
+  type: "scaffold" | "scaffold-progress" | "dev-server" | "dev-stderr" | "build" | "render" | "audio" | "status-change" | "chapter-built" | "illustrations-ready" | "animations-ready";
   data: Record<string, unknown>;
 }
 

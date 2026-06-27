@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FileViewerSheet } from "./file-viewer-sheet";
 import { CodeFileTree } from "./code-file-tree";
 import type { Project } from "@/lib/db/schema";
@@ -9,8 +9,11 @@ import type { ChapterProgress } from "./chapter-progress-panel";
 interface AssetItem {
   name: string;
   originalName: string;
-  url: string;
+  url: string | null;
   type: "image" | "video";
+  status?: "done" | "error";
+  stepIdx?: number;
+  error?: string;
 }
 
 interface FilePanelProps {
@@ -31,7 +34,32 @@ interface FilePanelProps {
   onToggleCollapse: () => void;
 }
 
-function AssetPreview({ asset, onClose }: { asset: AssetItem; onClose: () => void }) {
+function AssetPreview({ asset, projectId, onClose, onRetry }: {
+  asset: AssetItem;
+  projectId: string;
+  onClose: () => void;
+  onRetry?: (stepIdx: number) => void;
+}) {
+  const isFailed = asset.status === "error" || !asset.url;
+  const [retrying, setRetrying] = useState(false);
+
+  async function handleRetry() {
+    if (asset.stepIdx === undefined || retrying) return;
+    setRetrying(true);
+    try {
+      const r = await fetch(`/api/projects/${projectId}/gen-ill`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stepIdx: asset.stepIdx }),
+      });
+      if (r.ok) {
+        window.dispatchEvent(new CustomEvent("assets-changed"));
+        window.location.reload();
+      }
+    } catch {}
+    setRetrying(false);
+  }
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -53,15 +81,38 @@ function AssetPreview({ asset, onClose }: { asset: AssetItem; onClose: () => voi
       </div>
       {/* Preview */}
       <div className="flex-1 overflow-auto flex items-center justify-center bg-base p-4">
-        {asset.type === "image" ? (
+        {isFailed ? (
+          <div className="flex flex-col items-center gap-3 text-center max-w-sm">
+            <div className="w-16 h-16 rounded-full bg-red-900/30 flex items-center justify-center">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-400">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+              </svg>
+            </div>
+            <span className="text-t2 text-sm font-medium">插图生成失败</span>
+            {asset.error && (
+              <span className="text-t4 text-xs leading-relaxed">{asset.error}</span>
+            )}
+            {onRetry && (
+              <button
+                onClick={handleRetry}
+                disabled={retrying}
+                className="mt-2 px-4 py-1.5 rounded-lg bg-amber-500/20 text-amber-400 text-xs font-medium hover:bg-amber-500/30 transition-colors disabled:opacity-50"
+              >
+                {retrying ? "重新生成中…" : "重新生成"}
+              </button>
+            )}
+          </div>
+        ) : asset.type === "image" ? (
           <img
-            src={asset.url}
+            src={asset.url!}
             alt={asset.originalName}
             className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
           />
         ) : (
           <video
-            src={asset.url}
+            src={asset.url!}
             controls
             className="max-w-full max-h-full rounded-lg shadow-sm"
           />
@@ -125,13 +176,16 @@ export function FilePanel({
     fetchAssets();
   }
 
+  const isIllust = project?.projectType === "illustration-video" || project?.projectType === "illustrated-article" || project?.projectType === "animation-video";
   const fileEntries: { tab: "article" | "script" | "outline" | "rhythm" | "illustrations" | "source"; filename: string; label: string; badge?: string; virtual?: boolean }[] = [
     { tab: "article",       filename: "article.md",        label: "原文" },
-    { tab: "rhythm",        filename: "rhythm.md",         label: "节奏设计" },
     { tab: "script",        filename: "script.md",         label: "口播稿" },
-    { tab: "outline",       filename: "outline.md",        label: "开发计划" },
-    { tab: "source",        filename: "源码",               label: "源码", badge: "TS", virtual: true },
     { tab: "illustrations", filename: "illustrations.json", label: "插图", badge: "JSON" },
+    ...(isIllust ? [] : [
+      { tab: "rhythm" as const,  filename: "rhythm.md",  label: "节奏设计" },
+      { tab: "outline" as const, filename: "outline.md", label: "开发计划" },
+      { tab: "source" as const,  filename: "源码",        label: "源码", badge: "TS", virtual: true },
+    ]),
   ];
 
   // clicking a file toggles: opens if closed, closes if already open
@@ -225,16 +279,25 @@ export function FilePanel({
                 <span>＋ 上传图片 / 视频</span>
               </button>
             ) : (
-              assets.slice(0, 12).map((a) => (
-                <button
-                  key={a.name}
-                  onClick={() => handleOpenAsset(a)}
-                  className={`w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left ${previewAsset?.name === a.name ? "bg-surface3" : "hover:bg-surface2"}`}
-                >
-                  <span className="text-[10px] shrink-0 text-t4">{a.type === "video" ? "▶" : "▣"}</span>
-                  <span className={`text-xs truncate flex-1 ${previewAsset?.name === a.name ? "text-t1 font-medium" : "text-t2"}`}>{a.originalName}</span>
-                </button>
-              ))
+              assets.slice(0, 100).map((a) => {
+                const isFailed = a.status === "error" || !a.url;
+                return (
+                  <button
+                    key={a.name}
+                    onClick={() => handleOpenAsset(a)}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-left ${previewAsset?.name === a.name ? "bg-surface3" : "hover:bg-surface2"}`}
+                  >
+                    {isFailed ? (
+                      <span className="text-[10px] shrink-0 text-red-400/60">×</span>
+                    ) : (
+                      <span className="text-[10px] shrink-0 text-t4">{a.type === "video" ? "▶" : "▣"}</span>
+                    )}
+                    <span className={`text-xs truncate flex-1 ${isFailed ? "text-red-400/60" : previewAsset?.name === a.name ? "text-t1 font-medium" : "text-t2"}`}>
+                      {a.originalName}
+                    </span>
+                  </button>
+                );
+              })
             )}
           </>
 
@@ -255,7 +318,18 @@ export function FilePanel({
             <AssetPreview
               key={rightPanel.asset.name}
               asset={rightPanel.asset}
+              projectId={projectId}
               onClose={handleCloseRight}
+              onRetry={(stepIdx) => {
+                fetch(`/api/projects/${projectId}/gen-ill`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ stepIdx }),
+                }).then(() => {
+                  window.dispatchEvent(new CustomEvent("assets-changed"));
+                  window.location.reload();
+                }).catch(() => {});
+              }}
             />
           ) : openFileTab === "source" ? (
             <>

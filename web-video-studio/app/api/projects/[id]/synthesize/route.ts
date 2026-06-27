@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { projectDir } from "@/lib/projects";
-import { requireProjectAccess } from "@/lib/api-helpers";
+import { requireProjectAccess, getUserId } from "@/lib/api-helpers";
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { ensureAudioScaffold, isAudioScaffoldReady } from "@/lib/scaffold";
 import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";
@@ -64,15 +68,49 @@ export async function POST(
   if (accessError) return accessError;
 
   const body = await req.json().catch(() => ({}));
-  const { provider, action, voice, force, chapterId } = body;
+  let { provider, action, voice, force, chapterId } = body;
+
+  // Fallback to user's global preferred voice if no per-project voice set
+  if (!voice || voice === "default") {
+    try {
+      const userId = getUserId(req);
+      if (userId) {
+        const pref = await db.select({ preferredTtsVoice: users.preferredTtsVoice }).from(users).where(eq(users.id, userId)).limit(1);
+        if (pref[0]?.preferredTtsVoice) voice = pref[0].preferredTtsVoice;
+      }
+    } catch {}
+  }
 
   if (action === "extract") {
     const presDir = path.join(projectDir(id), "presentation");
+    const segPath = path.join(presDir, "audio-segments.json");
+
+    // For illustration projects, read script.md directly (no presentation chapters)
+    const illPath = path.join(projectDir(id), "illustrations.json");
+    if (fs.existsSync(illPath)) {
+      const scriptMd = path.join(projectDir(id), "script.md");
+      if (fs.existsSync(scriptMd)) {
+        const text = fs.readFileSync(scriptMd, "utf-8");
+        const segments = text.split("---").map(s => s.trim()).filter(Boolean)
+          .map((s, i) => ({
+            chapter: "step",
+            step: i + 1,
+            text: s.replace(/^\[.*?\]\s*/, "").trim(),
+            audio: `step/${i + 1}.mp3`,
+          }));
+        fs.mkdirSync(presDir, { recursive: true });
+        fs.writeFileSync(segPath, JSON.stringify(segments, null, 2));
+        return NextResponse.json({ ok: true, segments });
+      }
+    }
+
+    // Ensure audio scaffold is ready before running npm commands
+    await ensureAudioScaffold(id);
+
     const result = await runCmd("npm", ["run", "extract-narrations"], presDir);
     if (result.code !== 0) {
       return NextResponse.json({ ok: false, error: result.stderr || result.stdout }, { status: 500 });
     }
-    const segPath = path.join(presDir, "audio-segments.json");
     const segments = fs.existsSync(segPath)
       ? JSON.parse(fs.readFileSync(segPath, "utf-8"))
       : [];
@@ -83,6 +121,9 @@ export async function POST(
   if (action === "synthesize-chapter" && chapterId) {
     const presDir = path.join(projectDir(id), "presentation");
     const segPath = path.join(presDir, "audio-segments.json");
+
+    // Ensure audio scaffold is ready before running npm commands
+    await ensureAudioScaffold(id);
 
     // First run extract to get fresh segments
     const extractResult = await runCmd("npm", ["run", "extract-narrations"], presDir);
@@ -169,6 +210,13 @@ export async function POST(
   // ── Full synthesis (original behavior) ─────────────────────────────────
   // Start async TTS synthesis
   const presDir = path.join(projectDir(id), "presentation");
+
+  // Ensure audio scaffold is ready before running npm commands
+  // (illustration projects may reach synthesis without a prior scaffold call)
+  try { await ensureAudioScaffold(id); } catch (err: any) {
+    return NextResponse.json({ ok: false, error: `Audio scaffold failed: ${err.message}` }, { status: 500 });
+  }
+
   const job: SynthJob = { status: "running", lines: [], total: 0, completed: 0 };
   jobs.set(id, job);
   writeStatusFile(id, { status: "running", completed: 0, total: 0 });

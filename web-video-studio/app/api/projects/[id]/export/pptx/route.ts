@@ -19,7 +19,7 @@ export async function GET(
 
     const buffer = await exportToPPTX(id, blueprints);
 
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "Content-Disposition": `attachment; filename="project-${id}.pptx"`,

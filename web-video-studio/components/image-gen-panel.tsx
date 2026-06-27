@@ -118,7 +118,7 @@ export function ImageGenPanel({ projectId, onGenerated }: ImageGenPanelProps) {
       <button
         onClick={generate}
         disabled={!prompt.trim() || status === "generating"}
-        className="rounded-xl bg-indigo-600 py-2.5 text-xs font-medium text-t1 hover:bg-indigo-500 disabled:opacity-40 transition-colors"
+        className="rounded-xl bg-indigo-600 py-2.5 text-xs font-medium text-t1 hover:bg-brand disabled:opacity-40 transition-colors"
       >
         {status === "generating" ? (
           <span className="flex items-center justify-center gap-2">

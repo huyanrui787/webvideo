@@ -101,7 +101,7 @@ export default function NewEffectPage() {
     setStep("done");
   }
 
-  const inputCls = "w-full bg-black/[0.04] border border-black/10 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-indigo-500 placeholder:text-black/25 text-black";
+  const inputCls = "w-full bg-black/[0.04] border border-black/10 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-600 placeholder:text-black/25 text-black";
 
   return (
     <div className="flex-1 overflow-y-auto bg-white text-black min-h-full" style={{ fontFamily: "system-ui, sans-serif" }}>
@@ -129,7 +129,7 @@ export default function NewEffectPage() {
             <div className="flex gap-3 justify-center">
               <Link
                 href={`/showcase/${slug}`}
-                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-sm font-medium text-white transition-colors"
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-brand text-sm font-medium text-white transition-colors"
               >
                 查看详情页
               </Link>
@@ -191,7 +191,7 @@ export default function NewEffectPage() {
                   onChange={(e) => setSource(e.target.value)}
                   placeholder={PLACEHOLDER}
                   rows={22}
-                  className="w-full bg-black/[0.03] border border-black/10 rounded-xl px-3 py-2.5 text-xs font-mono text-black outline-none focus:border-indigo-500 placeholder:text-black/20 resize-y leading-relaxed"
+                  className="w-full bg-black/[0.03] border border-black/10 rounded-xl px-3 py-2.5 text-xs font-mono text-black outline-none focus:border-amber-600 placeholder:text-black/20 resize-y leading-relaxed"
                 />
               </div>
 
@@ -204,7 +204,7 @@ export default function NewEffectPage() {
               <button
                 onClick={handleConvert}
                 disabled={step === "converting" || step === "saving"}
-                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-sm font-semibold text-white transition-colors"
+                className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-brand disabled:opacity-40 text-sm font-semibold text-white transition-colors"
               >
                 {step === "converting" ? "AI 改写中…" : "AI 改写 →"}
               </button>
@@ -216,7 +216,7 @@ export default function NewEffectPage() {
                 <div className="flex flex-col items-center justify-center h-64 rounded-2xl border border-black/10 bg-black/[0.02]">
                   <div className="flex gap-1 mb-3">
                     {[0, 0.15, 0.3].map((d) => (
-                      <span key={d} className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: `${d}s` }} />
+                      <span key={d} className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" style={{ animationDelay: `${d}s` }} />
                     ))}
                   </div>
                   <p className="text-sm text-black/40">AI 正在改写代码…</p>

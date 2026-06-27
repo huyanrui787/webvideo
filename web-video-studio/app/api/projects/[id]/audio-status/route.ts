@@ -54,9 +54,21 @@ export async function GET(
     });
   }
 
-  // Check if synthesis is currently running
+  // Check if synthesis is currently running (in-memory job takes priority)
   const synthJob = getSynthJob(id);
-  const isRunning = synthJob?.status === "running";
+  let isRunning = synthJob?.status === "running";
+
+  // Fallback: read persisted .synth-status.json when no in-memory job
+  let persistedStatus: { status: string; completed: number; total: number } | null = null;
+  if (!synthJob) {
+    const statusPath = path.join(projectDir(id), "presentation", ".synth-status.json");
+    if (fs.existsSync(statusPath)) {
+      try {
+        persistedStatus = JSON.parse(fs.readFileSync(statusPath, "utf-8"));
+        isRunning = persistedStatus?.status === "running";
+      } catch { /* ignore */ }
+    }
+  }
 
   // Group by chapter
   const chapterMap = new Map<string, ChapterAudioStatus>();
@@ -74,7 +86,9 @@ export async function GET(
     }
     ch.total++;
 
-    const mp3Path = path.join(audioDir, path.basename(seg.audio));
+    // Use audio field if present, otherwise construct from chapter + step
+    const audioFile = seg.audio || `${seg.chapter}/${seg.step}.mp3`;
+    const mp3Path = path.join(audioDir, audioFile);
     const hasMp3 = fs.existsSync(mp3Path);
     if (hasMp3) ch.done++;
     ch.segments.push({ step: seg.step, hasMp3 });

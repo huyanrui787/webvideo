@@ -4,7 +4,7 @@ import { illustrationShots } from "@/lib/db/schema";
 import { requireProjectAccess } from "@/lib/api-helpers";
 import { eq, and } from "drizzle-orm";
 import { buildImagePrompt } from "@/lib/illustration-prompt";
-import { generateImage } from "@/lib/fal";
+import { generateImage } from "@/lib/image-gen";
 import { projectDir } from "@/lib/projects";
 import fs from "fs";
 import path from "path";
@@ -46,9 +46,7 @@ export async function PATCH(
       const filename = `${shot.chapterId}-${String(shot.stepIdx).padStart(2, "0")}-${shot.id.slice(0, 6)}.png`;
       const relativePath = `assets/illustrations/${filename}`;
 
-      const imageRes = await fetch(result.imageUrl);
-      if (!imageRes.ok) throw new Error(`Download failed: ${imageRes.status}`);
-      const buffer = Buffer.from(await imageRes.arrayBuffer());
+      const buffer = result.buffer;
 
       const fullPath = path.join(projectDir(projectId), relativePath);
       fs.mkdirSync(path.dirname(fullPath), { recursive: true });

@@ -1,0 +1,51 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "WebVideo Studio",
+  "version": "0.1.0",
+  "identifier": "com.webvideo.studio",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:3100",
+    "beforeDevCommand": "echo 'Starting in dev mode — Next.js must be running on port 3100'",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [],
+    "security": {
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "$HOME/.webvideo-studio/**"
+        ]
+      },
+      "csp": "default-src 'self' ipc: tauri: asset: http://ipc.localhost; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' ipc: tauri: asset: http://ipc.localhost http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*; img-src 'self' data: blob: asset: https: http:; media-src 'self' blob: asset: https: http:;"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "app"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../../skills": "skills",
+      "../.next/standalone": "standalone",
+      "../public": "public"
+    },
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "entitlements": "Entitlements.plist",
+      "dmg": {
+        "appPosition": { "x": 180, "y": 170 },
+        "applicationFolderPosition": { "x": 480, "y": 170 },
+        "windowSize": { "width": 660, "height": 400 }
+      }
+    }
+  },
+  "plugins": {}
+}

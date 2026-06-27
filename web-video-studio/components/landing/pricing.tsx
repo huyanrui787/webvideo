@@ -100,12 +100,12 @@ export function LandingPricing() {
               <div
                 className={`relative rounded-2xl border p-6 h-full flex flex-col transition-all duration-300 ${
                   plan.highlighted
-                    ? "border-indigo-500/30 bg-gradient-to-b from-indigo-500/5 to-violet-500/5 shadow-xl shadow-indigo-500/10 scale-[1.02]"
-                    : "border-bd bg-surface hover:border-indigo-500/20"
+                    ? "border-amber-600/30 bg-brand-subtle scale-[1.02]"
+                    : "border-bd bg-surface hover:border-amber-600/10"
                 }`}
               >
                 {plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-gradient-to-r from-indigo-500 to-violet-600 text-white text-xs font-medium shadow-lg shadow-indigo-500/25">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-brand text-white text-xs font-medium">
                     最受欢迎
                   </div>
                 )}
@@ -143,7 +143,7 @@ export function LandingPricing() {
                         strokeWidth="2"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        className="shrink-0 mt-0.5 text-indigo-400"
+                        className="shrink-0 mt-0.5 text-brand-text"
                       >
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
@@ -156,7 +156,7 @@ export function LandingPricing() {
                   href={plan.href}
                   className={`block text-center py-2.5 rounded-xl text-sm font-medium transition-all ${
                     plan.highlighted
-                      ? "bg-gradient-to-r from-indigo-500 to-violet-600 text-white hover:from-indigo-400 hover:to-violet-500 shadow-lg shadow-indigo-500/25"
+                      ? "bg-brand text-white hover:bg-brand-hover"
                       : "border border-bd text-t1 hover:bg-surface2"
                   }`}
                 >

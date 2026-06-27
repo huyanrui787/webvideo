@@ -84,8 +84,8 @@ export function LandingFeatures() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {FEATURES.map((feature, i) => (
             <ScrollReveal key={feature.title} delay={i * 80}>
-              <div className="group rounded-2xl border border-bd bg-surface hover:bg-surface2 hover:border-indigo-500/20 transition-all duration-300 p-6 h-full">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-4 group-hover:bg-indigo-500/20 transition-colors">
+              <div className="group rounded-2xl border border-bd bg-surface hover:bg-surface2 hover:border-amber-600/10 transition-all duration-300 p-6 h-full">
+                <div className="w-10 h-10 rounded-xl bg-brand/10 text-brand-text flex items-center justify-center mb-4 group-hover:bg-brand/10 transition-colors">
                   {feature.icon}
                 </div>
                 <h3 className="text-lg font-semibold text-t1 mb-2">

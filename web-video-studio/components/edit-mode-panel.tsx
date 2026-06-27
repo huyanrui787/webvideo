@@ -40,7 +40,7 @@ export function EditModePanel({
                 title={ch.title || ch.id}
                 className={`w-4 h-4 rounded-full shrink-0 transition-all ${
                   isActive
-                    ? "bg-indigo-400 scale-110"
+                    ? "bg-amber-400 scale-110"
                     : "bg-white/20 hover:bg-white/40"
                 }`}
               />
@@ -72,7 +72,7 @@ export function EditModePanel({
                     }`}
                   >
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      isActiveChapter ? "bg-indigo-400" : "bg-white/20"
+                      isActiveChapter ? "bg-amber-400" : "bg-white/20"
                     }`} />
                     <span className="text-xs font-medium truncate">{ch.title || ch.id}</span>
                   </button>
@@ -87,7 +87,7 @@ export function EditModePanel({
                             onClick={() => onSeekToStep(chIdx, sIdx)}
                             className={`w-6 h-6 rounded text-xs font-mono transition-colors ${
                               isActive
-                                ? "bg-indigo-500 text-t1"
+                                ? "bg-brand text-t1"
                                 : "bg-white/10 text-t3 hover:bg-white/20 hover:text-t2"
                             }`}
                             title={`第 ${sIdx + 1} 步`}

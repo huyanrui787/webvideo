@@ -288,7 +288,7 @@ async function generateIllustrationMaterial(req: MaterialRequirement): Promise<A
 
 async function generateImageMaterial(req: MaterialRequirement): Promise<AcquiredMaterial | null> {
   try {
-    const { generateImage } = await import("@/lib/fal");
+    const { generateImage } = await import("@/lib/image-gen");
     const prompt = `High quality ${req.style} image. ${req.description}. ${req.composition} aspect ratio. Clean professional look. No watermarks, no text overlay.`;
     const result = await generateImage({ prompt });
     return {

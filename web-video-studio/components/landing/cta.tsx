@@ -18,7 +18,7 @@ export function LandingCTA() {
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/register"
-              className="px-10 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-semibold text-lg hover:from-indigo-400 hover:to-violet-500 transition-all shadow-xl shadow-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/40 hover:scale-105"
+              className="px-10 py-4 rounded-2xl bg-brand text-white font-semibold text-lg hover:bg-brand-hover transition-colors shadow-sm"
             >
               免费注册 →
             </Link>

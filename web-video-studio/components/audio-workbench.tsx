@@ -283,7 +283,7 @@ export function AudioWorkbench({ projectId, ttsVoice, onSynthDone, onSkip }: Aud
         {phase === "done" && voiceChanged && (
           <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 flex items-center justify-between">
             <span className="text-xs text-amber-700">音色已更改</span>
-            <button onClick={() => handleSynthesize(true)} className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded hover:bg-amber-600 transition-colors">重新合成</button>
+            <button onClick={() => handleSynthesize(true)} className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded hover:bg-brand transition-colors">重新合成</button>
           </div>
         )}
 

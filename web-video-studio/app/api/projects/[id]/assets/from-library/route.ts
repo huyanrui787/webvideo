@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { projectAssetRefs, libraryAssets } from "@/lib/db/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { requireProjectAccess } from "@/lib/api-helpers";
+import { requireProjectAccess, getUserId } from "@/lib/api-helpers";
 
 export async function POST(
   req: Request,
@@ -12,6 +12,10 @@ export async function POST(
   const { id } = await params;
   const { error } = await requireProjectAccess(req, id);
   if (error) return error;
+  const userId = getUserId(req);
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const { assetIds } = await req.json() as { assetIds: string[] };
   if (!Array.isArray(assetIds) || assetIds.length === 0) {
     return NextResponse.json({ error: "assetIds required" }, { status: 400 });

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/api-helpers";
 import { projectDir } from "@/lib/projects";
-import { uploadToFal, generateLipSync } from "@/lib/fal";
+import { uploadToFal, generateLipSync } from "@/lib/image-gen";
 import path from "path";
 import fs from "fs";
 import { spawn } from "child_process";

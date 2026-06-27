@@ -1,10 +1,5 @@
 import { streamText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
-
-const deepseek = createOpenAI({
-  baseURL: "https://api.deepseek.com/v1",
-  apiKey: process.env.DEEPSEEK_API_KEY ?? "",
-});
+import { getModel } from "@/lib/model-provider";
 
 export const maxDuration = 120;
 
@@ -55,7 +50,7 @@ export async function POST(req: Request) {
   let text = "";
   try {
     const result = await streamText({
-      model: deepseek("deepseek-chat"),
+      model: getModel("deepseek-chat"),
       system: SYSTEM,
       messages: [{ role: "user", content: USER_PROMPT(name, slug, source) }],
       maxOutputTokens: 8000,

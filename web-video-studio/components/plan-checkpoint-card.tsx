@@ -90,7 +90,7 @@ export function PlanCheckpointCard({
             <p className="text-xs font-medium text-t2">视觉主题</p>
             {recommended.length > 0 && (
               <span className="text-xs text-t4 flex items-center gap-1">
-                <span className="text-amber-400">★</span> AI 已推荐
+                <span className="text-brand-text">★</span> AI 已推荐
               </span>
             )}
           </div>
@@ -108,8 +108,8 @@ export function PlanCheckpointCard({
                     title={rec.reason}
                     className={`w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-all border ${
                       isSelected
-                        ? "border-amber-400/60 bg-amber-400/8 ring-1 ring-amber-400/40"
-                        : "border-bd bg-modal hover:border-amber-400/40"
+                        ? "border-brand-text/60 bg-amber-400/8 ring-1 ring-amber-400/40"
+                        : "border-bd bg-modal hover:border-brand-text/40"
                     }`}
                   >
                     <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
@@ -125,7 +125,7 @@ export function PlanCheckpointCard({
                       <p className="text-xs text-t4 truncate mt-0.5">{rec.reason}</p>
                     </div>
                     {isSelected && (
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-amber-400">
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-brand-text">
                         <polyline points="2,6 5,9 10,3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     )}

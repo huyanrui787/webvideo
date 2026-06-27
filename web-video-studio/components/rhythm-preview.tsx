@@ -23,7 +23,7 @@ interface ChapterBeat {
 }
 
 const BEAT_COLORS: Record<string, string> = {
-  hook: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  hook: "bg-amber-500/20 text-brand-text border-brand/30",
   turn: "bg-blue-500/20 text-blue-400 border-blue-500/30",
   data: "bg-violet-500/20 text-violet-400 border-violet-500/30",
   release: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",

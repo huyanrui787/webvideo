@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 import { projectDir, patchAssetMeta } from "@/lib/projects";
 import { requireProjectAccess } from "@/lib/api-helpers";
-import { generateImage } from "@/lib/fal";
+import { generateImage } from "@/lib/image-gen";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -96,11 +96,7 @@ async function runJob(projectId: string) {
       shotState.status = "generating";
       try {
         const prompt = buildXiaoheiPrompt(shotState.shot);
-        const { imageUrl } = await generateImage({ prompt });
-
-        const response = await fetch(imageUrl);
-        if (!response.ok) throw new Error(`Failed to download image: ${response.status}`);
-        const buffer = Buffer.from(await response.arrayBuffer());
+        const { buffer } = await generateImage({ prompt });
 
         const index = String(i + 1).padStart(2, "0");
         const slug = shotState.shot.id.replace(/[^a-z0-9-]/gi, "-").toLowerCase();

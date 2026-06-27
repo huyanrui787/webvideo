@@ -6,25 +6,25 @@ const CATEGORIES = [
   {
     name: "数据可视化",
     effects: ["饼图 / 环形图", "柱状图 / 折线图", "数字滚动计数器", "仪表盘指针"],
-    gradient: "from-emerald-500/20 to-teal-500/20",
+    gradient: "bg-emerald-500/10",
     icon: "📊",
   },
   {
     name: "技术演示",
     effects: ["电路流图", "节点网络图", "打字机终端", "SVG 路径绘制"],
-    gradient: "from-cyan-500/20 to-blue-500/20",
+    gradient: "bg-cyan-500/10",
     icon: "⚡",
   },
   {
     name: "创意视觉",
     effects: ["粒子场", "波形频谱", "月相演变", "发光文字"],
-    gradient: "from-violet-500/20 to-purple-500/20",
+    gradient: "bg-violet-500/10",
     icon: "✨",
   },
   {
     name: "叙事场景",
     effects: ["3D 地球飞线", "火柴人动画", "加载动画", "图文编辑排版"],
-    gradient: "from-rose-500/20 to-pink-500/20",
+    gradient: "bg-rose-500/10",
     icon: "🎬",
   },
 ];
@@ -44,7 +44,7 @@ export function LandingAnimationShowcase() {
           {CATEGORIES.map((cat, i) => (
             <ScrollReveal key={cat.name} delay={i * 100}>
               <div
-                className={`rounded-2xl border border-bd bg-gradient-to-br ${cat.gradient} p-6`}
+                className={`rounded-2xl border border-bd ${cat.gradient} p-6`}
               >
                 <div className="flex items-center gap-3 mb-4">
                   <span className="text-2xl">{cat.icon}</span>
@@ -71,7 +71,7 @@ export function LandingAnimationShowcase() {
           <div className="text-center">
             <Link
               href="/register"
-              className="inline-flex items-center gap-2 text-sm text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
+              className="inline-flex items-center gap-2 text-sm text-brand-text hover:text-indigo-300 transition-colors font-medium"
             >
               免费注册，体验全部动画 →
             </Link>

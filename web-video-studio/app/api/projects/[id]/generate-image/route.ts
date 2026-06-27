@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireProjectAccess } from "@/lib/api-helpers";
 import { projectDir, patchAssetMeta } from "@/lib/projects";
-import { uploadToFal } from "@/lib/fal";
+import { uploadToFal } from "@/lib/image-gen";
 import { fal } from "@fal-ai/client";
 import path from "path";
 import fs from "fs";

@@ -151,7 +151,7 @@ export function LibraryPickerDrawer({ projectId, open, onClose, onAdded }: Libra
                     onClick={() => toggleSelect(asset.id)}
                     className={`relative rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${
                       isSelected
-                        ? "border-indigo-500 shadow-md shadow-indigo-100"
+                        ? "border-amber-600 shadow-md shadow-indigo-100"
                         : "border-bd hover:border-bd-hover"
                     }`}
                   >
@@ -169,7 +169,7 @@ export function LibraryPickerDrawer({ projectId, open, onClose, onAdded }: Libra
                       <p className="text-[10px] text-t3">{formatSize(asset.size)}</p>
                     </div>
                     {isSelected && (
-                      <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-indigo-500 flex items-center justify-center">
+                      <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-brand flex items-center justify-center">
                         <span className="text-t1 text-xs font-bold">✓</span>
                       </div>
                     )}
@@ -191,7 +191,7 @@ export function LibraryPickerDrawer({ projectId, open, onClose, onAdded }: Libra
           <button
             onClick={handleAdd}
             disabled={selected.size === 0 || adding}
-            className="flex-1 rounded-xl bg-indigo-600 py-2 text-xs text-t1 font-medium hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex-1 rounded-xl bg-indigo-600 py-2 text-xs text-t1 font-medium hover:bg-brand disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {adding ? "添加中…" : selected.size > 0 ? `添加 ${selected.size} 项 →` : "请先选择"}
           </button>

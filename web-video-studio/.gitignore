@@ -40,7 +40,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 projects/
+projects/
+data/studio.db*
+.next/
 src-tauri/target/
+src-tauri/target/
+projects/
 .next/
 data/studio.db*
-node_modules/
+.telemetry/

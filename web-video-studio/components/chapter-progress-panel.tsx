@@ -27,7 +27,7 @@ const STATUS_CONFIG: Record<
 > = {
   pending:    { label: "待开始", color: "bg-surface2 text-t3",   icon: "○" },
   building:   { label: "构建中", color: "bg-surface3 text-t2", icon: "◌" },
-  review:     { label: "待验收", color: "bg-amber-500/15 text-amber-400", icon: "◉" },
+  review:     { label: "待验收", color: "bg-amber-500/15 text-brand-text", icon: "◉" },
   done:       { label: "已完成", color: "bg-t1 text-base",   icon: "●" },
   error:      { label: "失败",   color: "bg-red-500/15 text-red-400", icon: "✕" },
   validating: { label: "验证中", color: "bg-purple-500/15 text-purple-400", icon: "◎" },

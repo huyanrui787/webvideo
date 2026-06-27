@@ -85,13 +85,13 @@ export function ResumeEditor({ projectId }: ResumeEditorProps) {
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
             rows={12}
-            className="w-full rounded-xl border border-input-bd bg-input-bg px-4 py-3 text-sm text-t1 placeholder:text-input-placeholder outline-none focus:border-indigo-500/40 transition-all resize-none mb-4"
+            className="w-full rounded-xl border border-input-bd bg-input-bg px-4 py-3 text-sm text-t1 placeholder:text-input-placeholder outline-none focus:border-amber-600/40 transition-all resize-none mb-4"
             placeholder="粘贴简历内容…&#10;&#10;例如：&#10;张三，高级前端工程师&#10;zhangsan@example.com | 138-0000-0000 | 北京&#10;&#10;工作经历：&#10;字节跳动 高级前端工程师 2022.3 - 至今&#10;- 主导设计并实现了XX系统前端架构&#10;- 带领5人团队完成YY项目从0到1&#10;&#10;教育背景：&#10;北京大学 计算机科学 本科 2018-2022&#10;&#10;技能：React, TypeScript, Node.js, Python"
           />
           <button
             onClick={handleParse}
             disabled={parsing || pasteText.trim().length < 20}
-            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-medium text-sm disabled:opacity-50 transition-all"
+            className="w-full py-2.5 rounded-xl bg-brand text-white font-medium text-sm disabled:opacity-50 transition-all"
           >
             {parsing ? "AI 解析中…" : "AI 解析简历"}
           </button>
@@ -119,7 +119,7 @@ export function ResumeEditor({ projectId }: ResumeEditorProps) {
             onClick={() => setActiveSection(s.key)}
             className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
               activeSection === s.key
-                ? "bg-indigo-500/10 text-indigo-400 font-medium"
+                ? "bg-brand/10 text-brand-text font-medium"
                 : "text-t2 hover:text-t1 hover:bg-surface"
             }`}
           >
@@ -130,7 +130,7 @@ export function ResumeEditor({ projectId }: ResumeEditorProps) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="w-full py-2 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 text-white text-sm font-medium disabled:opacity-50 transition-all"
+            className="w-full py-2 rounded-lg bg-brand text-white text-sm font-medium disabled:opacity-50 transition-all"
           >
             {saving ? "保存中…" : "保存"}
           </button>
@@ -164,13 +164,13 @@ export function ResumeEditor({ projectId }: ResumeEditorProps) {
                     value={(data.basics as Record<string, string>)[key] ?? ""}
                     onChange={(e) => updateBasics(key, e.target.value)}
                     rows={3}
-                    className="w-full rounded-lg border border-input-bd bg-input-bg px-3 py-2 text-sm text-t1 outline-none focus:border-indigo-500/40 transition-all resize-none"
+                    className="w-full rounded-lg border border-input-bd bg-input-bg px-3 py-2 text-sm text-t1 outline-none focus:border-amber-600/40 transition-all resize-none"
                   />
                 ) : (
                   <input
                     value={(data.basics as Record<string, string>)[key] ?? ""}
                     onChange={(e) => updateBasics(key, e.target.value)}
-                    className="w-full rounded-lg border border-input-bd bg-input-bg px-3 py-2 text-sm text-t1 outline-none focus:border-indigo-500/40 transition-all"
+                    className="w-full rounded-lg border border-input-bd bg-input-bg px-3 py-2 text-sm text-t1 outline-none focus:border-amber-600/40 transition-all"
                   />
                 )}
               </div>
@@ -258,7 +258,7 @@ export function ResumeEditor({ projectId }: ResumeEditorProps) {
                 setData({ ...data, skills });
               }}
               rows={10}
-              className="w-full rounded-lg border border-input-bd bg-input-bg px-3 py-2 text-sm text-t1 outline-none focus:border-indigo-500/40 transition-all resize-none"
+              className="w-full rounded-lg border border-input-bd bg-input-bg px-3 py-2 text-sm text-t1 outline-none focus:border-amber-600/40 transition-all resize-none"
               placeholder="每行一个：技能名, 级别, 分类&#10;例如：React, expert, Frontend"
             />
           </div>

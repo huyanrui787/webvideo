@@ -75,8 +75,8 @@ export function useChatSimple({ api, onError, onFinish }: UseChatSimpleOptions) 
         throw new Error(err.error || `HTTP ${res.status}`);
       }
 
-      const text = await res.text();
-      const lines = text.split("\n").filter(Boolean);
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response body");
 
       const assistantMessage: SimpleMessage = {
         id: nextId(),
@@ -85,59 +85,134 @@ export function useChatSimple({ api, onError, onFinish }: UseChatSimpleOptions) 
         createdAt: new Date(),
       };
 
-      for (const line of lines) {
-        try {
-          const chunk = JSON.parse(line);
-          switch (chunk.type) {
-            case "text-delta":
-              // Append or create text part
-              const lastTextPart = assistantMessage.parts[assistantMessage.parts.length - 1];
-              if (lastTextPart?.type === "text") {
-                lastTextPart.text = (lastTextPart.text || "") + (chunk.textDelta || "");
-              } else {
-                assistantMessage.parts.push({ type: "text", text: chunk.textDelta || "" });
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        // Keep the last incomplete line in the buffer
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          // Server sends SSE format: "data: {...}" — strip the prefix
+          const json = line.startsWith("data: ") ? line.slice(6) : line;
+          if (!json.trim()) continue;
+          try {
+            const chunk = JSON.parse(json);
+            switch (chunk.type) {
+            case "start":
+            case "start-step":
+            case "finish-step":
+            case "reasoning-start":
+            case "reasoning-end":
+            case "text-start":
+            case "text-end":
+              // Metadata events — no action needed
+              break;
+            case "reasoning-delta":
+              {
+                const lastPart = assistantMessage.parts[assistantMessage.parts.length - 1];
+                if (lastPart?.type === "reasoning") {
+                  lastPart.text = (lastPart.text || "") + (chunk.delta || "");
+                } else {
+                  assistantMessage.parts.push({ type: "reasoning", text: chunk.delta || "" });
+                }
               }
               break;
-            case "tool-call":
+            case "text-delta": {
+              // Append text and render immediately for streaming effect
+              const last = assistantMessage.parts[assistantMessage.parts.length - 1];
+              if (last?.type === "text") {
+                last.text = (last.text || "") + (chunk.delta || "");
+              } else {
+                assistantMessage.parts.push({ type: "text", text: chunk.delta || "" });
+              }
+              setMessages(prev => {
+                const copy = [...prev];
+                const lastMsg = copy[copy.length - 1];
+                if (lastMsg?.role === "assistant") {
+                  copy[copy.length - 1] = { ...assistantMessage, parts: [...assistantMessage.parts] };
+                } else {
+                  copy.push({ ...assistantMessage, parts: [...assistantMessage.parts] });
+                }
+                return copy;
+              });
+              // Yield to React between text chunks for visible streaming
+              await new Promise(r => setTimeout(r, 0));
+              break;
+            }
+            case "tool-input-start":
               assistantMessage.parts.push({
-                type: "tool-invocation",
-                toolName: chunk.toolName || "",
-                input: chunk.args || null,
-                state: "call",
-                toolCallId: chunk.toolCallId,
+                type: "tool-invocation", toolName: chunk.toolName || "",
+                input: null, state: "call", toolCallId: chunk.toolCallId,
               });
               break;
-            case "tool-result":
-              // Update the matching tool-call part to "result" state
+            case "tool-input-delta":
+              // Accumulate streaming tool input
+              for (const p of assistantMessage.parts) {
+                if (p.type === "tool-invocation" && p.toolCallId === chunk.toolCallId) {
+                  const prevInput: string = typeof p.input === "string" ? p.input : "";
+                  const newInput = prevInput + (chunk.inputTextDelta || "");
+                  try { p.input = JSON.parse(newInput); } catch { p.input = newInput; }
+                  break;
+                }
+              }
+              break;
+            case "tool-output-available":
               for (const p of assistantMessage.parts) {
                 if (p.type === "tool-invocation" && p.toolCallId === chunk.toolCallId) {
                   p.state = "result";
-                  p.result = chunk.result;
+                  try { p.result = typeof chunk.output === "string" ? JSON.parse(chunk.output) : chunk.output; } catch { p.result = chunk.output; }
                   break;
                 }
               }
               break;
             case "finish":
-              // Stream complete
               break;
             case "error":
               throw new Error(chunk.error || "Stream error");
-          }
-          // Update UI incrementally
-          setMessages(prev => {
-            const copy = [...prev];
-            const last = copy[copy.length - 1];
-            if (last?.role === "assistant" && last.id === assistantMessage.id) {
-              copy[copy.length - 1] = { ...assistantMessage, parts: [...assistantMessage.parts] };
-            } else {
-              copy.push({ ...assistantMessage, parts: [...assistantMessage.parts] });
             }
-            return copy;
-          });
-        } catch (e: any) {
-          if (e.message?.includes("Stream error") || e.message?.includes("HTTP")) throw e;
-          // JSON parse error on a line — skip it
+            // Batch update for non-text-delta events
+            if (chunk.type !== "text-delta") {
+              setMessages(prev => {
+                const copy = [...prev];
+                const last = copy[copy.length - 1];
+                if (last?.role === "assistant" && last.id === assistantMessage.id) {
+                  copy[copy.length - 1] = { ...assistantMessage, parts: [...assistantMessage.parts] };
+                } else {
+                  copy.push({ ...assistantMessage, parts: [...assistantMessage.parts] });
+                }
+                return copy;
+              });
+            }
+          } catch (e: any) {
+            if (e.message?.includes("Stream error") || e.message?.includes("HTTP")) throw e;
+            // JSON parse error on a line — skip it
+          }
         }
+      }
+
+      // Process any remaining buffer content
+      if (buffer.trim()) {
+        try {
+          const json = buffer.startsWith("data: ") ? buffer.slice(6) : buffer;
+          const chunk = JSON.parse(json);
+          if (chunk.type === "text-delta") {
+            const last = assistantMessage.parts[assistantMessage.parts.length - 1];
+            if (last?.type === "text") {
+              last.text = (last.text || "") + (chunk.delta || "");
+            } else {
+              assistantMessage.parts.push({ type: "text", text: chunk.delta || "" });
+            }
+          } else if (chunk.type === "finish") {
+            // ignore
+          }
+        } catch { /* ignore malformed final line */ }
       }
 
       // Final update

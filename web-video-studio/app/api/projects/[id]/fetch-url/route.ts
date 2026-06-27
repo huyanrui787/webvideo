@@ -1,4 +1,4 @@
-import { anthropic } from "@ai-sdk/anthropic";
+import { getModel } from "@/lib/model-provider";
 import { streamText } from "ai";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
@@ -53,7 +53,7 @@ export async function POST(
   const truncated = html.length > 80000 ? html.slice(0, 80000) : html;
 
   const result = streamText({
-    model: anthropic("claude-sonnet-4-6"),
+    model: getModel("claude-sonnet-4-6"),
     system: `你是网页内容提取助手。从 HTML 源码中提取文章正文，输出干净的 Markdown。
 
 规则：

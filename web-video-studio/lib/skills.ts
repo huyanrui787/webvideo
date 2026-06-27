@@ -25,6 +25,8 @@ export interface Skill {
 }
 
 const DEFAULT_MAIN_SKILL_ID = "web-video-presentation";
+const DEFAULT_ILLUSTRATION_SKILL_ID = "illustration-video";
+const DEFAULT_ANIMATION_SKILL_ID = "animation-video";
 
 export const SKILLS_ROOT = getSkillsRoot();
 
@@ -37,6 +39,8 @@ if (!fs.existsSync(SKILLS_ROOT)) {
   );
 }
 export const MAIN_SKILL_ID = process.env.MAIN_SKILL_ID?.trim() || DEFAULT_MAIN_SKILL_ID;
+export const ILLUSTRATION_SKILL_ID = process.env.ILLUSTRATION_SKILL_ID?.trim() || DEFAULT_ILLUSTRATION_SKILL_ID;
+export const ANIMATION_SKILL_ID = process.env.ANIMATION_SKILL_ID?.trim() || DEFAULT_ANIMATION_SKILL_ID;
 
 interface ManifestData {
   name?: string;

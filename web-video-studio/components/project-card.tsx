@@ -12,6 +12,7 @@ const STATUS_LABELS: Record<Project["status"], string> = {
   illustration_planning: "插图规划",
   building: "构建中",
   illustrating: "插画生成中",
+  animating: "动画生成中",
   typesetting: "排版中",
   audio_checkpoint: "音频确认",
   audio: "待音频确认",
@@ -24,6 +25,7 @@ const STATUS_COLORS: Record<Project["status"], string> = {
   illustration_planning: "bg-pink-100 text-pink-700",
   building: "bg-purple-100 text-purple-700",
   illustrating: "bg-rose-100 text-rose-700",
+  animating: "bg-violet-100 text-violet-700",
   typesetting: "bg-teal-100 text-teal-700",
   audio_checkpoint: "bg-orange-100 text-orange-700",
   audio: "bg-orange-100 text-orange-700",
@@ -40,6 +42,7 @@ const TYPE_LABELS: Record<ProjectType, string> = {
   "resume": "简历",
   "illustration-video": "绘图视频",
   "illustrated-article": "图文排版",
+  "animation-video": "动态视频",
 };
 
 const PROJECT_TYPES: { id: ProjectType; icon: React.ReactNode; label: string; desc: string }[] = [
@@ -141,6 +144,19 @@ const PROJECT_TYPES: { id: ProjectType; icon: React.ReactNode; label: string; de
     ),
     label: "图文排版",
     desc: "给文章配小黑插画，排版导出公众号长文",
+  },
+  {
+    id: "animation-video",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="3,1.5 15,6 15,12 3,16.5" strokeLinejoin="round"/>
+        <line x1="3" y1="6" x2="15" y2="6"/>
+        <line x1="3" y1="12" x2="15" y2="12"/>
+        <circle cx="6" cy="9" r="1" fill="currentColor" stroke="none"/>
+      </svg>
+    ),
+    label: "动态视频",
+    desc: "文章转 AI 动画片段 + 配音，自动合成 MP4",
   },
 ];
 

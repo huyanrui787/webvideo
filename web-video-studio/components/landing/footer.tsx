@@ -35,7 +35,7 @@ export function LandingFooter() {
           {/* Brand */}
           <div className="md:col-span-1">
             <div className="flex items-center gap-2.5 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-sm font-bold text-white">
+              <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center text-sm font-bold text-white">
                 W
               </div>
               <span className="text-sm font-semibold tracking-tight text-t1">

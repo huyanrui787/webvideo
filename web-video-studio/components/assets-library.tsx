@@ -145,7 +145,7 @@ export function AssetsLibrary({ projectId, editMode }: AssetsLibraryProps) {
             onDrop={onDrop}
             onClick={() => inputRef.current?.click()}
             className={`mx-3 mt-2 mb-0 shrink-0 rounded-xl border-2 border-dashed cursor-pointer flex flex-col items-center justify-center py-3 gap-1 transition-colors ${
-              dragging ? "border-indigo-400 bg-indigo-50" : "border-bd hover:border-bd-hover hover:bg-base"
+              dragging ? "border-brand-text bg-indigo-50" : "border-bd hover:border-bd-hover hover:bg-base"
             }`}
           >
             <span className="text-lg">{uploading ? "⏳" : "⬆"}</span>
@@ -321,7 +321,7 @@ function AssetCard({
       )}
       <div className="px-2 pt-1 pb-1.5">
         <p className="text-xs text-t2 truncate mb-0.5" title={asset.originalName}>
-          {asset.source === "library" && <span className="mr-1 text-indigo-400 text-[10px]">☁</span>}
+          {asset.source === "library" && <span className="mr-1 text-brand-text text-[10px]">☁</span>}
           {asset.originalName}
         </p>
         {/* Caption inline edit */}

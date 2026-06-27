@@ -94,7 +94,7 @@ export function EnvCheckBanner() {
   if (!visible) return null;
 
   return (
-    <div className="mx-4 mt-4 rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4">
+    <div className="mx-4 mt-4 rounded-xl border border-brand/30 bg-brand-subtle px-5 py-4">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-lg">🔧</span>
         <h3 className="text-sm font-semibold text-t1">环境检测</h3>

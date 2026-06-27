@@ -176,11 +176,11 @@ export function AvatarWorkbench({ projectId }: AvatarWorkbenchProps) {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="w-full rounded-xl border-2 border-dashed border-bd py-3 text-xs text-t3 hover:border-indigo-300 hover:text-indigo-500 disabled:opacity-50 transition-colors"
+              className="w-full rounded-xl border-2 border-dashed border-bd py-3 text-xs text-t3 hover:border-indigo-300 hover:text-amber-600 disabled:opacity-50 transition-colors"
             >
               {uploading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <span className="animate-spin inline-block w-3 h-3 border-2 border-bd-hover border-t-indigo-500 rounded-full" />
+                  <span className="animate-spin inline-block w-3 h-3 border-2 border-bd-hover border-t-amber-600 rounded-full" />
                   上传中…
                 </span>
               ) : (
@@ -195,16 +195,16 @@ export function AvatarWorkbench({ projectId }: AvatarWorkbenchProps) {
           <>
             {/* Avatar ready badge */}
             <div className="flex items-center gap-2 rounded-xl bg-indigo-50 border border-indigo-100 px-3 py-2">
-              <span className="text-indigo-500 text-sm">✓</span>
+              <span className="text-amber-600 text-sm">✓</span>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium text-indigo-700">照片已上传</p>
-                <p className="text-[10px] text-indigo-400 truncate">
+                <p className="text-[10px] text-brand-text truncate">
                   {config.photoName}
                 </p>
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="text-[10px] text-indigo-400 hover:text-indigo-600 border border-indigo-200 rounded px-1.5 py-0.5"
+                className="text-[10px] text-brand-text hover:text-indigo-600 border border-indigo-200 rounded px-1.5 py-0.5"
               >
                 换照片
               </button>
@@ -221,7 +221,7 @@ export function AvatarWorkbench({ projectId }: AvatarWorkbenchProps) {
             {isBusy && (
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 text-xs text-t2">
-                  <span className="animate-spin inline-block w-3 h-3 border-2 border-bd border-t-indigo-500 rounded-full shrink-0" />
+                  <span className="animate-spin inline-block w-3 h-3 border-2 border-bd border-t-amber-600 rounded-full shrink-0" />
                   <span className="truncate">{job.progress || STATUS_LABEL[job.status]}</span>
                 </div>
                 {job.chapters && job.chapters.length > 0 && (
@@ -277,7 +277,7 @@ export function AvatarWorkbench({ projectId }: AvatarWorkbenchProps) {
             {(job.status === "idle" || job.status === "done") && !isBusy && (
               <button
                 onClick={handleGenerate}
-                className="w-full rounded-xl bg-indigo-600 py-2 text-xs font-medium text-t1 hover:bg-indigo-500 transition-colors"
+                className="w-full rounded-xl bg-indigo-600 py-2 text-xs font-medium text-t1 hover:bg-brand transition-colors"
               >
                 {job.status === "done" ? "↺ 重新生成" : "▶ 生成数字人视频"}
               </button>

@@ -227,7 +227,7 @@ export function BuildProgressCard({ chapters, onRebuildChapter }: BuildProgressC
                     {canRebuild && onRebuildChapter && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onRebuildChapter(ch.id); }}
-                        className="shrink-0 w-5 h-5 flex items-center justify-center rounded-md bg-amber-500/10 hover:bg-amber-500/25 text-amber-400 text-[10px] font-bold transition-colors"
+                        className="shrink-0 w-5 h-5 flex items-center justify-center rounded-md bg-brand-subtle hover:bg-brand-hover/25 text-brand-text text-[10px] font-bold transition-colors"
                         title={ch.status === "pending" ? `手动构建「${ch.title || ch.id}」` : `重新构建「${ch.title || ch.id}」`}
                       >
                         {ch.status === "pending" ? "▶" : "↻"}
@@ -260,7 +260,7 @@ export function BuildProgressCard({ chapters, onRebuildChapter }: BuildProgressC
                     chapters.filter(c => c.status === "review" || c.status === "error" || c.status === "timeout")
                       .forEach(c => onRebuildChapter(c.id));
                   }}
-                  className="w-full py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-medium transition-colors"
+                  className="w-full py-1.5 rounded-lg bg-brand-subtle hover:bg-brand-hover/20 text-brand-text text-xs font-medium transition-colors"
                 >
                   一键重试全部失败章节
                 </button>

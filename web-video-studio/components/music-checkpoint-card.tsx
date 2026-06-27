@@ -356,7 +356,7 @@ export function MusicCheckpointCard({
                 {[0, 0.15, 0.3].map((d) => (
                   <span
                     key={d}
-                    className="w-1 bg-purple-400 rounded-full animate-bounce"
+                    className="w-1 bg-purple-400 rounded-full animate-pulse"
                     style={{ height: "12px", animationDelay: `${d}s`, animationDuration: "0.9s" }}
                   />
                 ))}

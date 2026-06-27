@@ -46,6 +46,8 @@ export async function POST(
 
   try {
     const { port } = await startDevServer(id);
+    // port 0 = audio-only scaffold, no Vite dev server needed
+    if (port === 0) return NextResponse.json({ port: 0, ready: true, noDevServer: true });
     return NextResponse.json({ port, ready: true });
   } catch (err) {
     return NextResponse.json(

@@ -15,7 +15,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   writing: "text-blue-400",
-  building: "text-amber-400",
+  building: "text-brand-text",
   audio: "text-purple-400",
   done: "text-emerald-400",
 };
@@ -135,7 +135,7 @@ export default function BatchDetailPage() {
           {/* Progress bar */}
           <div className="h-2 rounded-full bg-surface2 overflow-hidden">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-600 transition-all duration-700"
+              className="h-full rounded-full bg-brand transition-all duration-700"
               style={{ width: `${progress}%` }}
             />
           </div>

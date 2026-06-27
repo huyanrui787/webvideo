@@ -33,6 +33,15 @@ export function ToolCallsBlock({
   if (tools.length === 0) return null;
 
   if (!expanded) {
+    // Build inline summary: "读取 article.md, 写入 script.md…"
+    const labels = tools.map((t: AnyPart) => {
+      const name: string = t.toolName ?? t.toolInvocation?.toolName ?? "";
+      const meta = TOOL_META[name];
+      const summary = toolSummary(t);
+      return meta ? `${meta.label}${summary ? ` ${summary}` : ""}` : (name || "操作");
+    });
+    const inlineSummary = labels.slice(0, 3).join(", ") + (labels.length > 3 ? ` 等` : "");
+
     return (
       <button
         onClick={() => setExpanded(true)}
@@ -40,6 +49,7 @@ export function ToolCallsBlock({
       >
         <span>⚙</span>
         <span>{tools.length} 个操作</span>
+        <span className="text-t4">{inlineSummary}</span>
         <span className="text-t4">›</span>
       </button>
     );

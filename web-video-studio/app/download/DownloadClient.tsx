@@ -59,7 +59,7 @@ export function DownloadClient() {
         </Link>
 
         {/* Icon */}
-        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-2xl shadow-indigo-500/30">
+        <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-brand flex items-center justify-center shadow-sm">
           <svg
             width="36"
             height="36"
@@ -90,8 +90,8 @@ export function DownloadClient() {
 
         {/* Download button */}
         {showWarning ? (
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-5 py-4 text-sm text-t2">
-            <p className="font-medium text-amber-400 mb-1">
+          <div className="rounded-xl border border-brand/30 bg-brand-subtle px-5 py-4 text-sm text-t2">
+            <p className="font-medium text-brand-text mb-1">
               当前仅提供 macOS 版本
             </p>
             <p className="text-t3">
@@ -108,7 +108,7 @@ export function DownloadClient() {
             <button
               onClick={handleDownload}
               disabled={downloading}
-              className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-indigo-500 to-violet-600 text-white font-semibold text-lg hover:from-indigo-400 hover:to-violet-500 transition-all shadow-xl shadow-indigo-500/30 disabled:opacity-60 disabled:cursor-wait"
+              className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-brand text-white font-semibold text-lg hover:bg-brand-hover transition-all shadow-sm disabled:opacity-60 disabled:cursor-wait"
             >
               {downloading ? (
                 <>

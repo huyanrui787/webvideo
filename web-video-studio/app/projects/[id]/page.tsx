@@ -9,6 +9,8 @@ import { TwoColLayout } from "@/components/two-col-layout";
 import { ChatPanel } from "@/components/chat-panel";
 import { FilePanel } from "@/components/file-panel";
 import { InlinePreview } from "@/components/inline-preview";
+import { IllustPlayer } from "@/components/illust-player";
+import { useIllustrationPipeline } from "./useIllustrationPipeline";
 import { PreviewWindow } from "@/components/preview-window";
 import { PreviewLifecycleButton } from "@/components/preview-lifecycle-button";
 import { useProjectStore } from "@/stores/project-store";
@@ -16,12 +18,12 @@ import { PlaybackBar } from "@/components/playback-bar";
 import { WysiwygOverlay } from "@/components/wysiwyg-overlay";
 import type { WysiwygEditEntry } from "@/components/wysiwyg-overlay";
 import { ThemePickerPanel } from "@/components/theme-picker-panel";
+import { ProjectStyleEditor } from "@/components/project-style-editor";
 import { AudioWorkbench } from "@/components/audio-workbench";
 import { BgmWorkbench } from "@/components/bgm-workbench";
 import { AvatarWorkbench } from "@/components/avatar-workbench";
 import { ModelPickerPanel } from "@/components/model-picker-panel";
 import { TokenStatsPanel } from "@/components/token-stats-panel";
-import { IllustTimelineEditor } from "@/components/illust-timeline-editor";
 import { ArticleLayoutEditor } from "@/components/article-layout-editor";
 import { ArticleUploader } from "@/components/article-uploader";
 import type { PreferredModel } from "@/lib/db/schema";
@@ -29,7 +31,7 @@ import type { ChapterProgress } from "@/components/chapter-progress-panel";
 import type { ThemeMeta } from "@/app/api/themes/route";
 
 type WS = "idle" | "running" | "done" | "error";
-type WB = "audio" | "bgm" | "avatar" | "illust-timeline" | "article-layout" | null;
+type WB = "audio" | "bgm" | "avatar" | "article-layout" | null;
 
 export default function ProjectPage() {
   const { id } = useParams<{ id: string }>();
@@ -111,6 +113,7 @@ export default function ProjectPage() {
   const [wholeCtx, setWholeCtx] = useState<any>(null);
 
   const [themeOpen, setThemeOpen] = useState(false);
+  const [styleEditorOpen, setStyleEditorOpen] = useState(false);
   const [themeName, setThemeName] = useState("");
   const [themes, setThemes] = useState<ThemeMeta[]>([]);
 
@@ -141,7 +144,18 @@ export default function ProjectPage() {
   const [tokenTotal, setTokenTotal] = useState(0);
 
   // ─── fetch project ──────────────────────────────────────────────────
+  const prevIdRef = useRef<string | null>(null);
   const load = useCallback(async () => {
+    // Stop dev server for the previous project before loading the new one.
+    // This prevents Vite process leaks when navigating between projects.
+    if (prevIdRef.current && prevIdRef.current !== id) {
+      fetch(`/api/projects/${prevIdRef.current}/dev-server`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "stop" }),
+      }).catch(() => {});
+    }
+    prevIdRef.current = id;
     try {
       const r = await fetch(`/api/projects/${id}`);
       if (r.status === 401) { router.replace(`/login?next=/projects/${id}`); return; }
@@ -151,7 +165,6 @@ export default function ProjectPage() {
       resetForNavigation();
       prevDevPort.current = null;
       sseGotDevPort.current = false;
-      scaffoldTriggered.current = false;
       userControlMode.current = false;
       devStartingRef.current = false;
       startDevSerial.current = 0;
@@ -159,6 +172,17 @@ export default function ProjectPage() {
     } catch (e: any) { setErrMsg(e.message); setPageState("error"); }
   }, [id, router]);
   useEffect(() => { load(); }, [load]);
+
+  // Stop dev server when leaving this project page entirely (not just switching between projects).
+  useEffect(() => {
+    return () => {
+      fetch(`/api/projects/${id}/dev-server`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "stop" }),
+      }).catch(() => {});
+    };
+  }, [id]);
 
   // ─── SSE event stream — instant state updates without polling ──────────
   useEffect(() => {
@@ -196,12 +220,10 @@ export default function ProjectPage() {
       try {
         const d = JSON.parse(e.data);
         setProject((prev: any) => prev ? { ...prev, status: d.status } : prev);
-        if (d.status === "building" && d.auto) {
-          fetch(`/api/projects/${id}/scaffold`, { method: "POST" }).catch(() => {});
-        }
         if (d.status === "done") {
           setBuildJob((prev: any) => prev ? { ...prev, status: "done" } : null);
-          triggerAudioSynthesis();
+          // Only trigger once — prevent feedback loop from repeated done events
+          if (!audioSynthTriggered.current) triggerAudioSynthesis();
         }
       } catch {}
     });
@@ -240,6 +262,9 @@ export default function ProjectPage() {
         if (d.progress) setRenderProg(d.progress);
       } catch {}
     });
+    es.addEventListener("illustrations-ready", (e: MessageEvent) => {
+      // Pipeline handled by useIllustrationPipeline hook
+    });
     es.onerror = () => { /* SSE reconnect is automatic */ };
     return () => es.close();
   }, [id]);
@@ -248,7 +273,6 @@ export default function ProjectPage() {
   // Separate effect because project loads async and SSE effect depends only on [id].
   useEffect(() => {
     if (project?.status !== "done") return;
-    if (project?.projectType === "illustration-video" || project?.projectType === "illustrated-article") return;
     if (audioSynthTriggered.current) return;
     audioSynthTriggered.current = true;
     const provider = project?.ttsProvider || DEFAULT_TTS_PROVIDER;
@@ -316,7 +340,7 @@ export default function ProjectPage() {
       if (serial !== startDevSerial.current) return; // stale — ignore
       if (r.ok) {
         const d = await r.json().catch(() => ({}));
-        if (serial === startDevSerial.current && d.port) { setDevPort(d.port); setDevStarting(false); }
+        if (serial === startDevSerial.current && (d.port || d.noDevServer)) { setDevPort(d.port ?? null); setDevStarting(false); }
       } else if (r.status !== 409) {
         const d = await r.json().catch(() => ({}));
         if (serial === startDevSerial.current) setDevError(d.error ?? "fail");
@@ -362,8 +386,6 @@ export default function ProjectPage() {
   useEffect(() => {
     if (audioCatchupTriggered.current) return;
     if (project?.status !== "done" && project?.status !== "building") return;
-    // Only for video projects
-    if (project?.projectType === "illustration-video" || project?.projectType === "illustrated-article") return;
 
     // Check chapters from all sources (memory + filesystem)
     const memTotal = chapters.length > 0 ? chapters.length : (buildJob?.chapters?.length ?? 0);
@@ -426,34 +448,7 @@ export default function ProjectPage() {
     return () => { ok = false; };
   }, [id]);
 
-  // ─── scaffold (auto-trigger when building) ────────────────────────────
-  const scaffoldTriggered = useRef(false);
-  useEffect(() => {
-    if (scaffoldTriggered.current) return;
-    if (userControlMode.current) return;
-    if (scaffold !== "idle") return;
-    if (project?.status !== "building") return;
-
-    // Check if already scaffolded before triggering
-    fetch(`/api/projects/${id}/scaffold`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.status === "done" || d.status === "running") return;
-        scaffoldTriggered.current = true;
-        fetch(`/api/projects/${id}/scaffold`, { method: "POST" }).catch(() => {});
-      })
-      .catch(() => {});
-  }, [scaffold, project?.status, id]);
-
-  // ─── scaffold stale detection ────────────────────────────────────────
-  useEffect(() => {
-    if (scaffold !== "idle" || project?.status !== "building") {
-      setScaffoldStale(false);
-      return;
-    }
-    const timer = setTimeout(() => setScaffoldStale(true), 30_000);
-    return () => clearTimeout(timer);
-  }, [scaffold, project?.status]);
+  // ─── scaffold (now auto-triggered server-side by ProjectSetStatus("building")) ──
 
   // ─── build ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -552,12 +547,15 @@ export default function ProjectPage() {
   }, [id]);
 
   // ─── project files ──────────────────────────────────────────────────
+  const isIllustType = project?.projectType === "illustration-video" || project?.projectType === "illustrated-article" || project?.projectType === "animation-video";
   const fileMap: Array<{tab: "article" | "script" | "outline" | "rhythm" | "illustrations" | "source"; path: string}> = [
     { tab: "article", path: "article.md" },
-    { tab: "rhythm", path: "rhythm.md" },
+    ...(isIllustType ? [] : [
+      { tab: "rhythm" as const, path: "rhythm.md" },
+      { tab: "outline" as const, path: "outline.md" },
+      { tab: "source" as const, path: "source" },
+    ]),
     { tab: "script", path: "script.md" },
-    { tab: "outline", path: "outline.md" },
-    { tab: "source", path: "source" },
     { tab: "illustrations", path: "illustrations.json" },
   ];
   const loadFiles = useCallback(async () => {
@@ -579,25 +577,64 @@ export default function ProjectPage() {
     return () => { clearInterval(interval); };
   }, [id, loadFiles]);
 
-  // ─── autostart: AI begins building ───────────────────────────────────
+  // ─── autostart: AI begins building (only on fresh projects) ────────────
+  const idRef = useRef(id);
+  idRef.current = id;
   useEffect(() => {
     if (sp.get("autostart") !== "1" || autoDone || pageState !== "ready") return;
-    const t = setTimeout(() => { triggerRef.current?.("请读取 article.md 并开始制作视频"); setAutoDone(true); }, 1000);
+    const t = setTimeout(async () => {
+      // Only autostart if no existing chat messages — prevents duplicate
+      // messages and the misleading "interrupted" recovery banner.
+      try {
+        const r = await fetch(`/api/projects/${idRef.current}/chat`);
+        const d = await r.json();
+        if (d?.messages?.length > 0) { setAutoDone(true); return; }
+      } catch { /* proceed with autostart if check fails */ }
+      triggerRef.current?.("请读取 article.md 并开始制作视频");
+      setAutoDone(true);
+    }, 1000);
     return () => clearTimeout(t);
   }, [sp, autoDone, pageState]);
 
-  // ─── auto-start dev server on mount if scaffold is done ──────────────
+  // ─── auto-start dev server on mount if scaffold/project is done ──────
   const autoStartedDev = useRef(false);
   useEffect(() => {
     if (autoStartedDev.current) return;
+    const pt = project?.projectType;
+    if (!pt) return;
+    // Illustration projects use IllustPlayer, not Vite dev server
+    const isIllust = pt === "illustration-video" || pt === "illustrated-article";
+    if (isIllust) return;
+
+    // If project is already done, start dev server immediately
+    if (project?.status === "done") {
+      autoStartedDev.current = true;
+      startDev();
+      return;
+    }
+
+    // Otherwise wait for scaffold to finish
     fetch(`/api/projects/${id}/scaffold`).then(r => r.json()).then(d => {
       if (d.status === "done" && !autoStartedDev.current) {
         autoStartedDev.current = true;
         startDev();
       }
     }).catch(() => {});
-  }, [id, startDev]);
+  }, [id, startDev, project?.projectType, project?.status]);
 
+  // ══════════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════════
+  // Illustration-video auto-pipeline — system-driven, no AI signals needed
+  // Flow: writing → (AI plans shots → illustrations.json) → (system generates
+  // images via API directly) → (AI builds chapters with embedded images)
+  // ══════════════════════════════════════════════════════════════════════
+  const isIllust = project?.projectType === "illustration-video" || project?.projectType === "illustrated-article" || project?.projectType === "animation-video";
+  const projectRef = useRef(project);
+  projectRef.current = project;
+  const isAnimMode = project?.projectType === "animation-video";
+  const { illGenRunning, illGenProgress, illGenShots, doneRef: autoGenDoneRef } = useIllustrationPipeline(
+    id, isIllust, isAnimMode ? "anim" : "illust",
+  );
   // ─── floating ───────────────────────────────────────────────────────
   const openFloating = useCallback(() => setFloating(true), []);
   const closeFloating = useCallback(() => setFloating(false), []);
@@ -641,8 +678,18 @@ export default function ProjectPage() {
   const onArticleUploaded = useCallback((content: string) => {
     setArticleContent(content);
     setHasArticle(true);
-    // Refresh file contents so the file panel shows the new article
     setFileContents(prev => ({ ...prev, article: content }));
+    // Auto-trigger full illustration-video pipeline — zero user prompts needed
+    setTimeout(() => {
+      triggerRef.current?.(
+        "请执行绘图视频全自动流程：\n" +
+        "1. 读 article.md → 写 script.md（口播稿，--- 分隔节拍，20-50 个节拍）\n" +
+        "2. 为每个节拍设计 1 张 16:9 全屏插画 → 写入 illustrations.json\n" +
+        "3. 系统检测到文件后自动生图和配音\n" +
+        "4. 完成后系统通知你 → 调用 ProjectSetStatus('done')\n" +
+        "全程自动，不等待确认。"
+      );
+    }, 1000);
   }, []);
 
   // ─── postMessage helper ──────────────────────────────────────────────
@@ -766,7 +813,7 @@ export default function ProjectPage() {
 
   // ─── navbar callbacks ─────────────────────────────────────────────────
   const onTitleSave = useCallback(async () => {
-    const trimmed = titleDraft.trim();
+    const trimmed = (titleDraft ?? "").trim();
     if (!trimmed || trimmed === project?.title) { setEditingTitle(false); return; }
     try {
       const r = await fetch(`/api/projects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: trimmed }) });
@@ -775,7 +822,7 @@ export default function ProjectPage() {
     setEditingTitle(false);
   }, [id, titleDraft, project?.title]);
 
-  const onModelConfirm = useCallback(async (model: PreferredModel) => {
+  const onModelConfirm = useCallback(async (model: string) => {
     try {
       const r = await fetch(`/api/projects/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model }) });
       if (r.ok) { const u = await r.json(); setProject(u); }
@@ -821,10 +868,10 @@ export default function ProjectPage() {
   }
 
   const Navbar = (
-    <div className="flex items-center justify-between px-3 h-10">
-      <div className="flex items-center gap-2 min-w-0">
-        <Link href="/studio" className="text-t3 hover:text-t1 shrink-0" title="返回">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M12 4l-6 6 6 6"/></svg>
+    <div className="flex items-center justify-between px-4 h-12 border-b border-bd">
+      <div className="flex items-center gap-3 min-w-0">
+        <Link href="/studio" className="text-t3 hover:text-t1 shrink-0" title="返回首页">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 14l-5-5 5-5"/></svg>
         </Link>
 
         {/* Editable title */}
@@ -835,57 +882,25 @@ export default function ProjectPage() {
             onChange={e => setTitleDraft(e.target.value)}
             onBlur={onTitleSave}
             onKeyDown={e => { if (e.key === "Enter") onTitleSave(); if (e.key === "Escape") setEditingTitle(false); }}
-            className="text-sm font-semibold text-t1 bg-surface border border-bd rounded px-1.5 py-0.5 outline-none focus:border-accent min-w-0 w-40"
+            className="text-sm font-semibold text-t1 bg-surface border border-bd rounded-lg px-2 py-1 outline-none focus:border-brand/50 min-w-0 w-48"
           />
         ) : (
-          <span
-            className="text-sm font-semibold text-t1 truncate cursor-pointer hover:text-accent transition-colors"
-            onClick={() => { setTitleDraft(project.title); setEditingTitle(true); }}
+          <button
+            className="flex items-center gap-1.5 text-sm font-semibold text-t1 truncate hover:text-brand-text transition-colors group"
+            onClick={() => { setTitleDraft(project?.title ?? ""); setEditingTitle(true); }}
             title="点击编辑标题"
           >
-            {project.title}
-          </span>
+            <span className="truncate">{project.title}</span>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-t4 opacity-0 group-hover:opacity-100 transition-opacity"><path d="M8 1.5l2.5 2.5-6 6L1 10.5l.5-3.5z"/></svg>
+          </button>
         )}
 
-        {/* Project switcher dropdown */}
-        <div className="relative shrink-0">
-          <button
-            onClick={() => setSwitcherOpen(v => !v)}
-            className="text-t3 hover:text-t1 transition-colors px-0.5"
-            title="切换项目"
-          >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M5 7L1 3h8z"/></svg>
-          </button>
-          {switcherOpen && (
-            <>
-              <div className="fixed inset-0 z-30" onClick={() => setSwitcherOpen(false)} />
-              <div className="absolute top-full left-0 mt-1 z-40 bg-modal border border-bd rounded-xl shadow-2xl w-64 max-h-72 overflow-y-auto py-1">
-                {projectsList.length === 0 ? (
-                  <p className="text-xs text-t3 px-3 py-4 text-center">暂无项目</p>
-                ) : (
-                  projectsList.map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => { router.push(`/projects/${p.id}`); setSwitcherOpen(false); }}
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-surface2 transition-colors truncate flex items-center gap-2 ${p.id === id ? "bg-accent/10 text-accent font-medium" : "text-t1"}`}
-                    >
-                      <span className="truncate flex-1">{p.title}</span>
-                      {p.id === id && <span className="text-[10px] text-accent shrink-0">✓</span>}
-                    </button>
-                  ))
-                )}
-              </div>
-            </>
-          )}
-        </div>
-
-        <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 hidden sm:inline ${
-          project.status === "done" ? "bg-green-500/10 text-green-500"
-          : project.status === "building" ? "bg-blue-500/10 text-blue-500"
-          : project.status === "illustrating" ? "bg-rose-500/10 text-rose-500"
-          : project.status === "typesetting" ? "bg-teal-500/10 text-teal-500"
-          : project.status === "writing" || project.status === "plan_checkpoint" || project.status === "illustration_planning" ? "bg-amber-500/10 text-amber-500"
-          : "bg-surface-2 text-t3"
+        {/* Status badge */}
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full shrink-0 font-medium ${
+          project.status === "done" ? "bg-green-400/10 text-green-400"
+          : project.status === "building" || project.status === "illustrating" || project.status === "typesetting" || project.status === "audio" ? "bg-blue-400/10 text-blue-400"
+          : project.status === "writing" || project.status === "plan_checkpoint" || project.status === "illustration_planning" || project.status === "audio_checkpoint" ? "bg-brand-subtle text-brand-text"
+          : "bg-surface2 text-t3"
         }`}>
           {project.status === "writing" ? "写作中"
             : project.status === "plan_checkpoint" ? "计划确认"
@@ -898,32 +913,75 @@ export default function ProjectPage() {
             : project.status === "done" ? "已完成"
             : project.status}
         </span>
-        {isStreaming && <span className="w-2 h-2 rounded-full bg-accent animate-pulse shrink-0" />}
+        {isStreaming && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />}
 
         {/* Separator */}
-        <span className="w-px h-4 bg-bd shrink-0 hidden sm:block" />
+        <span className="w-px h-4 bg-bd shrink-0" />
 
-        {/* Model picker badge */}
+        {/* Model picker */}
         <button
           onClick={() => setModelPickerOpen(true)}
-          className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 hidden sm:inline bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors"
+          className="text-[11px] px-2 py-0.5 rounded-full shrink-0 bg-brand/10 text-brand-text hover:bg-brand/10 transition-colors flex items-center gap-1"
           title="切换模型"
         >
-          🤖 {MODEL_SHORT_LABELS[project.model ?? ""] ?? project.model}
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="5.5" r="4"/><path d="M5.5 1.5v8M1.5 5.5h8"/></svg>
+          {MODEL_SHORT_LABELS[project.model ?? ""] ?? project.model}
         </button>
 
         {/* Token badge */}
         <button
           onClick={() => setTokenPanelOpen(true)}
-          className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0 hidden sm:inline bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 transition-colors"
+          className="text-[11px] px-2 py-0.5 rounded-full shrink-0 bg-brand-subtle text-brand-text hover:bg-brand-hover/20 transition-colors flex items-center gap-1"
           title="Token 消耗"
         >
-          ⚡ {fmtTokens(tokenTotal)}
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><polyline points="1.5,7.5 4,3.5 6.5,7 8.5,2.5"/><polyline points="6.5,2.5 9,2.5 8.5,5.5"/></svg>
+          {fmtTokens(tokenTotal)}
         </button>
+
+        {/* Project switcher */}
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setSwitcherOpen(v => !v)}
+            className="text-[11px] px-2 py-0.5 rounded-full bg-surface2 border border-bd text-t3 hover:text-t1 hover:border-bd-hover transition-colors flex items-center gap-1"
+            title="切换项目"
+          >
+            切换
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><polyline points="2,3 4,5 6,3"/></svg>
+          </button>
+          {switcherOpen && (
+            <>
+              <div className="fixed inset-0 z-30" onClick={() => setSwitcherOpen(false)} />
+              <div className="absolute top-full left-0 mt-1 z-40 bg-modal border border-bd rounded-xl shadow-md w-64 max-h-72 overflow-y-auto py-1">
+                {projectsList.length === 0 ? (
+                  <p className="text-xs text-t3 px-3 py-4 text-center">暂无项目</p>
+                ) : (
+                  projectsList.map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => { router.push(`/projects/${p.id}`); setSwitcherOpen(false); }}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-surface2 transition-colors truncate flex items-center gap-2 ${p.id === id ? "bg-brand/10 text-brand-text font-medium" : "text-t1"}`}
+                    >
+                      <span className="truncate flex-1">{p.title}</span>
+                      {p.id === id && (
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><polyline points="2,6 5,9 10,3"/></svg>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+
+      <div className="flex items-center gap-2 shrink-0">
         {scaffold === "done" && project.status !== "done" && (
-          <button onClick={build} disabled={buildJob?.status === "running"} className={`text-xs px-2.5 py-1 rounded-lg transition-opacity ${buildJob?.status === "running" ? "text-t3 bg-surface border border-bd" : "bg-accent text-white hover:opacity-90"}`}>
+          <button onClick={build} disabled={buildJob?.status === "running"}
+            className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+              buildJob?.status === "running"
+                ? "text-t3 bg-surface border border-bd cursor-default"
+                : "bg-brand text-white hover:bg-brand-hover"
+            }`}>
             {buildJob?.status === "running" ? "构建中…" : "构建"}
           </button>
         )}
@@ -941,6 +999,10 @@ export default function ProjectPage() {
         </div>
       )}
 
+      {styleEditorOpen && (
+        <ProjectStyleEditor projectId={id} onClose={() => setStyleEditorOpen(false)} />
+      )}
+
       {modelPickerOpen && (
         <ModelPickerPanel current={project.model as PreferredModel} onConfirm={onModelConfirm} onClose={() => setModelPickerOpen(false)} title="选择主模型" subtitle="用于对话、规划、脚本生成" />
       )}
@@ -952,30 +1014,20 @@ export default function ProjectPage() {
       {wb && <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setWb(null)} />}
       {wb === "audio" && (
         <div className="fixed inset-y-0 right-0 z-50 w-96 bg-modal border-l border-bd shadow-2xl overflow-y-auto">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-bd sticky top-0 bg-modal"><span className="text-sm font-semibold text-t1">语音合成</span><button onClick={() => setWb(null)} className="text-t3 hover:text-t1 text-lg">×</button></div>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-bd sticky top-0 bg-modal z-10"><span className="text-sm font-semibold text-t1">语音合成</span><button onClick={() => setWb(null)} className="w-7 h-7 rounded-lg flex items-center justify-center text-t3 hover:text-t1 hover:bg-surface2 transition-colors"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg></button></div>
           <AudioWorkbench projectId={id} ttsVoice={project.ttsVoice} ttsProvider={project.ttsProvider} onSynthDone={load} onSkip={() => setWb(null)} />
         </div>
       )}
       {wb === "bgm" && (
         <div className="fixed inset-y-0 right-0 z-50 w-96 bg-modal border-l border-bd shadow-2xl overflow-y-auto">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-bd sticky top-0 bg-modal"><span className="text-sm font-semibold text-t1">背景音乐</span><button onClick={() => setWb(null)} className="text-t3 hover:text-t1 text-lg">×</button></div>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-bd sticky top-0 bg-modal"><span className="text-sm font-semibold text-t1">背景音乐</span><button onClick={() => setWb(null)} className="w-7 h-7 rounded-lg flex items-center justify-center text-t3 hover:text-t1 hover:bg-surface2 transition-colors"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg></button></div>
           <BgmWorkbench projectId={id} projectTitle={project.title} />
         </div>
       )}
       {wb === "avatar" && (
         <div className="fixed inset-y-0 right-0 z-50 w-96 bg-modal border-l border-bd shadow-2xl overflow-y-auto">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-bd sticky top-0 bg-modal"><span className="text-sm font-semibold text-t1">数字人</span><button onClick={() => setWb(null)} className="text-t3 hover:text-t1 text-lg">×</button></div>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-bd sticky top-0 bg-modal"><span className="text-sm font-semibold text-t1">数字人</span><button onClick={() => setWb(null)} className="w-7 h-7 rounded-lg flex items-center justify-center text-t3 hover:text-t1 hover:bg-surface2 transition-colors"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg></button></div>
           <AvatarWorkbench projectId={id} />
-        </div>
-      )}
-
-      {wb === "illust-timeline" && (
-        <div className="fixed inset-y-0 right-0 z-50 w-[42rem] max-w-[90vw] bg-modal border-l border-bd shadow-2xl overflow-y-auto">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-bd sticky top-0 bg-modal">
-            <span className="text-sm font-semibold text-t1">插图时间轴</span>
-            <button onClick={() => setWb(null)} className="text-t3 hover:text-t1 text-lg">×</button>
-          </div>
-          <IllustTimelineEditor projectId={id} />
         </div>
       )}
 
@@ -983,7 +1035,7 @@ export default function ProjectPage() {
         <div className="fixed inset-y-0 right-0 z-50 w-[42rem] max-w-[90vw] bg-modal border-l border-bd shadow-2xl overflow-y-auto">
           <div className="flex items-center justify-between px-4 py-3 border-b border-bd sticky top-0 bg-modal">
             <span className="text-sm font-semibold text-t1">图文排版</span>
-            <button onClick={() => setWb(null)} className="text-t3 hover:text-t1 text-lg">×</button>
+            <button onClick={() => setWb(null)} className="w-7 h-7 rounded-lg flex items-center justify-center text-t3 hover:text-t1 hover:bg-surface2 transition-colors"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg></button>
           </div>
           <ArticleLayoutEditor projectId={id} />
         </div>
@@ -995,7 +1047,7 @@ export default function ProjectPage() {
           <>
             {Navbar}
             {buildJob?.status === "running" && (
-              <div className="h-0.5 bg-surface-2"><div className="h-full bg-accent transition-all duration-500" style={{ width: `${(doneChapters / totalChapters) * 100}%` }} /></div>
+              <div className="h-[2px] bg-surface2"><div className="h-full bg-brand transition-all duration-500" style={{ width: `${(doneChapters / totalChapters) * 100}%` }} /></div>
             )}
           </>
         }
@@ -1005,8 +1057,16 @@ export default function ProjectPage() {
               <PlaybackBar step={playStep} playbackState={playState} speed={playSpeed} totalChapters={chapters.length}
                 onPlay={togglePlayback} onPause={pause} onPrevChapter={prevCh} onNextChapter={nextCh} onSpeedChange={setSpeed} />
             )}
+            {/* Article uploader — for illustration projects in writing phase */}
+            {(project.projectType === "illustration-video" || project.projectType === "illustrated-article" || project.projectType === "animation-video") &&
+              project.status === "writing" && !hasArticle && (
+              <div className="shrink-0 border-b border-bd bg-surface px-4 py-3">
+                <ArticleUploader projectId={id} hasArticle={hasArticle} onUploaded={onArticleUploaded} />
+              </div>
+            )}
             <div className="flex-1 overflow-hidden">
               <ChatPanel projectId={id} projectTitle={project.title} devPort={devPort}
+                illGenRunning={illGenRunning} illGenProgress={illGenProgress} illGenShots={illGenShots}
                 onRegisterTrigger={fn => { triggerRef.current = fn; }}
                 selectedElement={selEl} wholePageContext={wholeCtx}
                 onCheckpointConfirmed={onCkpt}
@@ -1027,7 +1087,7 @@ export default function ProjectPage() {
                   }
                 }}
                 onProjectDone={load} onAudioCheckpoint={load}
-                onIllustrationDone={load}
+                onIllustrationDone={() => { load(); }}
                 onRebuildChapter={() => { fetch(`/api/projects/${id}/build-parallel`, { method: "POST" }).catch(() => {}); }}
                 chapters={displayChapters} onChaptersChange={setChapters}
                 projectFormat={project.projectFormat as any}
@@ -1035,7 +1095,9 @@ export default function ProjectPage() {
             </div>
           </div>
         }
-        preview={hasPreview && !floating ? (
+        preview={isIllust ? (
+          <IllustPlayer projectId={id} />
+        ) : hasPreview && !floating ? (
           <InlinePreview
             projectId={id} project={project} devPort={devPort} iframeKey={iframeKey} iframeRef={iframeRef}
             isGraphic={project.projectFormat === "graphic"}
@@ -1077,27 +1139,28 @@ export default function ProjectPage() {
             }
           />
         ) : !floating ? (
-          // Show ArticleUploader for illustration projects in writing phase
-          (project.projectType === "illustration-video" || project.projectType === "illustrated-article") &&
-          project.status === "writing" && !hasArticle ? (
-            <ArticleUploader
-              projectId={id}
-              hasArticle={hasArticle}
-              onUploaded={onArticleUploaded}
-            />
-          ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center p-6 gap-3">
-            <div className="text-4xl">🎬</div>
-            <p className="text-sm font-medium text-t1">预览控制</p>
-            <p className="text-xs text-t3 max-w-xs">
-              {scaffold === "idle"
-                ? (scaffoldStale ? "脚手架尚未启动，请确认构建流程已触发。" : "AI 内容就绪后将自动进入构建阶段")
-                : scaffold === "running"
-                ? (scaffoldProgress ? `正在 ${scaffoldProgress.stage} (${scaffoldProgress.pct}%)` : "脚手架正在初始化…")
-                : scaffold === "error"
-                ? (scaffoldError ? `${scaffoldError.message.slice(0, 80)}` : "脚手架初始化失败")
-                : devCrashed ? "开发服务器已断开" : "开发服务器未启动"}
-            </p>
+          <div className="flex flex-col items-center justify-center h-full text-center p-8 gap-5">
+            <div className="w-16 h-16 rounded-2xl bg-surface2 flex items-center justify-center">
+              <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" className="text-t4">
+                <rect x="3" y="2" width="22" height="24" rx="3"/>
+                <polygon points="11,8 11,20 21,14" fill="currentColor" stroke="none" opacity="0.3"/>
+                <polygon points="11,8 11,20 21,14" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-t1 mb-1">
+                {scaffold === "idle" ? "等待构建" : scaffold === "running" ? "正在初始化" : scaffold === "error" ? "初始化失败" : devCrashed ? "服务器已断开" : "预览未启动"}
+              </h3>
+              <p className="text-xs text-t3 max-w-xs leading-relaxed">
+                {scaffold === "idle"
+                  ? (scaffoldStale ? "脚手架尚未启动，请确认构建流程已触发。" : "AI 内容就绪后会自动进入构建阶段")
+                  : scaffold === "running"
+                  ? (scaffoldProgress ? `${scaffoldProgress.stage} (${scaffoldProgress.pct}%)` : "脚手架正在初始化…")
+                  : scaffold === "error"
+                  ? (scaffoldError ? scaffoldError.message.slice(0, 80) : "脚手架初始化失败")
+                  : devCrashed ? "请尝试重新启动开发服务器" : "点击下方按钮启动预览"}
+              </p>
+            </div>
             <PreviewLifecycleButton
               scaffold={scaffold}
               scaffoldProgress={scaffoldProgress}
@@ -1113,9 +1176,8 @@ export default function ProjectPage() {
               onFullscreen={fullscreen}
               variant="placeholder"
             />
-            {devError && <p className="text-xs text-red-500">{devError}</p>}
+            {devError && <p className="text-xs text-red-400">{devError}</p>}
           </div>
-          )
         ) : null}
         panel={
           <FilePanel projectId={id} project={project} chapters={displayChapters} files={fileContents}
@@ -1127,42 +1189,56 @@ export default function ProjectPage() {
         }
         filePanelActions={
           <>
+            {/* Theme */}
             <button
               onClick={() => setThemeOpen(v => !v)}
-              className={`text-xs px-2 py-0.5 rounded transition-colors ${themeOpen ? "bg-accent text-white" : "text-t2 hover:text-t1"}`}
+              className={`h-6 px-2 rounded text-[11px] transition-colors flex items-center gap-1 shrink-0 ${themeOpen ? "bg-brand/10 text-brand-text" : "text-t3 hover:text-t1 hover:bg-surface2"}`}
               title="切换主题"
             >
-              🎨 {themes.find(t => t.name === themeName)?.nameZh || themeName || "主题"}
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="5.5" cy="5.5" r="3"/><path d="M5.5 2a3.5 3.5 0 000 7"/></svg>
+              {themes.find(t => t.name === themeName)?.nameZh || "主题"}
             </button>
-            {/* Show illustration/typsetting buttons for relevant project types */}
-            {(project.projectType === "illustration-video" || project.projectType === "illustrated-article") && (
-              <>
-                <button onClick={() => setWb(wb === "illust-timeline" ? null : "illust-timeline")}
-                  className={`text-xs px-2 py-0.5 rounded transition-colors ${wb === "illust-timeline" ? "bg-accent text-white" : "text-t2 hover:text-t1"}`}>
-                  🎨 插图
-                </button>
-                {project.projectType === "illustrated-article" && (
-                  <button onClick={() => setWb(wb === "article-layout" ? null : "article-layout")}
-                    className={`text-xs px-2 py-0.5 rounded transition-colors ${wb === "article-layout" ? "bg-accent text-white" : "text-t2 hover:text-t1"}`}>
-                    📄 排版
-                  </button>
-                )}
-              </>
+
+            {/* Style */}
+            {isIllust && (
+              <button
+                onClick={() => setStyleEditorOpen(v => !v)}
+                className={`h-6 px-2 rounded text-[11px] transition-colors flex items-center gap-1 shrink-0 ${styleEditorOpen ? "bg-brand/10 text-brand-text" : "text-t3 hover:text-t1 hover:bg-surface2"}`}
+                title="画面风格"
+              >
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="8" cy="8" r="2.5"/>
+                  <path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M2.93 2.93l1.06 1.06M12.01 12.01l1.06 1.06M2.93 13.07l1.06-1.06M12.01 3.99l1.06-1.06"/>
+                </svg>
+                风格
+              </button>
             )}
-            {(["audio", "bgm", "avatar"] as const).map(k => {
+
+            {/* Audio tools — icon-only with status dot */}
+            {(["audio","bgm","avatar"] as const).map(k => {
               const st = k === "audio" ? audioBtnStatus : k === "bgm" ? bgmBtnStatus : "idle";
-              const dotCls = st === "idle" ? "hidden"
-                : st === "running"
-                  ? (k === "audio" ? "bg-yellow-400 animate-pulse" : "bg-purple-400 animate-pulse")
-                  : "bg-green-400";
+              const running = st === "running";
+              const done = st === "done";
+              const title = k === "audio" ? "语音" : k === "bgm" ? "音乐" : "数字人";
               return (
                 <button key={k} onClick={() => setWb(wb === k ? null : k)}
-                  className={`text-xs px-2 py-0.5 rounded transition-colors flex items-center gap-1 ${wb === k ? "bg-accent text-white" : "text-t2 hover:text-t1"}`}>
-                  <span className={`shrink-0 w-1.5 h-1.5 rounded-full ${dotCls}`} />
-                  {k === "audio" ? "语音" : k === "bgm" ? "音乐" : "数字人"}
+                  className={`h-6 px-2 rounded text-[11px] transition-colors flex items-center gap-1 shrink-0 relative ${wb === k ? "bg-brand/10 text-brand-text" : running ? "text-brand-text" : done ? "text-green-400" : "text-t3 hover:text-t1 hover:bg-surface2"}`}
+                  title={title}
+                >
+                  {k === "audio" ? (
+                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M2 4v3a2 2 0 002 2h.5l3 2V0l-3 2H4a2 2 0 00-2 2z"/></svg>
+                  ) : k === "bgm" ? (
+                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><circle cx="8" cy="3" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="3" cy="5.5" r="1.2"/><line x1="6.8" y1="4" x2="4.2" y2="4.8"/><line x1="4.2" y1="6.2" x2="6.8" y2="7"/></svg>
+                  ) : (
+                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="5.5" cy="4" r="2"/><path d="M2.5 9c0-1.5 1.3-3 3-3s3 1.5 3 3"/></svg>
+                  )}
+                  <span>{title}</span>
+                  {running && <span className="w-1 h-1 rounded-full bg-amber-400 animate-pulse" />}
+                  {done && <span className="w-1 h-1 rounded-full bg-green-400" />}
                 </button>
               );
             })}
+
           </>
         }
       />

@@ -51,6 +51,10 @@ interface IllustrationCheckpointMsg {
   type: "illustration_checkpoint";
   data: { shotList: ShotItem[] };
 }
+interface IllustrationGenerateMsg {
+  type: "illustration_generate";
+  data: { shotCount: number; chapters?: string[] };
+}
 interface CardStatusMsg {
   type: "card_status";
   data: { cardId: string; title: string; status: "building" | "done" | "error" };
@@ -76,6 +80,7 @@ type AnnotationMsg =
   | RecordingGuideMsg
   | MusicCheckpointMsg
   | IllustrationCheckpointMsg
+  | IllustrationGenerateMsg
   | CardStatusMsg
   | CardReviewMsg
   | CardsDoneMsg
@@ -124,6 +129,9 @@ interface ChatPanelProps {
   contentStats?: { scriptWords: number; outlineChapters: number; outlineSteps: number };
   onContentConfirm?: () => void;
   onRebuildChapter?: (chapterId: string) => void;
+  illGenRunning?: boolean;
+  illGenProgress?: { done: number; total: number } | null;
+  illGenShots?: Array<{ id: string; chapterId: string; status: "pending" | "generating" | "done" | "error" }>;
 }
 
 export function ChatPanel({
@@ -151,6 +159,9 @@ export function ChatPanel({
   onContentConfirm,
   onRebuildChapter,
   projectStatus,
+  illGenRunning,
+  illGenProgress,
+  illGenShots,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [annotations, setAnnotations] = useState<Record<string, AnnotationMsg>>({});
@@ -456,6 +467,19 @@ export function ChatPanel({
             onDevServerNeeded?.();
           } else if (parsed.type === "cards_done") {
             onProjectDone?.();
+          } else if (parsed.type === "illustration_generate") {
+            // Auto-trigger image generation — no user confirmation needed
+            const shotCount = parsed.data?.shotCount ?? 0;
+            if (shotCount > 0) {
+              fetch(`/api/projects/${projectId}/illustrations/generate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ concurrency: 2 }),
+              }).then(r => r.json()).then(d => {
+                console.log(`[illustration_generate] done=${d.doneCount} errors=${d.errorCount}`);
+                onIllustrationDone?.([]);
+              }).catch(() => {});
+            }
           }
         }
       }
@@ -567,9 +591,9 @@ export function ChatPanel({
             <p className="animate-pulse">加载对话记录…</p>
           </div>
         )}
-        {/* Recovery notice: last message was user → conversation may have been interrupted */}
-        {historyLoaded && messages.length > 0 && messages[messages.length - 1]?.role === "user" && (
-          <div className="mx-3 mb-2 p-2 rounded text-xs bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center gap-2">
+        {/* Recovery notice: last message was user AND not currently loading → conversation may have been interrupted */}
+        {historyLoaded && messages.length > 0 && messages[messages.length - 1]?.role === "user" && !isLoading && (
+          <div className="mx-3 mb-2 p-2 rounded text-xs bg-brand-subtle text-amber-600 border border-brand/20 flex items-center gap-2">
             <span>⚡</span>
             <span>上次对话可能未完成。已保存的内容不会丢失，发送消息即可续接。</span>
           </div>
@@ -728,19 +752,23 @@ export function ChatPanel({
             onConfirm={onContentConfirm}
           />
         )}
-        {isLoading && (
+        {(isLoading || illGenRunning) && (
           <div className="px-3">
-            <div className="flex items-center gap-2.5 bg-gradient-to-r from-purple-500/15 via-blue-500/15 to-cyan-500/15 border border-purple-300/40 rounded-xl px-4 py-2.5">
+            <div className="flex items-center gap-2.5 bg-brand-subtle border border-brand/20 rounded-xl px-4 py-2.5">
               <span className="flex gap-1 items-end h-4 shrink-0">
-                {['#a855f7', '#3b82f6', '#06b6d4'].map((color, i) => (
+                {['#d97706', '#b45309', '#92400e'].map((color, i) => (
                   <span
                     key={i}
-                    className="w-1.5 rounded-full animate-bounce"
+                    className="w-1.5 rounded-full animate-pulse"
                     style={{ height: "12px", animationDelay: `${i * 0.15}s`, animationDuration: "0.9s", backgroundColor: color }}
                   />
                 ))}
               </span>
-              <span className="text-sm font-medium bg-gradient-to-r from-purple-500 via-blue-400 to-cyan-400 bg-clip-text text-transparent">任务执行中</span>
+              <span className="text-sm font-medium text-brand-text">
+                {illGenRunning && illGenProgress
+                  ? `生图中 ${illGenProgress.done}/${illGenProgress.total}`
+                  : "任务执行中"}
+              </span>
             </div>
           </div>
         )}
