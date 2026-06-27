@@ -1,0 +1,358 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-23T18:30:00.000Z",
+  "title": "Design System: Web Video Studio",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Indigo",
+        "canonical": "oklch(0.55 0.18 280)",
+        "tonalRamp": [
+          "oklch(0.15 0.04 280)",
+          "oklch(0.25 0.06 280)",
+          "oklch(0.35 0.10 280)",
+          "oklch(0.45 0.14 280)",
+          "oklch(0.55 0.18 280)",
+          "oklch(0.65 0.14 280)",
+          "oklch(0.75 0.08 280)",
+          "oklch(0.90 0.03 280)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(0.06 0.002 260)",
+        "tonalRamp": [
+          "oklch(0.04 0.001 260)",
+          "oklch(0.06 0.002 260)",
+          "oklch(0.10 0.002 260)",
+          "oklch(0.15 0.002 260)",
+          "oklch(0.22 0.002 260)",
+          "oklch(0.35 0.002 260)",
+          "oklch(0.55 0.002 260)",
+          "oklch(0.75 0.002 260)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "oklch(0.97 0.002 260)",
+        "tonalRamp": [
+          "oklch(0.94 0.001 260)",
+          "oklch(0.95 0.001 260)",
+          "oklch(0.96 0.002 260)",
+          "oklch(0.97 0.002 260)",
+          "oklch(0.98 0.001 260)",
+          "oklch(0.99 0.000 0)",
+          "oklch(1.00 0.000 0)",
+          "oklch(1.00 0.000 0)"
+        ]
+      },
+      "surface-dim": {
+        "role": "neutral",
+        "displayName": "Surface Dim",
+        "canonical": "oklch(0.12 0.002 260)",
+        "tonalRamp": [
+          "oklch(0.08 0.001 260)",
+          "oklch(0.10 0.002 260)",
+          "oklch(0.12 0.002 260)",
+          "oklch(0.15 0.002 260)",
+          "oklch(0.18 0.002 260)",
+          "oklch(0.22 0.002 260)",
+          "oklch(0.28 0.002 260)",
+          "oklch(0.35 0.002 260)"
+        ]
+      },
+      "green": {
+        "role": "status",
+        "displayName": "Green",
+        "canonical": "oklch(0.75 0.18 150)",
+        "tonalRamp": [
+          "oklch(0.25 0.08 150)",
+          "oklch(0.35 0.10 150)",
+          "oklch(0.45 0.13 150)",
+          "oklch(0.55 0.15 150)",
+          "oklch(0.65 0.17 150)",
+          "oklch(0.75 0.18 150)",
+          "oklch(0.85 0.12 150)",
+          "oklch(0.92 0.05 150)"
+        ]
+      },
+      "amber": {
+        "role": "status",
+        "displayName": "Amber",
+        "canonical": "oklch(0.75 0.15 80)",
+        "tonalRamp": [
+          "oklch(0.25 0.06 80)",
+          "oklch(0.35 0.08 80)",
+          "oklch(0.45 0.10 80)",
+          "oklch(0.55 0.12 80)",
+          "oklch(0.65 0.14 80)",
+          "oklch(0.75 0.15 80)",
+          "oklch(0.85 0.10 80)",
+          "oklch(0.92 0.04 80)"
+        ]
+      },
+      "red": {
+        "role": "status",
+        "displayName": "Red",
+        "canonical": "oklch(0.65 0.20 20)",
+        "tonalRamp": [
+          "oklch(0.25 0.10 20)",
+          "oklch(0.35 0.13 20)",
+          "oklch(0.45 0.16 20)",
+          "oklch(0.55 0.18 20)",
+          "oklch(0.65 0.20 20)",
+          "oklch(0.75 0.15 20)",
+          "oklch(0.85 0.08 20)",
+          "oklch(0.92 0.03 20)"
+        ]
+      },
+      "blue": {
+        "role": "status",
+        "displayName": "Blue",
+        "canonical": "oklch(0.68 0.16 245)",
+        "tonalRamp": [
+          "oklch(0.25 0.07 245)",
+          "oklch(0.35 0.09 245)",
+          "oklch(0.45 0.12 245)",
+          "oklch(0.55 0.14 245)",
+          "oklch(0.68 0.16 245)",
+          "oklch(0.78 0.12 245)",
+          "oklch(0.85 0.07 245)",
+          "oklch(0.92 0.03 245)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Landing page hero headline only. Max once per page, max 4.5rem."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section headings (H2). Used on both landing and app surfaces."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles, modal titles, panel headers."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Body copy, descriptions, chat messages. 65-75ch max line length."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Button labels, tags, nav items, metadata."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Code blocks, filenames, technical identifiers only. Never UI labels."
+      }
+    },
+    "shadows": [
+      {
+        "name": "ambient-xs",
+        "value": "0 1px 2px rgba(0,0,0,0.04)",
+        "purpose": "Card default resting state. Barely visible, no decorative shadow."
+      },
+      {
+        "name": "ambient-sm",
+        "value": "0 2px 8px rgba(0,0,0,0.08)",
+        "purpose": "Card hover state. Subtle lift feedback."
+      },
+      {
+        "name": "elevated",
+        "value": "0 16px 48px rgba(0,0,0,0.5)",
+        "purpose": "Dropdown menus. Ensures readability over complex layouts."
+      },
+      {
+        "name": "overlay",
+        "value": "0 24px 80px rgba(0,0,0,0.8)",
+        "purpose": "Modal dialogs. Maximum separation from page content."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-fast",
+        "value": "cubic-bezier(0, 0, 0.2, 1)",
+        "purpose": "Micro-interactions: hover color shifts, icon state changes. ~120ms."
+      },
+      {
+        "name": "ease-out-standard",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "Default state transitions: button press, card hover lift. ~200ms."
+      },
+      {
+        "name": "ease-out-slow",
+        "value": "cubic-bezier(0.3, 0, 0, 1)",
+        "purpose": "Entrance animations: fade-in-up, section reveals. ~500-700ms."
+      },
+      {
+        "name": "press-scale",
+        "value": "transform: scale(0.95)",
+        "purpose": "Button active press feedback. Instant on :active, no transition needed."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button (App)",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main action button in the studio workspace. Solid ink/paper background with inverted text.",
+      "html": "<button class=\"ds-btn-primary\">Generate</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.92); color: #0a0a0c; padding: 8px 20px; border: none; border-radius: 12px; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-primary:hover { opacity: 0.9; } .ds-btn-primary:active:not(:disabled) { transform: scale(0.95); } .ds-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; } .ds-btn-primary:focus-visible { outline: 2px solid rgba(255,255,255,0.35); outline-offset: 2px; }"
+    },
+    {
+      "name": "Primary Button (App) — Light",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Light theme variant of the primary app button.",
+      "html": "<button class=\"ds-btn-primary-light\">Generate</button>",
+      "css": ".ds-btn-primary-light { display: inline-flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.88); color: #ffffff; padding: 8px 20px; border: none; border-radius: 12px; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-primary-light:hover { opacity: 0.9; } .ds-btn-primary-light:active:not(:disabled) { transform: scale(0.95); } .ds-btn-primary-light:disabled { opacity: 0.4; cursor: not-allowed; } .ds-btn-primary-light:focus-visible { outline: 2px solid rgba(0,0,0,0.35); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary or subtle action. Transparent background, visible on hover.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; gap: 8px; background: transparent; color: rgba(255,255,255,0.55); padding: 8px 16px; border: none; border-radius: 12px; font-size: 14px; font-weight: 400; cursor: pointer; transition: background 120ms, color 120ms; } .ds-btn-ghost:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.92); } .ds-btn-ghost:focus-visible { outline: 2px solid rgba(255,255,255,0.35); outline-offset: 2px; }"
+    },
+    {
+      "name": "Landing CTA Button",
+      "kind": "button",
+      "refersTo": "button-landing",
+      "description": "Primary CTA button on the marketing landing page. Solid indigo, no gradient, no glow shadow.",
+      "html": "<button class=\"ds-btn-landing\">Start Creating</button>",
+      "css": ".ds-btn-landing { display: inline-flex; align-items: center; gap: 8px; background: #6366f1; color: #ffffff; padding: 14px 40px; border: none; border-radius: 16px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: background 200ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-landing:hover { background: #818cf8; } .ds-btn-landing:active { transform: scale(0.97); } .ds-btn-landing:focus-visible { outline: 2px solid #6366f1; outline-offset: 3px; }"
+    },
+    {
+      "name": "Landing Secondary Button",
+      "kind": "button",
+      "refersTo": "button-ghost-landing",
+      "description": "Secondary CTA on landing. Subtle border, no fill.",
+      "html": "<button class=\"ds-btn-landing-secondary\">Learn More</button>",
+      "css": ".ds-btn-landing-secondary { display: inline-flex; align-items: center; gap: 8px; background: transparent; color: rgba(255,255,255,0.92); padding: 14px 32px; border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; font-size: 1rem; font-weight: 500; cursor: pointer; transition: background 200ms, border-color 200ms; } .ds-btn-landing-secondary:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.18); } .ds-btn-landing-secondary:focus-visible { outline: 2px solid rgba(255,255,255,0.35); outline-offset: 3px; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard form input. Subtle background, border-shift on focus.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Enter text...\" />",
+      "css": ".ds-input { width: 100%; background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.92); padding: 8px 12px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; font-size: 14px; font-family: Arial, Helvetica, sans-serif; outline: none; transition: border-color 200ms; } .ds-input:focus { border-color: rgba(255,255,255,0.92); } .ds-input::placeholder { color: rgba(255,255,255,0.22); }"
+    },
+    {
+      "name": "Chat Input",
+      "kind": "input",
+      "refersTo": "input-chat",
+      "description": "Chat message input with ring focus treatment.",
+      "html": "<input class=\"ds-input-chat\" type=\"text\" placeholder=\"Send a message...\" />",
+      "css": ".ds-input-chat { flex: 1; background: transparent; color: rgba(255,255,255,0.92); padding: 8px 12px; border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; font-size: 14px; outline: none; transition: border-color 200ms; } .ds-input-chat:focus { border-color: rgba(255,255,255,0.12); box-shadow: 0 0 0 2px rgba(255,255,255,0.12); } .ds-input-chat::placeholder { color: rgba(255,255,255,0.22); }"
+    },
+    {
+      "name": "Project Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Project listing card. Subtle border, shadow lift on hover.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-title\">Project Title</div><div class=\"ds-card-meta\">2 hours ago · 12 chapters</div></div>",
+      "css": ".ds-card { background: #111114; color: rgba(255,255,255,0.92); padding: 20px; border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); cursor: pointer; transition: box-shadow 200ms, border-color 200ms; } .ds-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-color: rgba(255,255,255,0.14); } .ds-card-title { font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.92); margin-bottom: 4px; } .ds-card-meta { font-size: 12px; color: rgba(255,255,255,0.35); }"
+    },
+    {
+      "name": "Nav Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Sidebar navigation item with active indicator.",
+      "html": "<nav><div class=\"ds-nav-item\"><svg class=\"ds-nav-icon\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\"><rect x=\"2\" y=\"2\" width=\"12\" height=\"12\" rx=\"3\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg>Projects</div><div class=\"ds-nav-item ds-nav-item--active\"><svg class=\"ds-nav-icon\" width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\"><circle cx=\"8\" cy=\"8\" r=\"5\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg>Studio<div class=\"ds-nav-indicator\"></div></div></nav>",
+      "css": ".ds-nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; font-size: 14px; color: rgba(255,255,255,0.55); cursor: pointer; transition: background 120ms, color 120ms; } .ds-nav-item:hover { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.92); } .ds-nav-item--active { background: rgba(99,102,241,0.15); color: rgba(255,255,255,0.92); font-weight: 500; } .ds-nav-icon { width: 16px; height: 16px; flex-shrink: 0; } .ds-nav-indicator { margin-left: auto; width: 4px; height: 16px; border-radius: 9999px; background: #818cf8; }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Accent badge for status, count, or category.",
+      "html": "<span class=\"ds-badge\">Active</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 12px; font-weight: 500; background: rgba(99,102,241,0.15); color: #818cf8; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "白描画室",
+    "overview": "Web Video Studio 的设计语言像一间白描画室——没有多余的颜色，没有装饰性的炫技。黑白灰的精确层级构筑空间，排版承载信息节奏，颜色只在传递功能信号时出现。每一像素都有存在的理由。这不是「极简主义」作为风格标签，而是作为工作伦理：工具隐退，让创作者的内容占据视觉焦点。系统明确拒绝 AI 生成式设计的通病：没有渐变文字、没有紫蓝光晕、没有毛玻璃卡片、没有Inter字体、没有嵌套卡片。",
+    "keyCharacteristics": [
+      "单色基底 + 单一纯色强调（indigo），无渐变",
+      "衬线标题 + 系统无衬线正文，用排版建立信息层级",
+      "暗色/亮色双主题，暗色为默认",
+      "5 级文字透明度阶梯，精确控制信息密度",
+      "极平的表面层级——阴影仅用于模态框和悬停反馈",
+      "12px 主圆角，16px 营销卡片圆角"
+    ],
+    "rules": [
+      {
+        "name": "The One Accent Rule",
+        "body": "系统只有一个强调色：solid indigo（#6366f1）。占比不超过任何屏幕的 5%。它的稀有就是它的力量。",
+        "section": "colors"
+      },
+      {
+        "name": "The Zero Gradient Rule",
+        "body": "系统禁用 CSS gradient。按钮、背景、文字、阴影——全部纯色。这是与「AI 味」切割的最强制约。",
+        "section": "colors"
+      },
+      {
+        "name": "The No Glow Rule",
+        "body": "禁用 box-shadow 带颜色扩散。阴影只能是中性黑/白。",
+        "section": "colors"
+      },
+      {
+        "name": "The Four-and-a-Half Rule",
+        "body": "t1 到 muted 之间有 4 层有意义的信息层级 + 1 层几乎消失的底噪。不要跳过层级。",
+        "section": "colors"
+      },
+      {
+        "name": "The Two-Font Rule",
+        "body": "每个页面最多两种字体（衬线标题 + 无衬线正文）。不在同一页面混用两种无衬线或两种衬线。",
+        "section": "typography"
+      },
+      {
+        "name": "The Display Floor",
+        "body": "标题 letter-spacing 不低于 -0.04em。超过这个值字母粘连，读起来局促。",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-by-Default Rule",
+        "body": "表面在静止状态下是平的。阴影仅作为悬停或浮层状态的响应出现。永远不用阴影做装饰。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "使用 5 级文字透明度阶梯（t1→muted）建立信息层级。每一级有明确的语义角色。",
+      "使用 12px 作为应用内组件的主圆角，16px 用于落地页卡片。保持一致性。",
+      "用表面背景色区分层级，而非阴影。",
+      "保持唯一的强调色 indigo 占比低于任何屏幕的 5%。",
+      "使用 text-wrap: balance 在 h1-h3 上，text-wrap: pretty 在长文本上。",
+      "每个动画提供 prefers-reduced-motion 降级方案。",
+      "落地页标题使用 Source Serif，正文使用系统无衬线。"
+    ],
+    "donts": [
+      "使用 CSS gradient。任何地方。",
+      "使用 background-clip: text 渐变文字。",
+      "使用带颜色的 box-shadow glow。",
+      "使用 Inter、Roboto、Geist 字体。",
+      "嵌套卡片。",
+      "使用毛玻璃做装饰。",
+      "灰色文字放在有色背景上。",
+      "使用大于 16px 的卡片圆角。",
+      "使用 border-left 大于 1px 的彩色侧边条。",
+      "在每段上方放全大写小字 eyebrow。",
+      "用数字编号装饰每个区域标题。"
+    ]
+  }
+}

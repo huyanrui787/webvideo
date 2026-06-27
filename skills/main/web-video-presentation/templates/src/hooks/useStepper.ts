@@ -33,7 +33,7 @@ const clamp = (n: number, lo: number, hi: number) =>
 function sanitize(cursor: Cursor, chapters: ChapterDef[]): Cursor {
   if (chapters.length === 0) return { chapter: 0, step: 0 };
   const chapter = clamp(cursor.chapter | 0, 0, chapters.length - 1);
-  const stepCount = chapters[chapter]!.narrations.length;
+  const stepCount = chapters[chapter]?.narrations?.length ?? 0;
   const step = clamp(cursor.step | 0, 0, Math.max(0, stepCount - 1));
   return { chapter, step };
 }
@@ -87,8 +87,10 @@ export function useStepper(chapters: ChapterDef[]): StepperState {
   const globalIndex = (offsets[cursor.chapter] ?? 0) + cursor.step;
 
   const next = useCallback(() => {
+    if (chapters.length === 0) return;
     setCursor((cur) => {
-      const c = chapters[cur.chapter]!;
+      const c = chapters[cur.chapter];
+      if (!c?.narrations) return cur;
       if (cur.step < c.narrations.length - 1)
         return { ...cur, step: cur.step + 1 };
       if (cur.chapter < chapters.length - 1)
@@ -98,11 +100,12 @@ export function useStepper(chapters: ChapterDef[]): StepperState {
   }, [chapters]);
 
   const prev = useCallback(() => {
+    if (chapters.length === 0) return;
     setCursor((cur) => {
       if (cur.step > 0) return { ...cur, step: cur.step - 1 };
       if (cur.chapter > 0) {
-        const p = chapters[cur.chapter - 1]!;
-        return { chapter: cur.chapter - 1, step: p.narrations.length - 1 };
+        const p = chapters[cur.chapter - 1];
+        return { chapter: cur.chapter - 1, step: p?.narrations?.length ? p.narrations.length - 1 : 0 };
       }
       return cur;
     });
@@ -110,10 +113,12 @@ export function useStepper(chapters: ChapterDef[]): StepperState {
 
   const jumpToChapter = useCallback(
     (idx: number, step = 0) => {
-      const ch = clamp(idx, 0, chapters.length - 1);
-      const c = chapters[ch]!;
+      if (chapters.length === 0) return;
+      const chIdx = clamp(idx, 0, chapters.length - 1);
+      const c = chapters[chIdx];
+      if (!c?.narrations) return;
       setCursor({
-        chapter: ch,
+        chapter: chIdx,
         step: clamp(step, 0, c.narrations.length - 1),
       });
     },
@@ -122,10 +127,11 @@ export function useStepper(chapters: ChapterDef[]): StepperState {
 
   const jumpToGlobal = useCallback(
     (g: number) => {
+      if (chapters.length === 0 || totalGlobal <= 0) return;
       const target = clamp(g, 0, totalGlobal - 1);
       let acc = 0;
       for (let i = 0; i < chapters.length; i++) {
-        const t = chapters[i]!.narrations.length;
+        const t = chapters[i]?.narrations?.length ?? 0;
         if (target < acc + t) {
           setCursor({ chapter: i, step: target - acc });
           return;
@@ -149,8 +155,11 @@ export function useStepper(chapters: ChapterDef[]): StepperState {
       } else if (e.key === "Home") {
         jumpToChapter(0, 0);
       } else if (e.key === "End") {
-        const last = chapters.length - 1;
-        jumpToChapter(last, chapters[last]!.narrations.length - 1);
+        if (chapters.length > 0) {
+          const last = chapters.length - 1;
+          const lastCh = chapters[last];
+          if (lastCh?.narrations) jumpToChapter(last, lastCh.narrations.length - 1);
+        }
       } else if (e.key >= "1" && e.key <= "9") {
         const n = Number(e.key) - 1;
         if (n < chapters.length) jumpToChapter(n, 0);
@@ -160,11 +169,13 @@ export function useStepper(chapters: ChapterDef[]): StepperState {
     return () => window.removeEventListener("keydown", onKey);
   }, [next, prev, jumpToChapter, chapters]);
 
-  const ch = chapters[cursor.chapter]!;
+  // Guard against empty chapters (project not yet built)
+  const ch = chapters[cursor.chapter];
+  const chapterTotalSteps = ch?.narrations?.length ?? 0;
   return {
     cursor,
     totalChapters: chapters.length,
-    chapterTotalSteps: ch.narrations.length,
+    chapterTotalSteps,
     globalIndex,
     totalGlobal,
     next,

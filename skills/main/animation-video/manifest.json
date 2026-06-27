@@ -1,0 +1,12 @@
+{
+  "name": "animation-video",
+  "version": "1.0.0",
+  "category": "Animation Video",
+  "role": "main",
+  "description": "Turn articles into full-screen AI-animated videos with narration audio. Pure video pipeline: article -> script -> animation designs -> auto video generation + TTS -> manifest. Zero code, zero scaffold.",
+  "context": {
+    "planFiles": ["script.md", "animations.json"],
+    "alwaysKeepFiles": ["article.md"],
+    "chapterDirPattern": null
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "illustration-video",
+  "version": "1.0.0",
+  "category": "Illustration Video",
+  "role": "main",
+  "description": "Turn articles into full-screen AI-illustrated videos with narration audio. Pure slideshow pipeline: article → script → illustration designs → auto image generation + TTS → manifest. Zero code, zero scaffold.",
+  "compat": [
+    "claude-code",
+    "claude-ai",
+    "cursor",
+    "codex-cli",
+    "gemini-cli",
+    "opencode"
+  ],
+  "context": {
+    "planFiles": ["script.md", "illustrations.json"],
+    "alwaysKeepFiles": ["article.md"],
+    "chapterDirPattern": null
+  }
+}

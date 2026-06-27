@@ -135,9 +135,19 @@ while IFS= read -r row; do
     synthesized=$((synthesized + 1))
     printf "[%3d/%d] %-20s ✓ %ss\n" "$i" "$total" "$chapter/$step.mp3" "$elapsed"
   else
-    failed=$((failed + 1))
-    printf "[%3d/%d] %-20s ✗ FAILED\n" "$i" "$total" "$chapter/$step.mp3" >&2
+    # Rate-limit backoff: wait 1s and retry once
+    sleep 1
+    if tts_synthesize "$text" "$out" "$VOICE"; then
+      elapsed=$(( $(date +%s) - start ))
+      synthesized=$((synthesized + 1))
+      printf "[%3d/%d] %-20s ✓ %ss (retry)\n" "$i" "$total" "$chapter/$step.mp3" "$elapsed"
+    else
+      failed=$((failed + 1))
+      printf "[%3d/%d] %-20s ✗ FAILED\n" "$i" "$total" "$chapter/$step.mp3" >&2
+    fi
   fi
+  # Throttle to avoid API rate limits (most providers cap at ~30-60 RPM)
+  sleep 0.5
 done < <(jq -c '.[]' "$SEGMENTS")
 
 echo
